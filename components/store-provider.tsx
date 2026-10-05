@@ -60,9 +60,32 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const updateApp = useCallback(async (id: string, patch: Partial<StoreApp>) => {
     if (!user?.id) throw new Error('unauthorized')
+    const updates: Record<string, unknown> = {
+      name: patch.name,
+      tagline: patch.tagline,
+      description: patch.description,
+      category: patch.category,
+      age_restriction: patch.ageRestriction,
+      website: patch.website,
+      support_email: patch.supportEmail,
+      updated_at: new Date().toISOString(),
+    }
+
+    if (patch.iconPath !== undefined) {
+      updates.icon_path = patch.iconPath
+      updates.icon_url = null
+    }
+    if (patch.bannerPath !== undefined) {
+      updates.banner_path = patch.bannerPath
+      updates.banner_url = null
+    }
+    if (patch.screenshotPaths !== undefined) {
+      updates.screenshot_paths = patch.screenshotPaths
+    }
+
     const { data, error } = await supabase
       .from('apps')
-      .update({ name: patch.name, tagline: patch.tagline, description: patch.description, category: patch.category, age_restriction: patch.ageRestriction, package_name: patch.packageName, icon_url: patch.icon, banner_url: patch.banner, website: patch.website, support_email: patch.supportEmail, updated_at: new Date().toISOString() })
+      .update(updates)
       .eq('id', id)
       .eq('owner_id', user.id)
       .select()
