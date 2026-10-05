@@ -15,7 +15,8 @@ function AuthFormInner({ mode }: { mode: 'login' | 'signup' }) {
   const supabase = createClient()
   const router = useRouter()
   const searchParams = useSearchParams()
-  const next = searchParams.get('next') || '/dashboard'
+  const requestedNext = searchParams.get('next') || '/dashboard'
+  const next = requestedNext.startsWith('/') && !requestedNext.startsWith('//') ? requestedNext : '/dashboard'
 
   const [name, setName] = useState('')
   const [lastName, setLastName] = useState('')
