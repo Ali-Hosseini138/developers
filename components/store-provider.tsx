@@ -26,7 +26,7 @@ const StoreContext = createContext<StoreContextValue | null>(null)
 const supabase = createClient()
 
 function mapApp(row: Record<string, any>): StoreApp {
-  return { id: row.id, name: row.name, tagline: row.tagline || '', description: row.description || '', category: row.category || 'تکنولوژی و اینترنت', icon: row.icon_path ? `/api/blob-file?pathname=${encodeURIComponent(row.icon_path)}` : row.icon_url || '/placeholder.svg', banner: row.banner_path ? `/api/blob-file?pathname=${encodeURIComponent(row.banner_path)}` : row.banner_url || undefined, screenshots: (row.screenshot_paths || []).map((path: string) => `/api/blob-file?pathname=${encodeURIComponent(path)}`), developer: row.owner_name || 'توسعه‌دهنده', version: '', price: 0, rating: 0, downloads: 0, platforms: [], tags: [], updatedAt: new Date(row.updated_at).toLocaleDateString('fa-IR'), reviews: [], website: row.website || undefined, supportEmail: row.support_email || undefined, packageName: row.package_name || undefined, ageRestriction: row.age_restriction || undefined, apkName: row.apk_name || undefined, apkSize: row.apk_size ? `${row.apk_size} مگابایت` : undefined, apkPath: row.apk_path || undefined, iconPath: row.icon_path || undefined, bannerPath: row.banner_path || undefined, screenshotPaths: row.screenshot_paths || [] }
+  return { id: row.id, name: row.name, tagline: row.tagline || '', description: row.description || '', category: row.category || 'تکنولوژی و اینترنت', icon: row.icon_path ? `/api/blob-file?pathname=${encodeURIComponent(row.icon_path)}` : row.icon_url || '/placeholder.svg', banner: row.banner_path ? `/api/blob-file?pathname=${encodeURIComponent(row.banner_path)}` : row.banner_url || undefined, screenshots: (row.screenshot_paths || []).map((path: string) => `/api/blob-file?pathname=${encodeURIComponent(path)}`), developer: row.owner_name || 'توسعه‌دهنده', ownerId: row.owner_id || undefined, status: row.status || 'draft', version: '', price: 0, rating: 0, downloads: 0, platforms: [], tags: [], updatedAt: new Date(row.updated_at).toLocaleDateString('fa-IR'), reviews: [], website: row.website || undefined, supportEmail: row.support_email || undefined, packageName: row.package_name || undefined, ageRestriction: row.age_restriction || undefined, apkName: row.apk_name || undefined, apkSize: row.apk_size ? `${row.apk_size} مگابایت` : undefined, apkPath: row.apk_path || undefined, iconPath: row.icon_path || undefined, bannerPath: row.banner_path || undefined, screenshotPaths: row.screenshot_paths || [] }
 }
 
 export function StoreProvider({ children }: { children: ReactNode }) {
@@ -59,10 +59,18 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   }, [user])
 
   const updateApp = useCallback(async (id: string, patch: Partial<StoreApp>) => {
-    const { data, error } = await supabase.from('apps').update({ name: patch.name, tagline: patch.tagline, description: patch.description, category: patch.category, age_restriction: patch.ageRestriction, package_name: patch.packageName, icon_url: patch.icon, banner_url: patch.banner, website: patch.website, support_email: patch.supportEmail, updated_at: new Date().toISOString() }).eq('id', id).select().single()
+    if (!user?.id) throw new Error('unauthorized')
+    const { data, error } = await supabase
+      .from('apps')
+      .update({ name: patch.name, tagline: patch.tagline, description: patch.description, category: patch.category, age_restriction: patch.ageRestriction, package_name: patch.packageName, icon_url: patch.icon, banner_url: patch.banner, website: patch.website, support_email: patch.supportEmail, updated_at: new Date().toISOString() })
+      .eq('id', id)
+      .eq('owner_id', user.id)
+      .select()
+      .maybeSingle()
     if (error) throw error
-    if (data) setApps((prev) => prev.map((app) => app.id === id ? { ...app, ...patch, ...mapApp(data) } : app))
-  }, [])
+    if (!data) throw new Error('forbidden_or_missing')
+    setApps((prev) => prev.map((app) => app.id === id ? { ...app, ...patch, ...mapApp(data) } : app))
+  }, [user?.id])
 
   const updateProfile = useCallback(async (patch: Pick<User, 'name' | 'phone' | 'nationalId' | 'organization'>) => {
     if (!user?.id) return
@@ -71,10 +79,33 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     setUser((current) => current ? { ...current, ...patch } : current)
   }, [user?.id])
   const addVersion = useCallback(async (appId: string, apkName: string, packageName: string, changelog: string) => {
+    if (!user?.id) throw new Error('unauthorized')
+    const { data: ownedApp, error: ownershipError } = await supabase
+      .from('apps')
+      .select('id')
+      .eq('id', appId)
+      .eq('owner_id', user.id)
+      .maybeSingle()
+    if (ownershipError) throw ownershipError
+    if (!ownedApp) throw new Error('forbidden_or_missing')
+
     const { error } = await supabase.from('app_versions').insert({ app_id: appId, apk_url: apkName, package_name: packageName, changelog, status: 'pending' })
     if (error) throw error
-  }, [])
-  const removeApp = useCallback(async (id: string) => { await supabase.from('apps').delete().eq('id', id); setApps((prev) => prev.filter((app) => app.id !== id)) }, [])
+  }, [user?.id])
+
+  const removeApp = useCallback(async (id: string) => {
+    if (!user?.id) throw new Error('unauthorized')
+    const { data, error } = await supabase
+      .from('apps')
+      .delete()
+      .eq('id', id)
+      .eq('owner_id', user.id)
+      .select('id')
+      .maybeSingle()
+    if (error) throw error
+    if (!data) throw new Error('forbidden_or_missing')
+    setApps((prev) => prev.filter((app) => app.id !== id))
+  }, [user?.id])
   const getApp = useCallback((id: string) => apps.find((app) => app.id === id), [apps])
   const addTicket = useCallback(async (ticket: Omit<SupportTicket, 'id' | 'createdAt' | 'developer'>) => {
     if (!user?.id) return
@@ -84,7 +115,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   }, [user])
   const login = useCallback((u: User) => setUser(u), [])
   const logout = useCallback(async () => { await supabase.auth.signOut(); setUser(null) }, [])
-  const myApps = useMemo(() => user?.id ? apps.filter((app) => app.developer === user.name) : [], [apps, user])
+  const myApps = useMemo(() => user?.id ? apps.filter((app) => app.ownerId === user.id) : [], [apps, user?.id])
   const value = useMemo(() => ({ apps, user, addApp, updateApp, updateProfile, addVersion, removeApp, getApp, myApps, tickets, addTicket, login, logout }), [apps, user, addApp, updateApp, updateProfile, addVersion, removeApp, getApp, myApps, tickets, addTicket, login, logout])
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>
 }
