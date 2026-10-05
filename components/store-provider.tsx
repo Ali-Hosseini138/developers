@@ -130,6 +130,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       .delete()
       .eq('id', id)
       .eq('owner_id', user.id)
+      .in('status', ['draft', 'rejected'])
       .select('id')
       .maybeSingle()
     if (error) throw error
