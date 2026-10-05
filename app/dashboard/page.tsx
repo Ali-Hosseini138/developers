@@ -1,9 +1,9 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { FileText, HelpCircle, Package, Pencil, Plus, Ticket, UserRound, Wallet } from 'lucide-react'
+import { AlertTriangle, FileText, HelpCircle, Package, Pencil, Plus, Search, Ticket, UserRound, Wallet } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
@@ -61,9 +61,24 @@ export default function DashboardPage() {
 }
 
 function AppsTab({ myApps, removeApp }: { myApps: ReturnType<typeof useStore>['myApps']; removeApp: (id: string) => Promise<void> }) {
+  const [query, setQuery] = useState('')
+  const [statusFilter, setStatusFilter] = useState<'all' | 'draft' | 'pending' | 'published' | 'rejected'>('all')
+  const [deleteTarget, setDeleteTarget] = useState<string | null>(null)
+  const [deleting, setDeleting] = useState(false)
+
   const draftCount = myApps.filter((app) => !app.status || app.status === 'draft').length
   const pendingCount = myApps.filter((app) => app.status === 'pending').length
   const publishedCount = myApps.filter((app) => app.status === 'published').length
+  const rejectedCount = myApps.filter((app) => app.status === 'rejected').length
+
+  const filteredApps = useMemo(() => {
+    const q = query.trim().toLowerCase()
+    return myApps.filter((app) => {
+      const matchesStatus = statusFilter === 'all' || (app.status || 'draft') === statusFilter
+      const matchesQuery = !q || app.name.toLowerCase().includes(q) || app.packageName?.toLowerCase().includes(q)
+      return matchesStatus && matchesQuery
+    })
+  }, [myApps, query, statusFilter])
 
   const statusLabel = (status?: string) => {
     if (status === 'published') return 'منتشر شده'
@@ -72,43 +87,105 @@ function AppsTab({ myApps, removeApp }: { myApps: ReturnType<typeof useStore>['m
     return 'پیش‌نویس'
   }
 
+  const statusHelp = (status?: string) => {
+    if (status === 'published') return 'این اپ در فروشگاه منتشر شده است.'
+    if (status === 'pending') return 'اپ برای تیم نت‌استور ارسال شده و منتظر بررسی است.'
+    if (status === 'rejected') return 'برای ادامه انتشار باید اطلاعات اپ را اصلاح و دوباره ارسال کنید.'
+    return 'این اپ هنوز برای بررسی ارسال نشده است.'
+  }
+
   const statusVariant = (status?: string): 'default' | 'secondary' | 'outline' => {
     if (status === 'published') return 'default'
     if (status === 'pending') return 'secondary'
     return 'outline'
   }
 
+  async function confirmDelete() {
+    if (!deleteTarget || deleting) return
+    setDeleting(true)
+    try {
+      await removeApp(deleteTarget)
+      setDeleteTarget(null)
+    } finally {
+      setDeleting(false)
+    }
+  }
+
   return <>
-    <div className="mt-8 grid grid-cols-2 gap-4 lg:grid-cols-4">
+    <div className="mt-8 grid grid-cols-2 gap-4 lg:grid-cols-5">
       <StatCard icon={<Package className="size-5" />} value={toFa(myApps.length)} label="کل اپ‌ها" />
       <StatCard icon={<FileText className="size-5" />} value={toFa(draftCount)} label="پیش‌نویس" />
       <StatCard icon={<Ticket className="size-5" />} value={toFa(pendingCount)} label="در انتظار بررسی" />
       <StatCard icon={<Package className="size-5" />} value={toFa(publishedCount)} label="منتشر شده" />
+      <StatCard icon={<AlertTriangle className="size-5" />} value={toFa(rejectedCount)} label="نیازمند اصلاح" />
     </div>
+
     <section className="mt-10">
-      <h2 className="mb-4 text-lg font-bold">اپ‌های من</h2>
-      {myApps.length ? (
-        <div className="flex flex-col gap-3">
-          {myApps.map((app) => (
-            <div key={app.id} className="flex flex-col gap-4 rounded-2xl border border-border bg-card p-4 lg:flex-row lg:items-center">
-              <img src={app.icon || '/placeholder.svg'} alt={`آیکون ${app.name}`} className="size-14 rounded-xl border border-border object-cover" />
-              <div className="min-w-0 flex-1">
-                <div className="flex flex-wrap items-center gap-2">
-                  <h3 className="truncate font-semibold">{app.name}</h3>
-                  <Badge variant={statusVariant(app.status)}>{statusLabel(app.status)}</Badge>
-                </div>
-                <p className="mt-1 line-clamp-1 text-xs text-muted-foreground">{app.tagline}</p>
-                <p className="mt-2 text-xs text-muted-foreground">آخرین تغییر: {app.updatedAt}</p>
-              </div>
-              <div className="flex items-center gap-2">
-                <Button render={<Link href={`/dashboard/edit/${app.id}`} />} size="sm" variant="outline" className="gap-1"><Pencil className="size-4" />ویرایش</Button>
-                <Button render={<Link href={`/dashboard/version/${app.id}`} />} size="sm" className="gap-1"><Plus className="size-4" />نسخه جدید</Button>
-                <Button size="icon" variant="ghost" onClick={() => void removeApp(app.id)} aria-label={`حذف ${app.name}`}><span className="text-destructive">×</span></Button>
-              </div>
-            </div>
-          ))}
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+        <div>
+          <h2 className="text-lg font-bold">اپ‌های من</h2>
+          <p className="mt-1 text-sm text-muted-foreground">وضعیت انتشار و آخرین تغییر هر اپ را از اینجا مدیریت کنید.</p>
         </div>
-      ) : <EmptyApps />}
+        <div className="flex flex-col gap-2 sm:flex-row">
+          <div className="relative">
+            <Search className="absolute right-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+            <Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="جستجو نام یا پکیج‌نیم" className="w-full pr-9 sm:w-64" />
+          </div>
+          <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as typeof statusFilter)} className="h-10 rounded-md border border-input bg-background px-3 text-sm">
+            <option value="all">همه وضعیت‌ها</option>
+            <option value="draft">پیش‌نویس</option>
+            <option value="pending">در انتظار بررسی</option>
+            <option value="published">منتشر شده</option>
+            <option value="rejected">نیازمند اصلاح</option>
+          </select>
+        </div>
+      </div>
+
+      {filteredApps.length ? (
+        <div className="mt-4 flex flex-col gap-3">
+          {filteredApps.map((app) => {
+            const canDelete = !app.status || app.status === 'draft' || app.status === 'rejected'
+            return (
+              <div key={app.id} className="rounded-2xl border border-border bg-card p-4">
+                <div className="flex flex-col gap-4 lg:flex-row lg:items-center">
+                  <img src={app.icon || '/placeholder.svg'} alt={`آیکون ${app.name}`} className="size-14 rounded-xl border border-border object-cover" />
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h3 className="truncate font-semibold">{app.name}</h3>
+                      <Badge variant={statusVariant(app.status)}>{statusLabel(app.status)}</Badge>
+                    </div>
+                    <p className="mt-1 line-clamp-1 text-xs text-muted-foreground">{app.tagline}</p>
+                    <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                      {app.packageName && <span dir="ltr">{app.packageName}</span>}
+                      <span>آخرین تغییر: {app.updatedAt}</span>
+                    </div>
+                    <p className="mt-2 text-xs">{statusHelp(app.status)}</p>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Button render={<Link href={`/dashboard/edit/${app.id}`} />} size="sm" variant="outline" className="gap-1"><Pencil className="size-4" />ویرایش اطلاعات</Button>
+                    {app.status === 'published' && <Button render={<Link href={`/dashboard/version/${app.id}`} />} size="sm" className="gap-1"><Plus className="size-4" />نسخه جدید</Button>}
+                    {app.status === 'rejected' && <Button render={<Link href={`/dashboard/edit/${app.id}`} />} size="sm" className="gap-1">اصلاح و ارسال مجدد</Button>}
+                    {canDelete && <Button size="sm" variant="ghost" onClick={() => setDeleteTarget(app.id)} className="text-destructive">حذف</Button>}
+                  </div>
+                </div>
+
+                {deleteTarget === app.id && (
+                  <div className="mt-4 flex flex-col gap-3 rounded-xl border border-destructive/30 bg-destructive/5 p-4 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                      <p className="text-sm font-medium">این اپ حذف شود؟</p>
+                      <p className="mt-1 text-xs text-muted-foreground">این کار قابل بازگشت نیست. اپ‌های منتشرشده یا در حال بررسی از اینجا قابل حذف نیستند.</p>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button size="sm" variant="outline" onClick={() => setDeleteTarget(null)} disabled={deleting}>انصراف</Button>
+                      <Button size="sm" onClick={() => void confirmDelete()} disabled={deleting} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">{deleting ? 'در حال حذف...' : 'حذف قطعی'}</Button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )
+          })}
+        </div>
+      ) : <div className="mt-4 rounded-2xl border border-dashed border-border py-12 text-center text-sm text-muted-foreground">اپی با این فیلتر پیدا نشد.</div>}
     </section>
   </>
 }
