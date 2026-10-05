@@ -52,11 +52,40 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   }, [loadUserData])
 
   const addApp = useCallback(async (app: StoreApp) => {
-    if (!user?.id) return
-    const { data, error } = await supabase.from('apps').insert({ owner_id: user.id, name: app.name, tagline: app.tagline, description: app.description, category: app.category, age_restriction: app.ageRestriction, package_name: app.packageName, icon_url: app.iconPath ? null : app.icon, banner_url: app.bannerPath ? null : app.banner, website: app.website, support_email: app.supportEmail, status: app.status || 'draft', apk_path: app.apkPath, apk_name: app.apkName, apk_size: app.apkSize ? Number.parseInt(app.apkSize.replace(/[^0-9]/g, ''), 10) : null, icon_path: app.iconPath, banner_path: app.bannerPath, screenshot_paths: app.screenshotPaths || [] }).select().single()
+    const { data: authData, error: authError } = await supabase.auth.getUser()
+    const authUser = authData.user
+    if (authError || !authUser) throw new Error('auth_required')
+
+    const ownerName =
+      user?.name ||
+      authUser.user_metadata?.full_name ||
+      authUser.email?.split('@')[0] ||
+      'توسعه‌دهنده'
+
+    const { data, error } = await supabase.from('apps').insert({
+      owner_id: authUser.id,
+      name: app.name,
+      tagline: app.tagline,
+      description: app.description,
+      category: app.category,
+      age_restriction: app.ageRestriction,
+      package_name: app.packageName,
+      icon_url: app.iconPath ? null : app.icon,
+      banner_url: app.bannerPath ? null : app.banner,
+      website: app.website,
+      support_email: app.supportEmail,
+      status: app.status || 'draft',
+      apk_path: app.apkPath,
+      apk_name: app.apkName,
+      apk_size: app.apkSize ? Number.parseInt(app.apkSize.replace(/[^0-9]/g, ''), 10) : null,
+      icon_path: app.iconPath,
+      banner_path: app.bannerPath,
+      screenshot_paths: app.screenshotPaths || [],
+    }).select().single()
+
     if (error) throw error
-    setApps((prev) => [mapApp({ ...data, owner_name: user.name }), ...prev])
-  }, [user])
+    setApps((prev) => [mapApp({ ...data, owner_name: ownerName }), ...prev])
+  }, [user?.name])
 
   const updateApp = useCallback(async (id: string, patch: Partial<StoreApp>) => {
     if (!user?.id) throw new Error('unauthorized')
