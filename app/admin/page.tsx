@@ -55,6 +55,8 @@ export default async function AdminPage() {
     versionsByApp.set(v.app_id, list)
   }
 
+  const statusPriority: Record<string, number> = { pending: 0, rejected: 1, draft: 2, published: 3 }
+
   const adminApps: AdminApp[] = (apps || []).map((row: Record<string, any>) => ({
     id: row.id,
     name: row.name,
@@ -69,11 +71,14 @@ export default async function AdminPage() {
     banner_path: row.banner_path,
     screenshot_paths: row.screenshot_paths || [],
     versions: versionsByApp.get(row.id) || [],
-  }))
+  })).sort((a, b) => (statusPriority[a.status] ?? 9) - (statusPriority[b.status] ?? 9))
+
+  const pendingApps = adminApps.filter((app) => app.status === 'pending').length
+  const pendingVersions = (versions || []).filter((version: Record<string, any>) => version.status === 'pending').length
 
   const stats = [
+    { label: 'در انتظار بررسی', value: pendingApps + pendingVersions },
     { label: 'اپلیکیشن‌ها', value: adminApps.length },
-    { label: 'کاربران', value: userCount || 0 },
     { label: 'نسخه‌ها', value: (versions || []).length },
     { label: 'تیکت‌ها', value: ticketCount || 0 },
   ]
@@ -83,7 +88,8 @@ export default async function AdminPage() {
       <header className="mb-8 flex flex-wrap items-center justify-between gap-4 border-b border-border pb-6">
         <div>
           <p className="text-xs font-medium uppercase tracking-widest text-muted-foreground">پنل مدیریت نت‌استور</p>
-          <h1 className="mt-1 text-2xl font-bold text-foreground">همه اپلیکیشن‌های آپلودشده</h1>
+          <h1 className="mt-1 text-2xl font-bold text-foreground">صف بررسی و مدیریت انتشار</h1>
+          <p className="mt-2 text-sm text-muted-foreground">موارد در انتظار بررسی به‌صورت خودکار بالاتر از بقیه نمایش داده می‌شوند.</p>
         </div>
         <form action={logoutAction}>
           <Button type="submit" variant="outline">خروج مدیر</Button>

@@ -1,5 +1,6 @@
 import Image from 'next/image'
 import type { AdminApp } from '@/app/admin/page'
+import { updateAppStatusAction, updateVersionStatusAction } from '@/app/admin/actions'
 
 const statusLabels: Record<string, string> = {
   draft: 'پیش‌نویس',
@@ -60,14 +61,34 @@ export function AdminApps({ apps }: { apps: AdminApp[] }) {
                 </dl>
               </div>
 
-              {apk && (
-                <a
-                  href={apk}
-                  className="shrink-0 rounded-lg border border-input px-3 py-2 text-sm font-medium text-card-foreground transition-colors hover:bg-secondary"
-                >
-                  دانلود {app.apk_name || 'APK'}
-                </a>
-              )}
+              <div className="flex shrink-0 flex-wrap items-center gap-2">
+                {apk && (
+                  <a
+                    href={apk}
+                    className="rounded-lg border border-input px-3 py-2 text-sm font-medium text-card-foreground transition-colors hover:bg-secondary"
+                  >
+                    دانلود {app.apk_name || 'APK'}
+                  </a>
+                )}
+                {app.status !== 'published' && (
+                  <form action={updateAppStatusAction}>
+                    <input type="hidden" name="appId" value={app.id} />
+                    <input type="hidden" name="status" value="published" />
+                    <button className="rounded-lg bg-primary px-3 py-2 text-sm font-medium text-primary-foreground">
+                      تأیید و انتشار
+                    </button>
+                  </form>
+                )}
+                {app.status !== 'rejected' && (
+                  <form action={updateAppStatusAction}>
+                    <input type="hidden" name="appId" value={app.id} />
+                    <input type="hidden" name="status" value="rejected" />
+                    <button className="rounded-lg border border-destructive/40 px-3 py-2 text-sm font-medium text-destructive">
+                      رد
+                    </button>
+                  </form>
+                )}
+              </div>
             </div>
 
             {app.versions.length > 0 && (
@@ -85,6 +106,20 @@ export function AdminApps({ apps }: { apps: AdminApp[] }) {
                         <div className="flex items-center gap-3">
                           <span className="text-xs text-muted-foreground">{statusLabels[version.status] || version.status}</span>
                           {versionApk && <a href={versionApk} className="text-xs font-medium text-primary underline-offset-4 hover:underline">دانلود</a>}
+                          {version.status !== 'published' && (
+                            <form action={updateVersionStatusAction}>
+                              <input type="hidden" name="versionId" value={version.id} />
+                              <input type="hidden" name="status" value="published" />
+                              <button className="text-xs font-medium text-primary underline-offset-4 hover:underline">تأیید نسخه</button>
+                            </form>
+                          )}
+                          {version.status !== 'rejected' && (
+                            <form action={updateVersionStatusAction}>
+                              <input type="hidden" name="versionId" value={version.id} />
+                              <input type="hidden" name="status" value="rejected" />
+                              <button className="text-xs font-medium text-destructive underline-offset-4 hover:underline">رد نسخه</button>
+                            </form>
+                          )}
                         </div>
                       </li>
                     )

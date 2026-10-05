@@ -35,6 +35,8 @@ export interface StoreApp {
   screenshots: string[]
   videoUrl?: string
   developer: string
+  ownerId?: string
+  status?: 'draft' | 'pending' | 'published' | 'rejected'
   version: string
   price: number // 0 = رایگان
   rating: number
