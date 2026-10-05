@@ -3,15 +3,14 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { Download, FileText, HelpCircle, Package, Pencil, Plus, Star, Ticket, UserRound, Wallet } from 'lucide-react'
+import { FileText, HelpCircle, Package, Pencil, Plus, Ticket, UserRound, Wallet } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { useStore } from '@/components/store-provider'
-import { StarRating } from '@/components/star-rating'
-import { formatDownloads, formatPrice, toFa } from '@/lib/format'
+import { toFa } from '@/lib/format'
 
 const tabs = [
   { id: 'apps', label: 'داشبورد من', icon: Package },
@@ -33,11 +32,6 @@ export default function DashboardPage() {
   if (!user) return null
   const currentUser = user
 
-  const totalDownloads = myApps.reduce((sum, a) => sum + a.downloads, 0)
-  const avgRating = myApps.length ? myApps.reduce((sum, a) => sum + a.rating, 0) / myApps.length : 0
-  const sales = myApps.reduce((sum, app) => sum + Math.round(app.downloads * 0.08), 0)
-  const revenue = sales * 89000
-  const subscriptionMonths = { one: Math.round(sales * 0.42), three: Math.round(sales * 0.28), six: Math.round(sales * 0.18), twelve: Math.max(0, sales - Math.round(sales * 0.42) - Math.round(sales * 0.28) - Math.round(sales * 0.18)) }
   const myTickets = tickets.filter((ticket) => ticket.developer === currentUser.name)
 
   async function submitTicket(e: React.FormEvent) {
@@ -58,24 +52,85 @@ export default function DashboardPage() {
         {tabs.map(({ id, label, icon: Icon }) => <button key={id} type="button" onClick={() => setTab(id)} className={`flex items-center justify-center gap-2 rounded-xl px-3 py-3 text-sm font-medium transition-colors ${tab === id ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-secondary hover:text-foreground'}`}><Icon className="size-4" />{label}</button>)}
       </div>
 
-      {tab === 'apps' && <AppsTab myApps={myApps} totalDownloads={totalDownloads} avgRating={avgRating} removeApp={removeApp} />}
+      {tab === 'apps' && <AppsTab myApps={myApps} removeApp={removeApp} />}
       {tab === 'account' && <AccountTab user={user} />}
-      {tab === 'finance' && <FinanceTab sales={sales} revenue={revenue} subscriptionMonths={subscriptionMonths} />}
+      {tab === 'finance' && <FinanceTab />}
       {tab === 'support' && <SupportTab subject={subject} message={message} setSubject={setSubject} setMessage={setMessage} submitTicket={submitTicket} tickets={myTickets} />}
     </main>
   )
 }
 
-function AppsTab({ myApps, totalDownloads, avgRating, removeApp }: { myApps: ReturnType<typeof useStore>['myApps']; totalDownloads: number; avgRating: number; removeApp: (id: string) => void }) {
+function AppsTab({ myApps, removeApp }: { myApps: ReturnType<typeof useStore>['myApps']; removeApp: (id: string) => Promise<void> }) {
+  const draftCount = myApps.filter((app) => !app.status || app.status === 'draft').length
+  const pendingCount = myApps.filter((app) => app.status === 'pending').length
+  const publishedCount = myApps.filter((app) => app.status === 'published').length
+
+  const statusLabel = (status?: string) => {
+    if (status === 'published') return 'منتشر شده'
+    if (status === 'pending') return 'در انتظار بررسی'
+    if (status === 'rejected') return 'نیازمند اصلاح'
+    return 'پیش‌نویس'
+  }
+
+  const statusVariant = (status?: string): 'default' | 'secondary' | 'outline' => {
+    if (status === 'published') return 'default'
+    if (status === 'pending') return 'secondary'
+    return 'outline'
+  }
+
   return <>
-    <div className="mt-8 grid grid-cols-2 gap-4 lg:grid-cols-4"><StatCard icon={<Package className="size-5" />} value={toFa(myApps.length)} label="اپلیکیشن" /><StatCard icon={<Download className="size-5" />} value={formatDownloads(totalDownloads)} label="مجموع دانلود" /><StatCard icon={<Star className="size-5" />} value={avgRating ? toFa(avgRating.toFixed(1)) : '—'} label="میانگین امتیاز" /></div>
-    <section className="mt-10"><h2 className="mb-4 text-lg font-bold">اپ‌های من</h2>{myApps.length ? <div className="flex flex-col gap-3">{myApps.map((app) => <div key={app.id} className="flex flex-col gap-4 rounded-2xl border border-border bg-card p-4 lg:flex-row lg:items-center"><img src={app.icon || '/placeholder.svg'} alt={`آیکون ${app.name}`} className="size-14 rounded-xl border border-border object-cover" /><div className="min-w-0 flex-1"><div className="flex items-center gap-2"><h3 className="truncate font-semibold">{app.name}</h3></div><p className="mt-1 line-clamp-1 text-xs text-muted-foreground">{app.tagline}</p></div><div className="flex items-center gap-5 text-sm text-muted-foreground"><span className="flex items-center gap-1"><Download className="size-4" />{formatDownloads(app.downloads)}</span><StarRating rating={app.rating} /><span className="font-semibold text-primary">{formatPrice(app.price)}</span></div><div className="flex items-center gap-2"><Button render={<Link href={`/dashboard/edit/${app.id}`} />} size="sm" variant="outline" className="gap-1"><Pencil className="size-4" />ویرایش</Button><Button render={<Link href={`/dashboard/version/${app.id}`} />} size="sm" className="gap-1"><Plus className="size-4" />نسخه جدید</Button><Button size="icon" variant="ghost" onClick={() => removeApp(app.id)} aria-label={`حذف ${app.name}`}><span className="text-destructive">×</span></Button></div></div>)}</div> : <EmptyApps />}</section>
+    <div className="mt-8 grid grid-cols-2 gap-4 lg:grid-cols-4">
+      <StatCard icon={<Package className="size-5" />} value={toFa(myApps.length)} label="کل اپ‌ها" />
+      <StatCard icon={<FileText className="size-5" />} value={toFa(draftCount)} label="پیش‌نویس" />
+      <StatCard icon={<Ticket className="size-5" />} value={toFa(pendingCount)} label="در انتظار بررسی" />
+      <StatCard icon={<Package className="size-5" />} value={toFa(publishedCount)} label="منتشر شده" />
+    </div>
+    <section className="mt-10">
+      <h2 className="mb-4 text-lg font-bold">اپ‌های من</h2>
+      {myApps.length ? (
+        <div className="flex flex-col gap-3">
+          {myApps.map((app) => (
+            <div key={app.id} className="flex flex-col gap-4 rounded-2xl border border-border bg-card p-4 lg:flex-row lg:items-center">
+              <img src={app.icon || '/placeholder.svg'} alt={`آیکون ${app.name}`} className="size-14 rounded-xl border border-border object-cover" />
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-center gap-2">
+                  <h3 className="truncate font-semibold">{app.name}</h3>
+                  <Badge variant={statusVariant(app.status)}>{statusLabel(app.status)}</Badge>
+                </div>
+                <p className="mt-1 line-clamp-1 text-xs text-muted-foreground">{app.tagline}</p>
+                <p className="mt-2 text-xs text-muted-foreground">آخرین تغییر: {app.updatedAt}</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button render={<Link href={`/dashboard/edit/${app.id}`} />} size="sm" variant="outline" className="gap-1"><Pencil className="size-4" />ویرایش</Button>
+                <Button render={<Link href={`/dashboard/version/${app.id}`} />} size="sm" className="gap-1"><Plus className="size-4" />نسخه جدید</Button>
+                <Button size="icon" variant="ghost" onClick={() => void removeApp(app.id)} aria-label={`حذف ${app.name}`}><span className="text-destructive">×</span></Button>
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : <EmptyApps />}
+    </section>
   </>
 }
 
 function AccountTab({ user }: { user: NonNullable<ReturnType<typeof useStore>['user']> }) { return <section className="mt-8 max-w-2xl rounded-2xl border border-border bg-card p-6"><div className="mb-6 flex items-center gap-3"><UserRound className="size-5 text-primary" /><div><h2 className="font-bold">اطلاعات حساب کاربری</h2><p className="text-sm text-muted-foreground">اطلاعات ثبت‌شده توسعه‌دهنده</p></div></div><div className="grid gap-5 sm:grid-cols-2"><ReadOnly label="نام یا سازمان" value={user.name} /><ReadOnly label="ایمیل" value={user.email} /><ReadOnly label="شماره تلفن" value={user.phone || 'ثبت نشده'} /><ReadOnly label="کد ملی" value={user.nationalId || 'ثبت نشده'} /></div></section> }
 function ReadOnly({ label, value }: { label: string; value: string }) { return <div><Label>{label}</Label><Input value={value} readOnly className="mt-1.5 bg-secondary/50" /></div> }
-function FinanceTab({ sales, revenue, subscriptionMonths }: { sales: number; revenue: number; subscriptionMonths: { one: number; three: number; six: number; twelve: number } }) { return <section className="mt-8"><div className="grid gap-4 sm:grid-cols-2"><StatCard icon={<Ticket className="size-5" />} value={toFa(sales)} label="تعداد اشتراک فروخته شده" /><StatCard icon={<Wallet className="size-5" />} value={`${toFa(revenue.toLocaleString('fa-IR'))} تومان`} label="درآمد ناخالص" /></div><div className="mt-6 rounded-2xl border border-border bg-card p-6"><h2 className="font-bold">تفکیک اشتراک‌ها</h2><div className="mt-5 grid gap-3 sm:grid-cols-4">{[['۱ ماهه', subscriptionMonths.one], ['۳ ماهه', subscriptionMonths.three], ['۶ ماهه', subscriptionMonths.six], ['۱۲ ماهه', subscriptionMonths.twelve]].map(([label, value]) => <div key={label} className="rounded-xl bg-secondary/60 p-4"><p className="text-sm text-muted-foreground">اشتراک {label}</p><p className="mt-2 text-2xl font-bold">{toFa(Number(value))}</p></div>)}</div><p className="mt-5 text-sm leading-7 text-muted-foreground">آمار مالی فعلاً نمونه‌ای است و در نسخه متصل به پرداخت، براساس تراکنش‌های واقعی به‌روزرسانی می‌شود.</p></div></section> }
+function FinanceTab() {
+  return (
+    <section className="mt-8 rounded-2xl border border-border bg-card p-6">
+      <div className="flex items-start gap-3">
+        <Wallet className="mt-0.5 size-5 text-primary" />
+        <div>
+          <h2 className="font-bold">آمار مالی</h2>
+          <p className="mt-2 max-w-2xl text-sm leading-7 text-muted-foreground">
+            این بخش هنوز به داده واقعی پرداخت متصل نشده است. تا زمان اتصال به تراکنش‌های واقعی، عدد تخمینی یا ساختگی نمایش داده نمی‌شود.
+          </p>
+        </div>
+      </div>
+    </section>
+  )
+}
+
 function SupportTab({ subject, message, setSubject, setMessage, submitTicket, tickets }: { subject: string; message: string; setSubject: (v: string) => void; setMessage: (v: string) => void; submitTicket: (e: React.FormEvent) => void; tickets: ReturnType<typeof useStore>['tickets'] }) { return <section className="mt-8 grid gap-6 lg:grid-cols-[0.9fr_1.1fr]"><form onSubmit={submitTicket} className="rounded-2xl border border-border bg-card p-6"><div className="flex items-center gap-3"><FileText className="size-5 text-primary" /><div><h2 className="font-bold">ارسال تیکت جدید</h2><p className="text-sm text-muted-foreground">پیام شما به تیم نت‌استور ارسال می‌شود</p></div></div><div className="mt-6 flex flex-col gap-4"><div><Label htmlFor="ticket-subject">موضوع</Label><Input id="ticket-subject" value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="مثلاً مشکل در انتشار نسخه جدید" className="mt-1.5" /></div><div><Label htmlFor="ticket-message">توضیحات</Label><Textarea id="ticket-message" value={message} onChange={(e) => setMessage(e.target.value)} placeholder="مشکل یا درخواست خود را توضیح دهید..." className="mt-1.5 min-h-32" /></div><Button type="submit" className="gap-2"><Ticket className="size-4" />ارسال به تیم پشتیبانی</Button></div></form><div className="rounded-2xl border border-border bg-card p-6"><h2 className="font-bold">تیکت‌های من</h2><div className="mt-4 flex flex-col gap-3">{tickets.length ? tickets.map((ticket) => <div key={ticket.id} className="rounded-xl border border-border p-4"><div className="flex items-center justify-between gap-3"><h3 className="font-medium">{ticket.subject}</h3><Badge variant={ticket.status === 'open' ? 'secondary' : 'outline'}>{ticket.status === 'open' ? 'در انتظار پاسخ' : ticket.status === 'answered' ? 'پاسخ داده شد' : 'بسته‌شده'}</Badge></div><p className="mt-2 text-sm leading-7 text-muted-foreground">{ticket.message}</p><p className="mt-2 text-xs text-muted-foreground">{ticket.createdAt}</p></div>) : <p className="py-12 text-center text-sm text-muted-foreground">هنوز تیکتی ثبت نکرده‌اید.</p>}</div></div></section> }
 function EmptyApps() { return <div className="flex flex-col items-center gap-4 rounded-2xl border border-dashed border-border py-16 text-center"><Package className="size-8 text-muted-foreground" /><p className="font-medium">هنوز اپی منتشر نکرده‌اید</p><Button render={<Link href="/upload" />} className="gap-1"><Plus className="size-4" />انتشار اولین اپ</Button></div> }
 function StatCard({ icon, value, label }: { icon: React.ReactNode; value: string; label: string }) { return <div className="rounded-2xl border border-border bg-card p-5"><span className="flex size-10 items-center justify-center rounded-xl bg-primary/10 text-primary">{icon}</span><p className="mt-3 text-2xl font-bold">{value}</p><p className="mt-0.5 text-xs text-muted-foreground">{label}</p></div> }
