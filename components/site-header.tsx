@@ -19,6 +19,7 @@ import { cn } from '@/lib/utils'
 
 const navLinks = [
   { href: '/', label: 'خانه' },
+  { href: '/integrations', label: 'راهنمای فنی' },
   { href: '/dashboard', label: 'داشبورد من' },
 ]
 
