@@ -225,12 +225,6 @@ function GrowthTab({ myApps }: { myApps: ReturnType<typeof useStore>['myApps'] }
 
   const pricePerInstall = INSTALL_CAMPAIGN_CONFIG.pricePerInstallToman
   const installTotal = pricePerInstall == null ? null : installCount * pricePerInstall
-  const installReady =
-    Boolean(installAppId) &&
-    installCount >= INSTALL_CAMPAIGN_CONFIG.minInstalls &&
-    installCount <= INSTALL_CAMPAIGN_CONFIG.maxInstalls &&
-    pricePerInstall != null
-
   const bannerReady = Boolean(bannerAppId) && bannerMonths >= 1
 
   if (publishedApps.length === 0) {
