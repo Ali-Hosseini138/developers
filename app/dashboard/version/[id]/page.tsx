@@ -19,7 +19,7 @@ type UploadedFile = {
 
 export default function NewVersionPage() {
   const { id } = useParams<{ id: string }>()
-  const { user, getApp, addVersion } = useStore()
+  const { user, authReady, getApp, addVersion } = useStore()
   const router = useRouter()
   const app = getApp(id)
   const [changes, setChanges] = useState('')
@@ -29,10 +29,12 @@ export default function NewVersionPage() {
   const [errorMessage, setErrorMessage] = useState('')
 
   useEffect(() => {
-    if (!user) router.replace('/login?next=/dashboard')
-  }, [user, router])
+    if (authReady && !user) router.replace('/login?next=/dashboard')
+  }, [authReady, user, router])
 
-  if (!user || !app) return null
+  if (!authReady) return <main className="mx-auto flex min-h-[40vh] max-w-2xl items-center justify-center px-4 py-10"><span className="text-sm text-muted-foreground">در حال بارگذاری اپ...</span></main>
+  if (!user) return null
+  if (!app) return <main className="mx-auto max-w-2xl px-4 py-10 sm:px-6"><Link href="/dashboard" className="text-sm text-primary">بازگشت به داشبورد</Link><div className="mt-6 rounded-2xl border border-dashed border-border p-8 text-center text-sm text-muted-foreground">این اپ پیدا نشد یا به حساب شما تعلق ندارد.</div></main>
 
   async function uploadApk(file: File) {
     const body = new FormData()
@@ -95,7 +97,17 @@ export default function NewVersionPage() {
             type="file"
             accept=".apk,application/vnd.android.package-archive"
             className="mt-4"
-            onChange={(e) => setApkFile(e.target.files?.[0] || null)}
+            onChange={(e) => {
+              const file = e.target.files?.[0] || null
+              if (file && file.size > 250 * 1024 * 1024) {
+                setApkFile(null)
+                setErrorMessage('حجم فایل APK نباید بیشتر از ۲۵۰ مگابایت باشد.')
+                e.currentTarget.value = ''
+                return
+              }
+              setErrorMessage('')
+              setApkFile(file)
+            }}
             required
           />
           <p className="mt-2 text-xs text-muted-foreground">
