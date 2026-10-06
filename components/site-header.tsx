@@ -17,14 +17,13 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { useStore } from '@/components/store-provider'
 import { cn } from '@/lib/utils'
 
-const navLinks = [
-  { href: '/', label: 'خانه' },
-  { href: '/integrations', label: 'راهنمای فنی' },
-  { href: '/dashboard', label: 'داشبورد من' },
-]
-
 export function SiteHeader() {
   const { user, logout } = useStore()
+  const navLinks = [
+    user ? { href: '/dashboard', label: 'داشبورد من' } : { href: '/', label: 'خانه' },
+    { href: '/integrations', label: 'راهنمای فنی' },
+    { href: '/guide', label: 'راهنمای انتشار' },
+  ]
   const pathname = usePathname()
   const router = useRouter()
 
