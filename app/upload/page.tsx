@@ -15,7 +15,7 @@ import { toFa } from '@/lib/format'
 const steps = ['فایل APK', 'اطلاعات پایه', 'اطلاعات نمایشی', 'رسانه', 'بازبینی']
 
 export default function UploadPage() {
-  const { user, addApp } = useStore()
+  const { user } = useStore()
   const router = useRouter()
   const [step, setStep] = useState(1)
   const [saving, setSaving] = useState(false)
@@ -66,15 +66,56 @@ export default function UploadPage() {
     setApkSize(`${toFa((file.size / 1024 / 1024).toFixed(1))} مگابایت`)
   }
   const submitForReview = async () => {
-    if (!apkFile || !iconFile || !bannerFile) return
+    if (!apkFile || !iconFile || !bannerFile) {
+      setErrorMessage('فایل APK، آیکون و بنر باید انتخاب شده باشند.')
+      return
+    }
+
     setSaving(true)
     setErrorMessage('')
+
     try {
-      const [apk, iconUpload, bannerUpload, ...shotUploads] = await Promise.all([apkFile, iconFile, bannerFile, ...screenshotFiles].map(uploadFile))
-      await addApp({ id: `${name.trim().replace(/\s+/g, '-')}-${Date.now()}`, name, tagline, description, category: category as AppCategory, icon, banner, screenshots, developer: user.name, version: '', price: 0, rating: 0, downloads: 0, platforms: [], tags: [], updatedAt: 'پیش‌نویس', reviews: [], website: website || undefined, supportEmail: email || undefined, packageName: packageName.trim(), status: 'pending', apkName: apk.name, apkSize: `${toFa((apk.size / 1024 / 1024).toFixed(1))} مگابایت`, apkPath: apk.pathname, iconPath: iconUpload.pathname, bannerPath: bannerUpload.pathname, screenshotPaths: shotUploads.map((item) => item.pathname), ageRestriction })
+      const [apk, iconUpload, bannerUpload, ...shotUploads] = await Promise.all(
+        [apkFile, iconFile, bannerFile, ...screenshotFiles].map(uploadFile),
+      )
+
+      const response = await fetch('/api/apps/submit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name,
+          tagline,
+          description,
+          category,
+          ageRestriction,
+          packageName: packageName.trim(),
+          website,
+          supportEmail: email,
+          apk,
+          icon: iconUpload,
+          banner: bannerUpload,
+          screenshots: shotUploads,
+        }),
+      })
+
+      const result = await response.json().catch(() => null)
+
+      if (!response.ok) {
+        if (response.status === 401) throw new Error('auth_required')
+        throw new Error(result?.error || 'submit_failed')
+      }
+
       router.push('/dashboard')
-    } catch {
-      setErrorMessage('ارسال اپ انجام نشد. فایل‌ها و اطلاعات را بررسی کنید و دوباره تلاش کنید.')
+      router.refresh()
+    } catch (error) {
+      const code = error instanceof Error ? error.message : 'submit_failed'
+      setErrorMessage(
+        code === 'auth_required'
+          ? 'نشست ورود شما منقضی شده است. دوباره وارد شوید و ارسال را تکرار کنید.'
+          : code === 'database_insert_failed'
+            ? 'فایل‌ها آپلود شدند، اما ثبت اپ در دیتابیس انجام نشد. دوباره تلاش کنید.'
+            : 'ارسال اپ کامل نشد. لطفاً دوباره تلاش کنید.',
+      )
     } finally {
       setSaving(false)
     }
