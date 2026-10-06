@@ -1,34 +1,26 @@
-export type BannerSlot = {
+export type BannerPlacement = {
   id: string
   title: string
   description: string
-  monthlyPriceToman: number | null
+  surfaces: string[]
+  contactPhone: string
 }
 
 export const INSTALL_CAMPAIGN_CONFIG = {
-  pricePerInstallToman: null as number | null,
+  pricePerInstallToman: 40000,
   minInstalls: 100,
   maxInstalls: 100000,
   step: 100,
 }
 
-export const BANNER_SLOTS: BannerSlot[] = [
-  {
-    id: 'home-hero',
-    title: 'بنر اصلی صفحه خانه',
-    description: 'جایگاه اصلی تبلیغاتی در صفحه خانه نت‌استور',
-    monthlyPriceToman: null,
-  },
-  {
-    id: 'apps-top',
-    title: 'بنر بالای صفحه اپ‌ها',
-    description: 'نمایش بنر در بالای صفحه فهرست اپلیکیشن‌ها',
-    monthlyPriceToman: null,
-  },
-  {
-    id: 'search-top',
-    title: 'بنر بالای صفحه جستجو',
-    description: 'نمایش بنر در بالای نتایج جستجو',
-    monthlyPriceToman: null,
-  },
-]
+export const BANNER_PLACEMENT: BannerPlacement = {
+  id: 'netbox-featured-row',
+  title: 'ردیف بنر ویژه نت‌استور',
+  description: 'یک جایگاه بنری مشترک که در سه سطح اصلی نت‌باکس و نت‌استور نمایش داده می‌شود.',
+  surfaces: [
+    'لانچر نت‌باکس — تب برنامه‌ها',
+    'نت‌استور نت‌باکس — ردیف اول',
+    'نت‌استور پابلیک — ردیف اول',
+  ],
+  contactPhone: '09338548315',
+}
