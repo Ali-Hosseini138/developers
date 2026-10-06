@@ -32,6 +32,7 @@ export default function EditAppPage() {
   const [description, setDescription] = useState(app?.description || '')
   const [category, setCategory] = useState(app?.category || '')
   const [ageRestriction, setAgeRestriction] = useState(app?.ageRestriction || 'همه سنین')
+  const [packageName, setPackageName] = useState(app?.packageName || '')
   const [website, setWebsite] = useState(app?.website || '')
   const [supportEmail, setSupportEmail] = useState(app?.supportEmail || '')
   const [icon, setIcon] = useState(app?.icon || '')
@@ -53,6 +54,9 @@ export default function EditAppPage() {
   if (!user) return null
   if (!app) return <main className="mx-auto max-w-3xl px-4 py-10 sm:px-6"><Link href="/dashboard" className="text-sm text-primary">بازگشت به داشبورد</Link><div className="mt-6 rounded-2xl border border-dashed border-border p-8 text-center text-sm text-muted-foreground">این اپ پیدا نشد یا به حساب شما تعلق ندارد.</div></main>
 
+  const canEditPackageName = !app.status || app.status === 'draft' || app.status === 'rejected'
+  const packageNamePattern = /^([A-Za-z][A-Za-z0-9_]*\.)+[A-Za-z][A-Za-z0-9_]*$/
+
   const readImage = (file: File, setter: (value: string) => void) => {
     const reader = new FileReader()
     reader.onload = () => setter(String(reader.result))
@@ -71,8 +75,14 @@ export default function EditAppPage() {
     e.preventDefault()
     if (saving) return
 
-    setSaving(true)
     setErrorMessage('')
+
+    if (canEditPackageName && !packageNamePattern.test(packageName.trim())) {
+      setErrorMessage('پکیج‌نیم معتبر نیست. نمونه صحیح: com.company.app')
+      return
+    }
+
+    setSaving(true)
 
     try {
       const [iconUpload, bannerUpload, ...newScreenshots] = await Promise.all([
@@ -87,6 +97,7 @@ export default function EditAppPage() {
         description,
         category: category as typeof app.category,
         ageRestriction: ageRestriction as typeof app.ageRestriction,
+        packageName: packageName.trim(),
         website,
         supportEmail,
         icon,
@@ -173,7 +184,20 @@ export default function EditAppPage() {
             </Select>
           </Field>
           <Field label="پکیج‌نیم">
-            <Input value={app.packageName || 'ثبت نشده'} readOnly dir="ltr" className="bg-secondary/50" />
+            <Input
+              value={packageName}
+              onChange={(e) => setPackageName(e.target.value.trim())}
+              readOnly={!canEditPackageName}
+              dir="ltr"
+              placeholder="com.company.app"
+              className={!canEditPackageName ? 'bg-secondary/50' : ''}
+              required
+            />
+            <p className="text-xs leading-6 text-muted-foreground">
+              {canEditPackageName
+                ? 'تا قبل از انتشار می‌توانید پکیج‌نیم را اصلاح کنید. این مقدار باید دقیقاً با شناسه داخل APK یکی باشد.'
+                : 'بعد از انتشار، پکیج‌نیم قابل تغییر نیست؛ چون شناسه اصلی اپ در Android است.'}
+            </p>
           </Field>
           <Field label="محدودیت سنی">
             <Select value={ageRestriction} onValueChange={(value) => value && setAgeRestriction(value as typeof ageRestriction)}>

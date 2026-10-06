@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { AlertTriangle, FileText, HelpCircle, Megaphone, Package, Pencil, Plus, Search, Ticket, UserRound, Wallet } from 'lucide-react'
+import { Activity, AlertTriangle, FileText, HelpCircle, Megaphone, Package, Pencil, Plus, Search, Ticket, UserRound, Wallet } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
@@ -12,10 +12,12 @@ import { Textarea } from '@/components/ui/textarea'
 import { useStore } from '@/components/store-provider'
 import { toFa } from '@/lib/format'
 import { BANNER_PLACEMENT, INSTALL_CAMPAIGN_CONFIG } from '@/lib/monetization'
+import { createClient } from '@/lib/supabase/client'
 
 const tabs = [
   { id: 'apps', label: 'داشبورد من', icon: Package },
   { id: 'account', label: 'اطلاعات حساب کاربری', icon: UserRound },
+  { id: 'analytics', label: 'آمار و عملکرد', icon: Activity },
   { id: 'finance', label: 'مالی', icon: Wallet },
   { id: 'growth', label: 'تبلیغات و رشد', icon: Megaphone },
   { id: 'support', label: 'پشتیبانی و تیکت', icon: HelpCircle },
@@ -62,12 +64,13 @@ export default function DashboardPage() {
         <Button render={<Link href="/upload" />} className="gap-1.5"><Plus className="size-4" />انتشار اپ جدید</Button>
       </div>
 
-      <div className="mt-8 flex gap-2 overflow-x-auto rounded-2xl border border-border bg-card p-2 sm:grid sm:grid-cols-5">
+      <div className="mt-8 flex gap-2 overflow-x-auto rounded-2xl border border-border bg-card p-2 sm:grid sm:grid-cols-6">
         {tabs.map(({ id, label, icon: Icon }) => <button key={id} type="button" onClick={() => setTab(id)} className={`flex shrink-0 items-center justify-center gap-2 rounded-xl px-3 py-3 text-sm font-medium transition-colors sm:shrink ${tab === id ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-secondary hover:text-foreground'}`}><Icon className="size-4" />{label}</button>)}
       </div>
 
       {tab === 'apps' && <AppsTab myApps={myApps} removeApp={removeApp} submitAppForReview={submitAppForReview} />}
       {tab === 'account' && <AccountTab user={user} />}
+      {tab === 'analytics' && <AnalyticsTab myApps={myApps} />}
       {tab === 'finance' && <FinanceTab />}
       {tab === 'growth' && <GrowthTab myApps={myApps} />}
       {tab === 'support' && <SupportTab subject={subject} message={message} setSubject={setSubject} setMessage={setMessage} submitTicket={submitTicket} tickets={myTickets} sending={ticketSending} errorMessage={ticketError} />}
@@ -243,6 +246,270 @@ function AppsTab({ myApps, removeApp, submitAppForReview }: { myApps: ReturnType
       ) : <div className="mt-4 rounded-2xl border border-dashed border-border py-12 text-center text-sm text-muted-foreground">اپی با این فیلتر پیدا نشد.</div>}
     </section>
   </>
+}
+
+
+type InstallMetric = { metric_date: string; installs: number }
+type SalesMetric = { metric_date: string; orders: number; total_sales_rial: number }
+
+function AnalyticsTab({ myApps }: { myApps: ReturnType<typeof useStore>['myApps'] }) {
+  const supabase = useMemo(() => createClient(), [])
+  const publishedApps = myApps.filter((app) => app.status === 'published')
+  const [selectedAppId, setSelectedAppId] = useState(publishedApps[0]?.id || '')
+  const [range, setRange] = useState<7 | 30 | 90>(30)
+  const [installs, setInstalls] = useState<InstallMetric[]>([])
+  const [sales, setSales] = useState<SalesMetric[]>([])
+  const [loading, setLoading] = useState(false)
+  const [errorMessage, setErrorMessage] = useState('')
+
+  const selectedApp = publishedApps.find((app) => app.id === selectedAppId)
+  const paymentEnabled = Boolean(selectedApp?.netboxPaymentIntegrated)
+
+  useEffect(() => {
+    if (!selectedAppId && publishedApps[0]?.id) setSelectedAppId(publishedApps[0].id)
+  }, [publishedApps, selectedAppId])
+
+  useEffect(() => {
+    if (!selectedAppId) {
+      setInstalls([])
+      setSales([])
+      return
+    }
+
+    const load = async () => {
+      setLoading(true)
+      setErrorMessage('')
+      const since = new Date()
+      since.setDate(since.getDate() - (range - 1))
+      const sinceDate = since.toISOString().slice(0, 10)
+
+      const installQuery = supabase
+        .from('app_daily_installs')
+        .select('metric_date, installs')
+        .eq('app_id', selectedAppId)
+        .gte('metric_date', sinceDate)
+        .order('metric_date', { ascending: true })
+
+      const salesQuery = paymentEnabled
+        ? supabase
+            .from('app_daily_sales')
+            .select('metric_date, orders, total_sales_rial')
+            .eq('app_id', selectedAppId)
+            .gte('metric_date', sinceDate)
+            .order('metric_date', { ascending: true })
+        : Promise.resolve({ data: [], error: null })
+
+      const [installResult, salesResult] = await Promise.all([installQuery, salesQuery])
+
+      if (installResult.error || salesResult.error) {
+        setErrorMessage('دریافت آمار انجام نشد. دوباره تلاش کنید.')
+      } else {
+        setInstalls((installResult.data || []) as InstallMetric[])
+        setSales((salesResult.data || []) as SalesMetric[])
+      }
+      setLoading(false)
+    }
+
+    void load()
+  }, [selectedAppId, range, paymentEnabled, supabase])
+
+  const totalInstalls = installs.reduce((sum, item) => sum + item.installs, 0)
+  const averageDailyInstalls = installs.length ? Math.round(totalInstalls / installs.length) : 0
+  const totalSales = sales.reduce((sum, item) => sum + Number(item.total_sales_rial || 0), 0)
+  const totalOrders = sales.reduce((sum, item) => sum + item.orders, 0)
+  const averageOrder = totalOrders ? Math.round(totalSales / totalOrders) : 0
+
+  if (publishedApps.length === 0) {
+    return (
+      <section className="mt-8 rounded-2xl border border-dashed border-border bg-card p-10 text-center">
+        <Activity className="mx-auto size-8 text-muted-foreground" />
+        <h2 className="mt-3 font-bold">آمار و عملکرد</h2>
+        <p className="mt-2 text-sm text-muted-foreground">
+          بعد از انتشار اولین اپ، ترند روزانه نصب و در صورت اتصال Netbox Payment، آمار فروش در این بخش نمایش داده می‌شود.
+        </p>
+      </section>
+    )
+  }
+
+  return (
+    <section className="mt-8 flex flex-col gap-6">
+      <div className="flex flex-col gap-4 rounded-2xl border border-border bg-card p-5 lg:flex-row lg:items-end lg:justify-between">
+        <div>
+          <Label>اپلیکیشن</Label>
+          <select
+            value={selectedAppId}
+            onChange={(e) => setSelectedAppId(e.target.value)}
+            className="mt-1.5 h-10 min-w-64 rounded-md border border-input bg-background px-3 text-sm"
+          >
+            {publishedApps.map((app) => <option key={app.id} value={app.id}>{app.name}</option>)}
+          </select>
+        </div>
+        <div>
+          <Label>بازه زمانی</Label>
+          <div className="mt-1.5 flex gap-2">
+            {[7, 30, 90].map((days) => (
+              <Button
+                key={days}
+                type="button"
+                size="sm"
+                variant={range === days ? 'default' : 'outline'}
+                onClick={() => setRange(days as 7 | 30 | 90)}
+              >
+                {days.toLocaleString('fa-IR')} روز
+              </Button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {errorMessage && <p role="alert" className="rounded-xl bg-destructive/10 px-4 py-3 text-sm text-destructive">{errorMessage}</p>}
+
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+        <MetricCard label="نصب در بازه" value={installs.length ? toFa(totalInstalls) : '—'} />
+        <MetricCard label="میانگین نصب روزانه" value={installs.length ? toFa(averageDailyInstalls) : '—'} />
+        {paymentEnabled ? (
+          <>
+            <MetricCard label="فروش کل" value={sales.length ? formatRial(totalSales) : '—'} />
+            <MetricCard label="تعداد سفارش" value={sales.length ? toFa(totalOrders) : '—'} />
+          </>
+        ) : (
+          <>
+            <MetricCard label="فروش اشتراک" value="غیرفعال" />
+            <MetricCard label="Netbox Payment" value="متصل نیست" />
+          </>
+        )}
+      </div>
+
+      <TrendCard
+        title="ترند روزانه نصب"
+        description="تعداد نصب ثبت‌شده برای هر روز"
+        loading={loading}
+        points={installs.map((item) => ({ date: item.metric_date, value: item.installs }))}
+        valueFormatter={(value) => toFa(value)}
+      />
+
+      {paymentEnabled && (
+        <>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <MetricCard label="میانگین مبلغ سفارش" value={sales.length && totalOrders ? formatRial(averageOrder) : '—'} />
+            <MetricCard label="وضعیت پرداخت" value="Netbox Payment فعال" />
+          </div>
+          <TrendCard
+            title="ترند روزانه فروش اشتراک"
+            description="مجموع فروش روزانه ثبت‌شده از Netbox Payment"
+            loading={loading}
+            points={sales.map((item) => ({ date: item.metric_date, value: Number(item.total_sales_rial || 0) }))}
+            valueFormatter={formatRial}
+          />
+          <TrendCard
+            title="ترند روزانه سفارش‌ها"
+            description="تعداد خریدهای موفق ثبت‌شده در هر روز"
+            loading={loading}
+            points={sales.map((item) => ({ date: item.metric_date, value: item.orders }))}
+            valueFormatter={(value) => toFa(value)}
+          />
+        </>
+      )}
+    </section>
+  )
+}
+
+function MetricCard({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-2xl border border-border bg-card p-5">
+      <p className="text-xs text-muted-foreground">{label}</p>
+      <p className="mt-2 text-xl font-bold sm:text-2xl">{value}</p>
+    </div>
+  )
+}
+
+function TrendCard({
+  title,
+  description,
+  loading,
+  points,
+  valueFormatter,
+}: {
+  title: string
+  description: string
+  loading: boolean
+  points: { date: string; value: number }[]
+  valueFormatter: (value: number) => string
+}) {
+  return (
+    <div className="rounded-2xl border border-border bg-card p-5">
+      <div>
+        <h3 className="font-bold">{title}</h3>
+        <p className="mt-1 text-sm text-muted-foreground">{description}</p>
+      </div>
+      <div className="mt-5">
+        {loading ? (
+          <div className="flex h-64 items-center justify-center text-sm text-muted-foreground">در حال دریافت داده...</div>
+        ) : points.length === 0 ? (
+          <div className="flex h-64 flex-col items-center justify-center rounded-xl border border-dashed border-border text-center">
+            <Activity className="size-7 text-muted-foreground" />
+            <p className="mt-3 text-sm font-medium">هنوز داده‌ای برای این بازه ثبت نشده است</p>
+            <p className="mt-1 max-w-md text-xs leading-6 text-muted-foreground">
+              به محض ورود داده واقعی نصب یا فروش، نمودار روزانه در همین بخش نمایش داده می‌شود.
+            </p>
+          </div>
+        ) : (
+          <MiniLineChart points={points} valueFormatter={valueFormatter} />
+        )}
+      </div>
+    </div>
+  )
+}
+
+function MiniLineChart({ points, valueFormatter }: { points: { date: string; value: number }[]; valueFormatter: (value: number) => string }) {
+  const width = 1000
+  const height = 260
+  const paddingX = 45
+  const paddingY = 30
+  const max = Math.max(...points.map((p) => p.value), 1)
+  const min = Math.min(...points.map((p) => p.value), 0)
+  const range = Math.max(max - min, 1)
+
+  const mapped = points.map((point, index) => {
+    const x = points.length === 1 ? width / 2 : paddingX + (index / (points.length - 1)) * (width - paddingX * 2)
+    const y = height - paddingY - ((point.value - min) / range) * (height - paddingY * 2)
+    return { ...point, x, y }
+  })
+
+  const path = mapped.map((point, index) => `${index === 0 ? 'M' : 'L'} ${point.x} ${point.y}`).join(' ')
+  const labelEvery = Math.max(1, Math.ceil(points.length / 6))
+
+  return (
+    <div className="overflow-x-auto">
+      <svg viewBox={`0 0 ${width} ${height + 45}`} className="min-w-[720px] w-full" role="img" aria-label="نمودار روند روزانه">
+        {[0, 0.25, 0.5, 0.75, 1].map((ratio) => {
+          const y = paddingY + ratio * (height - paddingY * 2)
+          const value = max - ratio * range
+          return (
+            <g key={ratio}>
+              <line x1={paddingX} x2={width - paddingX} y1={y} y2={y} className="stroke-border" strokeDasharray="4 6" />
+              <text x={paddingX - 8} y={y + 4} textAnchor="end" className="fill-muted-foreground text-[11px]">{valueFormatter(Math.max(0, Math.round(value)))}</text>
+            </g>
+          )
+        })}
+        <path d={path} fill="none" className="stroke-primary" strokeWidth="3" strokeLinejoin="round" strokeLinecap="round" />
+        {mapped.map((point, index) => (
+          <g key={`${point.date}-${index}`}>
+            <circle cx={point.x} cy={point.y} r="4" className="fill-background stroke-primary" strokeWidth="2" />
+            {(index % labelEvery === 0 || index === mapped.length - 1) && (
+              <text x={point.x} y={height + 22} textAnchor="middle" className="fill-muted-foreground text-[11px]">
+                {new Date(`${point.date}T00:00:00`).toLocaleDateString('fa-IR', { month: 'numeric', day: 'numeric' })}
+              </text>
+            )}
+          </g>
+        ))}
+      </svg>
+    </div>
+  )
+}
+
+function formatRial(value: number) {
+  return `${Math.round(value).toLocaleString('fa-IR')} ریال`
 }
 
 function AccountTab({ user }: { user: NonNullable<ReturnType<typeof useStore>['user']> }) {

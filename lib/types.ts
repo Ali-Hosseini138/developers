@@ -58,6 +58,10 @@ export interface StoreApp {
   screenshotPaths?: string[]
   packageName?: string
   ageRestriction?: 'همه سنین' | '+۷' | '+۱۲' | '+۱۵' | '+۱۸'
+  hasInAppPayment?: boolean
+  netboxPaymentIntegrated?: boolean
+  developedForAndroidTv?: boolean
+  airMouseCompatible?: boolean
 }
 
 export interface User {
