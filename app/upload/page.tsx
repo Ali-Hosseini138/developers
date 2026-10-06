@@ -66,15 +66,23 @@ export default function UploadPage() {
     setApkSize(`${toFa((file.size / 1024 / 1024).toFixed(1))} مگابایت`)
   }
   const submitForReview = async () => {
-    if (!apkFile || !iconFile || !bannerFile) return
+    if (!apkFile || !iconFile || !bannerFile) {
+      setErrorMessage('فایل APK، آیکون و بنر باید دوباره انتخاب شده باشند.')
+      return
+    }
     setSaving(true)
     setErrorMessage('')
     try {
       const [apk, iconUpload, bannerUpload, ...shotUploads] = await Promise.all([apkFile, iconFile, bannerFile, ...screenshotFiles].map(uploadFile))
-      await addApp({ id: `${name.trim().replace(/\s+/g, '-')}-${Date.now()}`, name, tagline, description, category: category as AppCategory, icon, banner, screenshots, developer: user.name, version: '', price: 0, rating: 0, downloads: 0, platforms: [], tags: [], updatedAt: 'پیش‌نویس', reviews: [], website: website || undefined, supportEmail: email || undefined, packageName: packageName.trim(), status: 'pending', apkName: apk.name, apkSize: `${toFa((apk.size / 1024 / 1024).toFixed(1))} مگابایت`, apkPath: apk.pathname, iconPath: iconUpload.pathname, bannerPath: bannerUpload.pathname, screenshotPaths: shotUploads.map((item) => item.pathname), ageRestriction })
+      await addApp({ id: `${name.trim().replace(/\s+/g, '-')}-${Date.now()}`, name, tagline, description, category: category as AppCategory, icon, banner, screenshots, developer: user.name, version: '', price: 0, rating: 0, downloads: 0, platforms: [], tags: [], updatedAt: 'همین حالا', reviews: [], website: website || undefined, supportEmail: email || undefined, packageName: packageName.trim(), status: 'pending', apkName: apk.name, apkSize: `${toFa((apk.size / 1024 / 1024).toFixed(1))} مگابایت`, apkPath: apk.pathname, iconPath: iconUpload.pathname, bannerPath: bannerUpload.pathname, screenshotPaths: shotUploads.map((item) => item.pathname), ageRestriction })
       router.push('/dashboard')
-    } catch {
-      setErrorMessage('ارسال اپ انجام نشد. فایل‌ها و اطلاعات را بررسی کنید و دوباره تلاش کنید.')
+    } catch (error) {
+      const message = error instanceof Error ? error.message : ''
+      setErrorMessage(
+        message === 'auth_required'
+          ? 'نشست ورود شما منقضی شده است. دوباره وارد شوید و ارسال را تکرار کنید.'
+          : 'فایل‌ها آپلود شدند اما ثبت اپ برای بررسی کامل نشد. دوباره تلاش کنید.',
+      )
     } finally {
       setSaving(false)
     }
