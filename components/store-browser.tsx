@@ -9,12 +9,11 @@ import { useStore } from '@/components/store-provider'
 import { CATEGORIES } from '@/lib/types'
 import { cn } from '@/lib/utils'
 
-type SortKey = 'downloads' | 'rating' | 'newest'
+type SortKey = 'downloads' | 'rating'
 
 const SORT_OPTIONS: { key: SortKey; label: string }[] = [
   { key: 'downloads', label: 'محبوب‌ترین' },
   { key: 'rating', label: 'بیشترین امتیاز' },
-  { key: 'newest', label: 'جدیدترین' },
 ]
 
 export function StoreBrowser() {
@@ -25,13 +24,14 @@ export function StoreBrowser() {
 
   const filtered = useMemo(() => {
     let list = apps.filter((app) => {
+      const isPublic = app.status ? app.status === 'published' : true
       const matchesQuery =
         query.trim() === '' ||
         app.name.includes(query) ||
         app.tagline.includes(query) ||
         app.tags.some((t) => t.includes(query))
       const matchesCategory = !category || app.category === category
-      return matchesQuery && matchesCategory
+      return isPublic && matchesQuery && matchesCategory
     })
 
     list = [...list].sort((a, b) => {
