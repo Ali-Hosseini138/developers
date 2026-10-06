@@ -9,6 +9,10 @@ type SubmitBody = {
   name?: string
   tagline?: string
   description?: string
+  hasInAppPayment?: boolean
+  netboxPaymentIntegrated?: boolean
+  developedForAndroidTv?: boolean
+  airMouseCompatible?: boolean
   category?: string
   ageRestriction?: string
   packageName?: string
@@ -37,7 +41,7 @@ export async function POST(request: Request) {
 
   const name = body.name?.trim()
   const tagline = body.tagline?.trim()
-  const description = body.description?.trim()
+  let description = body.description?.trim()
   const category = body.category?.trim()
   const packageName = body.packageName?.trim()
   const website = body.website?.trim() || null
@@ -58,6 +62,24 @@ export async function POST(request: Request) {
 
   if (!allowedAgeRestrictions.has(ageRestriction)) {
     return NextResponse.json({ error: 'invalid_age_restriction' }, { status: 400 })
+  }
+
+  if (typeof body.hasInAppPayment !== 'boolean' || typeof body.developedForAndroidTv !== 'boolean') {
+    return NextResponse.json({ error: 'missing_eligibility_answers' }, { status: 400 })
+  }
+
+  if (body.hasInAppPayment && body.netboxPaymentIntegrated !== true) {
+    return NextResponse.json({ error: 'payment_required' }, { status: 400 })
+  }
+
+  if (!body.developedForAndroidTv) {
+    if (body.airMouseCompatible !== true) {
+      return NextResponse.json({ error: 'tv_compatibility_required' }, { status: 400 })
+    }
+    const notice = 'این اپ با ایرماوس یا ماوس قابل استفاده است.'
+    if (!description.startsWith(notice)) {
+      description = `${notice}\n\n${description}`
+    }
   }
 
   if (!body.apk?.pathname || !body.apk?.name || !body.apk?.size || !body.icon?.pathname || !body.banner?.pathname) {
