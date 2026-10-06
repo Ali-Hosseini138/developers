@@ -23,7 +23,7 @@ type UploadedFile = {
 
 export default function EditAppPage() {
   const { id } = useParams<{ id: string }>()
-  const { user, getApp, updateApp } = useStore()
+  const { user, authReady, getApp, updateApp, submitAppForReview } = useStore()
   const router = useRouter()
   const app = getApp(id)
 
@@ -46,10 +46,12 @@ export default function EditAppPage() {
   const [errorMessage, setErrorMessage] = useState('')
 
   useEffect(() => {
-    if (!user) router.replace('/login?next=/dashboard')
-  }, [user, router])
+    if (authReady && !user) router.replace('/login?next=/dashboard')
+  }, [authReady, user, router])
 
-  if (!user || !app) return null
+  if (!authReady) return <main className="mx-auto flex min-h-[40vh] max-w-3xl items-center justify-center px-4 py-10"><span className="text-sm text-muted-foreground">در حال بارگذاری اپ...</span></main>
+  if (!user) return null
+  if (!app) return <main className="mx-auto max-w-3xl px-4 py-10 sm:px-6"><Link href="/dashboard" className="text-sm text-primary">بازگشت به داشبورد</Link><div className="mt-6 rounded-2xl border border-dashed border-border p-8 text-center text-sm text-muted-foreground">این اپ پیدا نشد یا به حساب شما تعلق ندارد.</div></main>
 
   const readImage = (file: File, setter: (value: string) => void) => {
     const reader = new FileReader()
@@ -96,6 +98,9 @@ export default function EditAppPage() {
         updatedAt: 'امروز',
       })
 
+      if (app.status === 'rejected') {
+        await submitAppForReview(app.id)
+      }
       setSaved(true)
       setTimeout(() => router.push('/dashboard'), 700)
     } catch {
@@ -179,7 +184,7 @@ export default function EditAppPage() {
         </div>
 
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="آدرس وبسایت"><Input value={website} onChange={(e) => setWebsite(e.target.value)} dir="ltr" /></Field>
+          <Field label="آدرس وبسایت"><Input value={website} onChange={(e) => setWebsite(e.target.value)} dir="ltr" type="url" /></Field>
           <Field label="ایمیل پشتیبانی"><Input value={supportEmail} onChange={(e) => setSupportEmail(e.target.value)} dir="ltr" type="email" /></Field>
         </div>
 
@@ -223,7 +228,7 @@ export default function EditAppPage() {
 
         <Button type="submit" disabled={saving || saved} className="gap-2">
           {saving ? <Loader2 className="size-4 animate-spin" /> : <Save className="size-4" />}
-          {saving ? 'در حال ذخیره...' : saved ? 'ذخیره شد' : 'ذخیره تغییرات'}
+          {saving ? 'در حال ذخیره...' : saved ? (app.status === 'rejected' ? 'اصلاحات ارسال شد' : 'ذخیره شد') : (app.status === 'rejected' ? 'ذخیره و ارسال مجدد' : 'ذخیره تغییرات')}
         </Button>
       </form>
     </main>
