@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { CATEGORIES } from '@/lib/types'
+import { buildAppReviewSnapshot } from '@/lib/review-submission'
 
 const packageNamePattern = /^([A-Za-z][A-Za-z0-9_]*\.)+[A-Za-z][A-Za-z0-9_]*$/
 const allowedAgeRestrictions = new Set(['همه سنین', '+۷', '+۱۲', '+۱۵', '+۱۸'])
@@ -125,6 +126,30 @@ export async function POST(request: Request) {
       { error: 'database_insert_failed', message: error.message },
       { status: 500 },
     )
+  }
+
+  const { data: savedApp, error: savedAppError } = await supabase
+    .from('apps')
+    .select('*')
+    .eq('id', data.id)
+    .single()
+
+  if (savedAppError) {
+    return NextResponse.json({ error: 'submission_snapshot_failed' }, { status: 500 })
+  }
+
+  const { error: submissionError } = await supabase
+    .from('review_submissions')
+    .insert({
+      app_id: data.id,
+      request_type: 'app',
+      submitted_by: user.id,
+      snapshot: buildAppReviewSnapshot(savedApp),
+      status: 'pending',
+    })
+
+  if (submissionError) {
+    return NextResponse.json({ error: 'submission_snapshot_failed' }, { status: 500 })
   }
 
   return NextResponse.json({ ok: true, appId: data.id, status: data.status })
