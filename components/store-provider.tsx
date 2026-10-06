@@ -139,15 +139,31 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     if (ownershipError) throw ownershipError
     if (!ownedApp) throw new Error('forbidden_or_missing')
 
-    const { error } = await supabase.from('app_versions').insert({
+    const { data: version, error } = await supabase.from('app_versions').insert({
       app_id: appId,
       apk_path: apk.pathname,
       apk_name: apk.name,
       package_name: packageName || null,
       changelog,
       status: 'pending',
-    })
+    }).select('*').single()
     if (error) throw error
+
+    const { error: submissionError } = await supabase.from('review_submissions').insert({
+      app_id: appId,
+      version_id: version.id,
+      request_type: 'version',
+      submitted_by: user.id,
+      snapshot: {
+        package_name: version.package_name,
+        apk_path: version.apk_path,
+        apk_name: version.apk_name,
+        apk_size: version.apk_size,
+        changelog: version.changelog,
+      },
+      status: 'pending',
+    })
+    if (submissionError) throw submissionError
   }, [user?.id])
 
   const removeApp = useCallback(async (id: string) => {
