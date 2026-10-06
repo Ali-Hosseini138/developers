@@ -1,6 +1,6 @@
 'use client'
 
-import { use } from 'react'
+import { use, useState } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { notFound } from 'next/navigation'
@@ -24,7 +24,7 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { StarRating } from '@/components/star-rating'
 import { AppCard } from '@/components/app-card'
 import { useStore } from '@/components/store-provider'
-import { formatDownloads, formatPrice, toFa } from '@/lib/format'
+import { formatDownloads, toFa } from '@/lib/format'
 
 export default function AppDetailPage({
   params,
@@ -34,11 +34,12 @@ export default function AppDetailPage({
   const { id } = use(params)
   const { getApp, apps } = useStore()
   const app = getApp(id)
+  const [shareMessage, setShareMessage] = useState('')
 
   if (!app) notFound()
 
   const related = apps
-    .filter((a) => a.category === app.category && a.id !== app.id)
+    .filter((a) => a.category === app.category && a.id !== app.id && (!a.status || a.status === 'published'))
     .slice(0, 4)
 
   return (
@@ -112,20 +113,39 @@ export default function AppDetailPage({
             <Separator orientation="vertical" className="h-10" />
             <MetaItem
               icon={<Package className="size-4" />}
-              value={app.version}
+              value={app.version || '—'}
               label="نسخه"
             />
           </div>
 
-          <div className="mt-6 flex flex-wrap items-center gap-3">
-            <Button size="lg" className="gap-2">
-              <Download className="size-4" />
-              {app.price === 0 ? 'دانلود رایگان' : `خرید — ${formatPrice(app.price)}`}
-            </Button>
-            <Button size="lg" variant="outline" className="gap-2">
-              <Share2 className="size-4" />
-              اشتراک‌گذاری
-            </Button>
+          <div className="mt-6">
+            <div className="flex flex-wrap items-center gap-3">
+              <Button size="lg" className="gap-2" disabled>
+                <Download className="size-4" />
+                دریافت از نت‌استور
+              </Button>
+              <Button
+                size="lg"
+                variant="outline"
+                className="gap-2"
+                onClick={async () => {
+                  const shareData = { title: app.name, text: app.tagline, url: window.location.href }
+                  try {
+                    if (navigator.share) await navigator.share(shareData)
+                    else {
+                      await navigator.clipboard.writeText(window.location.href)
+                      setShareMessage('لینک کپی شد')
+                      setTimeout(() => setShareMessage(''), 1800)
+                    }
+                  } catch {}
+                }}
+              >
+                <Share2 className="size-4" />
+                اشتراک‌گذاری
+              </Button>
+            </div>
+            <p className="mt-2 text-xs text-muted-foreground">نصب اپ از داخل نت‌استور روی تلویزیون یا اندروید باکس انجام می‌شود.</p>
+            {shareMessage && <p role="status" className="mt-2 text-xs font-medium text-primary">{shareMessage}</p>}
           </div>
         </div>
       </div>
@@ -303,15 +323,17 @@ export default function AppDetailPage({
             </div>
           </div>
 
-          <div className="rounded-2xl border border-primary/20 bg-primary/5 p-5">
-            <div className="flex items-center gap-2 text-sm font-medium text-primary">
-              <Check className="size-4" />
-              تأییدشده توسط نت‌استور
+          {(!app.status || app.status === 'published') && (
+            <div className="rounded-2xl border border-primary/20 bg-primary/5 p-5">
+              <div className="flex items-center gap-2 text-sm font-medium text-primary">
+                <Check className="size-4" />
+                تأییدشده توسط نت‌استور
+              </div>
+              <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
+                این اپلیکیشن پس از بررسی برای انتشار تأیید شده است.
+              </p>
             </div>
-            <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
-              این اپلیکیشن از نظر امنیت و کیفیت بررسی شده است.
-            </p>
-          </div>
+          )}
         </aside>
       </div>
 
