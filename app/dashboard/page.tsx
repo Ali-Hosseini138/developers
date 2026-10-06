@@ -201,6 +201,12 @@ function AppsTab({ myApps, removeApp, submitAppForReview }: { myApps: ReturnType
                       <span>آخرین تغییر: {app.updatedAt}</span>
                     </div>
                     <p className="mt-2 text-xs">{statusHelp(app.status)}</p>
+                    {app.status === 'rejected' && app.reviewReason && (
+                      <div className="mt-3 rounded-lg border border-destructive/25 bg-destructive/5 px-3 py-2 text-sm">
+                        <span className="font-medium text-destructive">دلیل رد: </span>
+                        <span>{app.reviewReason}</span>
+                      </div>
+                    )}
                   </div>
                   <div className="flex flex-wrap items-center gap-2">
                     {app.status !== 'pending' && (
