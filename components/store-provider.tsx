@@ -9,6 +9,7 @@ import type { StoreApp, SupportTicket, User } from '@/lib/types'
 interface StoreContextValue {
   apps: StoreApp[]
   user: User | null
+  authReady: boolean
   addApp: (app: StoreApp) => Promise<void>
   updateApp: (id: string, patch: Partial<StoreApp>) => Promise<void>
   updateProfile: (patch: Pick<User, 'name' | 'phone' | 'nationalId' | 'organization'>) => Promise<void>
@@ -33,12 +34,13 @@ function mapApp(row: Record<string, any>): StoreApp {
 export function StoreProvider({ children }: { children: ReactNode }) {
   const [apps, setApps] = useState<StoreApp[]>(MOCK_APPS)
   const [user, setUser] = useState<User | null>(null)
+  const [authReady, setAuthReady] = useState(false)
   const [tickets, setTickets] = useState<SupportTicket[]>([])
 
   const loadUserData = useCallback(async (authUser: SupabaseUser | null) => {
     if (!authUser) { setUser(null); setTickets([]); return }
     const { data: profile } = await supabase.from('profiles').select('*').eq('id', authUser.id).maybeSingle()
-    const nextUser: User = { id: authUser.id, name: profile?.full_name || authUser.user_metadata?.full_name || authUser.email?.split('@')[0] || 'توسعه‌دهنده', email: authUser.email || '', phone: profile?.phone, nationalId: profile?.national_id }
+    const nextUser: User = { id: authUser.id, name: profile?.full_name || authUser.user_metadata?.full_name || authUser.email?.split('@')[0] || 'توسعه‌دهنده', email: authUser.email || '', phone: profile?.phone || authUser.user_metadata?.phone, nationalId: profile?.national_id || authUser.user_metadata?.national_id, organization: authUser.user_metadata?.organization || undefined }
     setUser(nextUser)
     const { data } = await supabase.from('apps').select('*').eq('owner_id', authUser.id).order('created_at', { ascending: false })
     if (data) { const rows = data as Record<string, any>[]; setApps((current) => [...rows.map(mapApp), ...current.filter((app) => !rows.some((row) => row.id === app.id))]) }
@@ -47,8 +49,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   }, [])
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }: { data: { user: SupabaseUser | null } }) => loadUserData(data.user))
-    const { data: listener } = supabase.auth.onAuthStateChange((_event: string, session: Session | null) => { void loadUserData(session?.user ?? null) })
+    supabase.auth.getUser().then(async ({ data }: { data: { user: SupabaseUser | null } }) => {
+      await loadUserData(data.user)
+      setAuthReady(true)
+    })
+    const { data: listener } = supabase.auth.onAuthStateChange((_event: string, session: Session | null) => {
+      void loadUserData(session?.user ?? null).finally(() => setAuthReady(true))
+    })
     return () => listener.subscription.unsubscribe()
   }, [loadUserData])
 
@@ -97,9 +104,24 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   }, [user?.id])
 
   const updateProfile = useCallback(async (patch: Pick<User, 'name' | 'phone' | 'nationalId' | 'organization'>) => {
-    if (!user?.id) return
-    const { error } = await supabase.from('profiles').update({ full_name: patch.name, phone: patch.phone || null, national_id: patch.nationalId || null }).eq('id', user.id)
-    if (error) throw error
+    if (!user?.id) throw new Error('unauthorized')
+    const [{ error: profileError }, { error: authError }] = await Promise.all([
+      supabase.from('profiles').update({
+        full_name: patch.name,
+        phone: patch.phone || null,
+        national_id: patch.nationalId || null,
+      }).eq('id', user.id),
+      supabase.auth.updateUser({
+        data: {
+          full_name: patch.name,
+          phone: patch.phone || null,
+          national_id: patch.nationalId || null,
+          organization: patch.organization || null,
+        },
+      }),
+    ])
+    if (profileError) throw profileError
+    if (authError) throw authError
     setUser((current) => current ? { ...current, ...patch } : current)
   }, [user?.id])
   const addVersion = useCallback(async (appId: string, apk: { pathname: string; name: string }, packageName: string | undefined, changelog: string) => {
@@ -167,7 +189,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const login = useCallback((u: User) => setUser(u), [])
   const logout = useCallback(async () => { await supabase.auth.signOut(); setUser(null) }, [])
   const myApps = useMemo(() => user?.id ? apps.filter((app) => app.ownerId === user.id) : [], [apps, user?.id])
-  const value = useMemo(() => ({ apps, user, addApp, updateApp, updateProfile, addVersion, removeApp, submitAppForReview, getApp, myApps, tickets, addTicket, login, logout }), [apps, user, addApp, updateApp, updateProfile, addVersion, removeApp, submitAppForReview, getApp, myApps, tickets, addTicket, login, logout])
+  const value = useMemo(() => ({ apps, user, authReady, addApp, updateApp, updateProfile, addVersion, removeApp, submitAppForReview, getApp, myApps, tickets, addTicket, login, logout }), [apps, user, authReady, addApp, updateApp, updateProfile, addVersion, removeApp, submitAppForReview, getApp, myApps, tickets, addTicket, login, logout])
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>
 }
 
