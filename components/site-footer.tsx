@@ -34,6 +34,7 @@ export function SiteFooter() {
               title="توسعه‌دهندگان"
               links={[
                 { label: 'راهنمای انتشار', href: '/guide' },
+                { label: 'راهنمای فنی', href: '/integrations' },
                 ...(!user
                   ? [
                       { label: 'ورود', href: '/login' },
