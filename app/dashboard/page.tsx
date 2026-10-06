@@ -201,6 +201,12 @@ function AppsTab({ myApps, removeApp, submitAppForReview }: { myApps: ReturnType
                       <span>آخرین تغییر: {app.updatedAt}</span>
                     </div>
                     <p className="mt-2 text-xs">{statusHelp(app.status)}</p>
+                    {app.status === 'rejected' && app.reviewReason && (
+                      <div className="mt-3 rounded-lg border border-destructive/25 bg-destructive/5 px-3 py-2 text-sm">
+                        <span className="font-medium text-destructive">دلیل رد: </span>
+                        <span>{app.reviewReason}</span>
+                      </div>
+                    )}
                   </div>
                   <div className="flex flex-wrap items-center gap-2">
                     {app.status !== 'pending' && (
@@ -252,6 +258,36 @@ function AppsTab({ myApps, removeApp, submitAppForReview }: { myApps: ReturnType
 type InstallMetric = { metric_date: string; installs: number }
 type SalesMetric = { metric_date: string; orders: number; total_sales_rial: number }
 
+function buildDemoMetrics(days: number) {
+  const installs: InstallMetric[] = []
+  const sales: SalesMetric[] = []
+  const today = new Date()
+
+  for (let i = days - 1; i >= 0; i -= 1) {
+    const date = new Date(today)
+    date.setDate(today.getDate() - i)
+    const index = days - 1 - i
+    const wave = Math.sin(index / 3) * 18
+    const growth = index * 1.6
+    const installCount = Math.max(18, Math.round(64 + wave + growth + ((index * 7) % 13)))
+    const orders = Math.max(3, Math.round(installCount * 0.11 + ((index * 5) % 4)))
+    const averageOrderRial = 2350000 + ((index * 170000) % 620000)
+
+    installs.push({
+      metric_date: date.toISOString().slice(0, 10),
+      installs: installCount,
+    })
+
+    sales.push({
+      metric_date: date.toISOString().slice(0, 10),
+      orders,
+      total_sales_rial: orders * averageOrderRial,
+    })
+  }
+
+  return { installs, sales }
+}
+
 function AnalyticsTab({ myApps }: { myApps: ReturnType<typeof useStore>['myApps'] }) {
   const supabase = useMemo(() => createClient(), [])
   const publishedApps = myApps.filter((app) => app.status === 'published')
@@ -264,6 +300,11 @@ function AnalyticsTab({ myApps }: { myApps: ReturnType<typeof useStore>['myApps'
 
   const selectedApp = publishedApps.find((app) => app.id === selectedAppId)
   const paymentEnabled = Boolean(selectedApp?.netboxPaymentIntegrated)
+  const demoMetrics = useMemo(() => buildDemoMetrics(range), [range])
+  const usingDemo = !loading && installs.length === 0 && sales.length === 0
+  const visibleInstalls = usingDemo ? demoMetrics.installs : installs
+  const visibleSales = usingDemo ? demoMetrics.sales : sales
+  const visiblePaymentEnabled = paymentEnabled || usingDemo
 
   useEffect(() => {
     if (!selectedAppId && publishedApps[0]?.id) setSelectedAppId(publishedApps[0].id)
@@ -313,23 +354,11 @@ function AnalyticsTab({ myApps }: { myApps: ReturnType<typeof useStore>['myApps'
     void load()
   }, [selectedAppId, range, paymentEnabled, supabase])
 
-  const totalInstalls = installs.reduce((sum, item) => sum + item.installs, 0)
-  const averageDailyInstalls = installs.length ? Math.round(totalInstalls / installs.length) : 0
-  const totalSales = sales.reduce((sum, item) => sum + Number(item.total_sales_rial || 0), 0)
-  const totalOrders = sales.reduce((sum, item) => sum + item.orders, 0)
+  const totalInstalls = visibleInstalls.reduce((sum, item) => sum + item.installs, 0)
+  const averageDailyInstalls = visibleInstalls.length ? Math.round(totalInstalls / visibleInstalls.length) : 0
+  const totalSales = visibleSales.reduce((sum, item) => sum + Number(item.total_sales_rial || 0), 0)
+  const totalOrders = visibleSales.reduce((sum, item) => sum + item.orders, 0)
   const averageOrder = totalOrders ? Math.round(totalSales / totalOrders) : 0
-
-  if (publishedApps.length === 0) {
-    return (
-      <section className="mt-8 rounded-2xl border border-dashed border-border bg-card p-10 text-center">
-        <Activity className="mx-auto size-8 text-muted-foreground" />
-        <h2 className="mt-3 font-bold">آمار و عملکرد</h2>
-        <p className="mt-2 text-sm text-muted-foreground">
-          بعد از انتشار اولین اپ، ترند روزانه نصب و در صورت اتصال Netbox Payment، آمار فروش در این بخش نمایش داده می‌شود.
-        </p>
-      </section>
-    )
-  }
 
   return (
     <section className="mt-8 flex flex-col gap-6">
@@ -341,6 +370,7 @@ function AnalyticsTab({ myApps }: { myApps: ReturnType<typeof useStore>['myApps'
             onChange={(e) => setSelectedAppId(e.target.value)}
             className="mt-1.5 h-10 min-w-64 rounded-md border border-input bg-background px-3 text-sm"
           >
+            {publishedApps.length === 0 && <option value="">اپلیکیشن دمو</option>}
             {publishedApps.map((app) => <option key={app.id} value={app.id}>{app.name}</option>)}
           </select>
         </div>
@@ -362,15 +392,22 @@ function AnalyticsTab({ myApps }: { myApps: ReturnType<typeof useStore>['myApps'
         </div>
       </div>
 
-      {errorMessage && <p role="alert" className="rounded-xl bg-destructive/10 px-4 py-3 text-sm text-destructive">{errorMessage}</p>}
+      {usingDemo && (
+        <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 px-4 py-3 text-sm">
+          <strong>داده نمایشی — Demo</strong>
+          <span className="mr-2 text-muted-foreground">این اعداد واقعی نیستند و فقط برای نمایش ظاهر داشبورد استفاده می‌شوند.</span>
+        </div>
+      )}
+
+      {errorMessage && !usingDemo && <p role="alert" className="rounded-xl bg-destructive/10 px-4 py-3 text-sm text-destructive">{errorMessage}</p>}
 
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <MetricCard label="نصب در بازه" value={installs.length ? toFa(totalInstalls) : '—'} />
-        <MetricCard label="میانگین نصب روزانه" value={installs.length ? toFa(averageDailyInstalls) : '—'} />
-        {paymentEnabled ? (
+        <MetricCard label="نصب در بازه" value={toFa(totalInstalls)} />
+        <MetricCard label="میانگین نصب روزانه" value={toFa(averageDailyInstalls)} />
+        {visiblePaymentEnabled ? (
           <>
-            <MetricCard label="فروش کل" value={sales.length ? formatRial(totalSales) : '—'} />
-            <MetricCard label="تعداد سفارش" value={sales.length ? toFa(totalOrders) : '—'} />
+            <MetricCard label="فروش کل" value={formatRial(totalSales)} />
+            <MetricCard label="تعداد سفارش" value={toFa(totalOrders)} />
           </>
         ) : (
           <>
@@ -384,28 +421,28 @@ function AnalyticsTab({ myApps }: { myApps: ReturnType<typeof useStore>['myApps'
         title="ترند روزانه نصب"
         description="تعداد نصب ثبت‌شده برای هر روز"
         loading={loading}
-        points={installs.map((item) => ({ date: item.metric_date, value: item.installs }))}
+        points={visibleInstalls.map((item) => ({ date: item.metric_date, value: item.installs }))}
         valueFormatter={(value) => toFa(value)}
       />
 
-      {paymentEnabled && (
+      {visiblePaymentEnabled && (
         <>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <MetricCard label="میانگین مبلغ سفارش" value={sales.length && totalOrders ? formatRial(averageOrder) : '—'} />
-            <MetricCard label="وضعیت پرداخت" value="Netbox Payment فعال" />
+            <MetricCard label="میانگین مبلغ سفارش" value={totalOrders ? formatRial(averageOrder) : '—'} />
+            <MetricCard label="وضعیت پرداخت" value={usingDemo ? 'Demo' : 'Netbox Payment فعال'} />
           </div>
           <TrendCard
             title="ترند روزانه فروش اشتراک"
             description="مجموع فروش روزانه ثبت‌شده از Netbox Payment"
             loading={loading}
-            points={sales.map((item) => ({ date: item.metric_date, value: Number(item.total_sales_rial || 0) }))}
+            points={visibleSales.map((item) => ({ date: item.metric_date, value: Number(item.total_sales_rial || 0) }))}
             valueFormatter={formatRial}
           />
           <TrendCard
             title="ترند روزانه سفارش‌ها"
             description="تعداد خریدهای موفق ثبت‌شده در هر روز"
             loading={loading}
-            points={sales.map((item) => ({ date: item.metric_date, value: item.orders }))}
+            points={visibleSales.map((item) => ({ date: item.metric_date, value: item.orders }))}
             valueFormatter={(value) => toFa(value)}
           />
         </>
@@ -533,15 +570,50 @@ function AccountTab({ user }: { user: NonNullable<ReturnType<typeof useStore>['u
 }
 function ReadOnly({ label, value }: { label: string; value: string }) { return <div><Label>{label}</Label><Input value={value} readOnly className="mt-1.5 bg-secondary/50" /></div> }
 function FinanceTab() {
+  const demo = useMemo(() => buildDemoMetrics(30), [])
+  const totalSales = demo.sales.reduce((sum, item) => sum + item.total_sales_rial, 0)
+  const totalOrders = demo.sales.reduce((sum, item) => sum + item.orders, 0)
+  const averageOrder = totalOrders ? Math.round(totalSales / totalOrders) : 0
+  const bestDay = demo.sales.reduce((best, item) => item.total_sales_rial > best.total_sales_rial ? item : best, demo.sales[0])
+
   return (
-    <section className="mt-8 rounded-2xl border border-border bg-card p-6">
-      <div className="flex items-start gap-3">
-        <Wallet className="mt-0.5 size-5 text-primary" />
-        <div>
-          <h2 className="font-bold">آمار مالی</h2>
-          <p className="mt-2 max-w-2xl text-sm leading-7 text-muted-foreground">
-            این بخش هنوز به داده واقعی پرداخت متصل نشده است. تا زمان اتصال به تراکنش‌های واقعی، عدد تخمینی یا ساختگی نمایش داده نمی‌شود.
-          </p>
+    <section className="mt-8 flex flex-col gap-6">
+      <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 px-4 py-3 text-sm">
+        <strong>داده نمایشی — Demo</strong>
+        <span className="mr-2 text-muted-foreground">این بخش هنوز به تسویه و تراکنش واقعی متصل نشده و اعداد زیر فقط برای دمو هستند.</span>
+      </div>
+
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+        <MetricCard label="فروش ۳۰ روز اخیر" value={formatRial(totalSales)} />
+        <MetricCard label="تراکنش موفق" value={toFa(totalOrders)} />
+        <MetricCard label="میانگین سفارش" value={formatRial(averageOrder)} />
+        <MetricCard label="بهترین روز فروش" value={formatRial(bestDay.total_sales_rial)} />
+      </div>
+
+      <TrendCard
+        title="روند فروش ۳۰ روز اخیر"
+        description="فروش روزانه اشتراک — داده نمایشی"
+        loading={false}
+        points={demo.sales.map((item) => ({ date: item.metric_date, value: item.total_sales_rial }))}
+        valueFormatter={formatRial}
+      />
+
+      <div className="grid gap-4 lg:grid-cols-3">
+        <div className="rounded-2xl border border-border bg-card p-5">
+          <Wallet className="size-5 text-primary" />
+          <p className="mt-3 text-xs text-muted-foreground">وضعیت تسویه</p>
+          <p className="mt-1 font-bold">در انتظار اتصال مالی</p>
+          <p className="mt-2 text-xs leading-6 text-muted-foreground">پس از اتصال Backend مالی، مبلغ قابل تسویه و سوابق واقعی اینجا نمایش داده می‌شوند.</p>
+        </div>
+        <div className="rounded-2xl border border-border bg-card p-5">
+          <p className="text-xs text-muted-foreground">فروش امروز</p>
+          <p className="mt-2 text-2xl font-bold">{formatRial(demo.sales.at(-1)?.total_sales_rial || 0)}</p>
+          <p className="mt-2 text-xs text-muted-foreground">داده نمایشی</p>
+        </div>
+        <div className="rounded-2xl border border-border bg-card p-5">
+          <p className="text-xs text-muted-foreground">سفارش امروز</p>
+          <p className="mt-2 text-2xl font-bold">{toFa(demo.sales.at(-1)?.orders || 0)}</p>
+          <p className="mt-2 text-xs text-muted-foreground">داده نمایشی</p>
         </div>
       </div>
     </section>

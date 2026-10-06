@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { buildAppReviewSnapshot } from '@/lib/review-submission'
 
 export async function POST(
   _request: Request,
@@ -15,7 +16,7 @@ export async function POST(
 
   const { data: app, error: readError } = await supabase
     .from('apps')
-    .select('id, owner_id, status, name, tagline, description, category, package_name, apk_path, icon_path, banner_path')
+    .select('*')
     .eq('id', id)
     .eq('owner_id', user.id)
     .maybeSingle()
@@ -60,6 +61,20 @@ export async function POST(
 
   if (error) {
     return NextResponse.json({ error: 'update_failed' }, { status: 500 })
+  }
+
+  const { error: submissionError } = await supabase
+    .from('review_submissions')
+    .insert({
+      app_id: app.id,
+      request_type: 'app',
+      submitted_by: user.id,
+      snapshot: buildAppReviewSnapshot({ ...app, status: 'pending' }),
+      status: 'pending',
+    })
+
+  if (submissionError) {
+    return NextResponse.json({ error: 'submission_snapshot_failed' }, { status: 500 })
   }
 
   return NextResponse.json({ ok: true, app: data })
