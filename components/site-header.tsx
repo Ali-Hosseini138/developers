@@ -83,10 +83,6 @@ export function SiteHeader() {
                   <LayoutDashboard className="size-4" />
                   داشبورد من
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => router.push('/upload')}>
-                  <Plus className="size-4" />
-                  انتشار اپ جدید
-                </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => router.push('/account')}>
                   <Settings className="size-4" />
                   اطلاعات حساب
