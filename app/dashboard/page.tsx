@@ -24,7 +24,7 @@ const tabs = [
 type Tab = (typeof tabs)[number]['id']
 
 export default function DashboardPage() {
-  const { user, myApps, removeApp, tickets, addTicket } = useStore()
+  const { user, myApps, removeApp, submitAppForReview, tickets, addTicket } = useStore()
   const router = useRouter()
   const [tab, setTab] = useState<Tab>('apps')
   const [subject, setSubject] = useState('')
@@ -54,7 +54,7 @@ export default function DashboardPage() {
         {tabs.map(({ id, label, icon: Icon }) => <button key={id} type="button" onClick={() => setTab(id)} className={`flex items-center justify-center gap-2 rounded-xl px-3 py-3 text-sm font-medium transition-colors ${tab === id ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-secondary hover:text-foreground'}`}><Icon className="size-4" />{label}</button>)}
       </div>
 
-      {tab === 'apps' && <AppsTab myApps={myApps} removeApp={removeApp} />}
+      {tab === 'apps' && <AppsTab myApps={myApps} removeApp={removeApp} submitAppForReview={submitAppForReview} />}
       {tab === 'account' && <AccountTab user={user} />}
       {tab === 'finance' && <FinanceTab />}
       {tab === 'growth' && <GrowthTab myApps={myApps} />}
@@ -63,11 +63,13 @@ export default function DashboardPage() {
   )
 }
 
-function AppsTab({ myApps, removeApp }: { myApps: ReturnType<typeof useStore>['myApps']; removeApp: (id: string) => Promise<void> }) {
+function AppsTab({ myApps, removeApp, submitAppForReview }: { myApps: ReturnType<typeof useStore>['myApps']; removeApp: (id: string) => Promise<void>; submitAppForReview: (id: string) => Promise<void> }) {
   const [query, setQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState<'all' | 'draft' | 'pending' | 'published' | 'rejected'>('all')
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null)
   const [deleting, setDeleting] = useState(false)
+  const [submittingId, setSubmittingId] = useState<string | null>(null)
+  const [submitError, setSubmitError] = useState<{ id: string; message: string } | null>(null)
 
   const draftCount = myApps.filter((app) => !app.status || app.status === 'draft').length
   const pendingCount = myApps.filter((app) => app.status === 'pending').length
@@ -111,6 +113,27 @@ function AppsTab({ myApps, removeApp }: { myApps: ReturnType<typeof useStore>['m
       setDeleteTarget(null)
     } finally {
       setDeleting(false)
+    }
+  }
+
+  async function sendForReview(id: string) {
+    if (submittingId) return
+    setSubmittingId(id)
+    setSubmitError(null)
+
+    try {
+      await submitAppForReview(id)
+    } catch (error) {
+      const code = error instanceof Error ? error.message : 'submit_failed'
+      const message =
+        code === 'incomplete_app'
+          ? 'اطلاعات این پیش‌نویس کامل نیست. ابتدا وارد ویرایش شوید و پکیج‌نیم، APK، آیکون، بنر و اطلاعات اصلی را کامل کنید.'
+          : code === 'unauthorized'
+            ? 'نشست ورود شما منقضی شده است. دوباره وارد شوید.'
+            : 'ارسال برای بررسی انجام نشد. دوباره تلاش کنید.'
+      setSubmitError({ id, message })
+    } finally {
+      setSubmittingId(null)
     }
   }
 
@@ -166,11 +189,26 @@ function AppsTab({ myApps, removeApp }: { myApps: ReturnType<typeof useStore>['m
                   </div>
                   <div className="flex flex-wrap items-center gap-2">
                     <Button render={<Link href={`/dashboard/edit/${app.id}`} />} size="sm" variant="outline" className="gap-1"><Pencil className="size-4" />ویرایش اطلاعات</Button>
+                    {(!app.status || app.status === 'draft') && (
+                      <Button
+                        size="sm"
+                        onClick={() => void sendForReview(app.id)}
+                        disabled={submittingId === app.id}
+                      >
+                        {submittingId === app.id ? 'در حال ارسال...' : 'ارسال برای بررسی'}
+                      </Button>
+                    )}
                     {app.status === 'published' && <Button render={<Link href={`/dashboard/version/${app.id}`} />} size="sm" className="gap-1"><Plus className="size-4" />نسخه جدید</Button>}
                     {app.status === 'rejected' && <Button render={<Link href={`/dashboard/edit/${app.id}`} />} size="sm" className="gap-1">اصلاح و ارسال مجدد</Button>}
                     {canDelete && <Button size="sm" variant="ghost" onClick={() => setDeleteTarget(app.id)} className="text-destructive">حذف</Button>}
                   </div>
                 </div>
+
+                {submitError?.id === app.id && (
+                  <p role="alert" className="mt-3 rounded-xl bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                    {submitError.message}
+                  </p>
+                )}
 
                 {deleteTarget === app.id && (
                   <div className="mt-4 flex flex-col gap-3 rounded-xl border border-destructive/30 bg-destructive/5 p-4 sm:flex-row sm:items-center sm:justify-between">
