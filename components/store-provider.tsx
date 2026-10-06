@@ -79,6 +79,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       updated_at: new Date().toISOString(),
     }
 
+    if (patch.packageName !== undefined) {
+      updates.package_name = patch.packageName
+    }
+
     if (patch.iconPath !== undefined) {
       updates.icon_path = patch.iconPath
       updates.icon_url = null
