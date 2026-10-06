@@ -14,6 +14,7 @@ interface StoreContextValue {
   updateProfile: (patch: Pick<User, 'name' | 'phone' | 'nationalId' | 'organization'>) => Promise<void>
   addVersion: (appId: string, apk: { pathname: string; name: string }, packageName: string | undefined, changelog: string) => Promise<void>
   removeApp: (id: string) => Promise<void>
+  submitAppForReview: (id: string) => Promise<void>
   getApp: (id: string) => StoreApp | undefined
   myApps: StoreApp[]
   tickets: SupportTicket[]
@@ -137,6 +138,25 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     if (!data) throw new Error('forbidden_or_missing')
     setApps((prev) => prev.filter((app) => app.id !== id))
   }, [user?.id])
+  const submitAppForReview = useCallback(async (id: string) => {
+    const response = await fetch(`/api/apps/${encodeURIComponent(id)}/submit`, {
+      method: 'POST',
+    })
+
+    const result = await response.json().catch(() => null)
+
+    if (!response.ok) {
+      const error = new Error(result?.error || 'submit_failed') as Error & { missing?: string[] }
+      error.missing = result?.missing
+      throw error
+    }
+
+    setApps((prev) => prev.map((app) => (
+      app.id === id
+        ? { ...app, status: 'pending', updatedAt: 'امروز' }
+        : app
+    )))
+  }, [])
   const getApp = useCallback((id: string) => apps.find((app) => app.id === id), [apps])
   const addTicket = useCallback(async (ticket: Omit<SupportTicket, 'id' | 'createdAt' | 'developer'>) => {
     if (!user?.id) return
@@ -147,7 +167,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const login = useCallback((u: User) => setUser(u), [])
   const logout = useCallback(async () => { await supabase.auth.signOut(); setUser(null) }, [])
   const myApps = useMemo(() => user?.id ? apps.filter((app) => app.ownerId === user.id) : [], [apps, user?.id])
-  const value = useMemo(() => ({ apps, user, addApp, updateApp, updateProfile, addVersion, removeApp, getApp, myApps, tickets, addTicket, login, logout }), [apps, user, addApp, updateApp, updateProfile, addVersion, removeApp, getApp, myApps, tickets, addTicket, login, logout])
+  const value = useMemo(() => ({ apps, user, addApp, updateApp, updateProfile, addVersion, removeApp, submitAppForReview, getApp, myApps, tickets, addTicket, login, logout }), [apps, user, addApp, updateApp, updateProfile, addVersion, removeApp, submitAppForReview, getApp, myApps, tickets, addTicket, login, logout])
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>
 }
 
