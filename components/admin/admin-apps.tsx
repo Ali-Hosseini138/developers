@@ -70,7 +70,7 @@ export function AdminApps({ apps }: { apps: AdminApp[] }) {
                     دانلود {app.apk_name || 'APK'}
                   </a>
                 )}
-                {app.status !== 'published' && (
+                {app.status === 'pending' && (
                   <form action={updateAppStatusAction}>
                     <input type="hidden" name="appId" value={app.id} />
                     <input type="hidden" name="status" value="published" />
@@ -79,7 +79,7 @@ export function AdminApps({ apps }: { apps: AdminApp[] }) {
                     </button>
                   </form>
                 )}
-                {app.status !== 'rejected' && (
+                {app.status === 'pending' && (
                   <form action={updateAppStatusAction}>
                     <input type="hidden" name="appId" value={app.id} />
                     <input type="hidden" name="status" value="rejected" />
@@ -106,14 +106,14 @@ export function AdminApps({ apps }: { apps: AdminApp[] }) {
                         <div className="flex items-center gap-3">
                           <span className="text-xs text-muted-foreground">{statusLabels[version.status] || version.status}</span>
                           {versionApk && <a href={versionApk} className="text-xs font-medium text-primary underline-offset-4 hover:underline">دانلود</a>}
-                          {version.status !== 'published' && (
+                          {version.status === 'pending' && (
                             <form action={updateVersionStatusAction}>
                               <input type="hidden" name="versionId" value={version.id} />
                               <input type="hidden" name="status" value="published" />
                               <button className="text-xs font-medium text-primary underline-offset-4 hover:underline">تأیید نسخه</button>
                             </form>
                           )}
-                          {version.status !== 'rejected' && (
+                          {version.status === 'pending' && (
                             <form action={updateVersionStatusAction}>
                               <input type="hidden" name="versionId" value={version.id} />
                               <input type="hidden" name="status" value="rejected" />
