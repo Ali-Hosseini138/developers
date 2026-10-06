@@ -11,7 +11,7 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { useStore } from '@/components/store-provider'
 import { toFa } from '@/lib/format'
-import { BANNER_SLOTS, INSTALL_CAMPAIGN_CONFIG } from '@/lib/monetization'
+import { BANNER_PLACEMENT, INSTALL_CAMPAIGN_CONFIG } from '@/lib/monetization'
 
 const tabs = [
   { id: 'apps', label: 'داشبورد من', icon: Package },
@@ -221,28 +221,17 @@ function GrowthTab({ myApps }: { myApps: ReturnType<typeof useStore>['myApps'] }
   const [installAppId, setInstallAppId] = useState('')
   const [installCount, setInstallCount] = useState(1000)
   const [bannerAppId, setBannerAppId] = useState('')
-  const [bannerSlotId, setBannerSlotId] = useState('')
   const [bannerMonths, setBannerMonths] = useState(1)
 
   const pricePerInstall = INSTALL_CAMPAIGN_CONFIG.pricePerInstallToman
   const installTotal = pricePerInstall == null ? null : installCount * pricePerInstall
-  const selectedBanner = BANNER_SLOTS.find((slot) => slot.id === bannerSlotId)
-  const bannerTotal =
-    selectedBanner?.monthlyPriceToman == null
-      ? null
-      : selectedBanner.monthlyPriceToman * bannerMonths
-
   const installReady =
     Boolean(installAppId) &&
     installCount >= INSTALL_CAMPAIGN_CONFIG.minInstalls &&
     installCount <= INSTALL_CAMPAIGN_CONFIG.maxInstalls &&
     pricePerInstall != null
 
-  const bannerReady =
-    Boolean(bannerAppId) &&
-    Boolean(selectedBanner) &&
-    bannerMonths >= 1 &&
-    selectedBanner?.monthlyPriceToman != null
+  const bannerReady = Boolean(bannerAppId) && bannerMonths >= 1
 
   if (publishedApps.length === 0) {
     return (
@@ -318,7 +307,12 @@ function GrowthTab({ myApps }: { myApps: ReturnType<typeof useStore>['myApps'] }
             </p>
           )}
 
-          <Button disabled={!installReady}>ادامه به پرداخت</Button>
+          <Button disabled>
+            ادامه به پرداخت
+          </Button>
+          <p className="text-center text-xs text-muted-foreground">
+            مبلغ کمپین محاسبه می‌شود؛ اتصال درگاه پرداخت در مرحله بعد انجام می‌شود.
+          </p>
         </div>
       </div>
 
@@ -330,7 +324,7 @@ function GrowthTab({ myApps }: { myApps: ReturnType<typeof useStore>['myApps'] }
           <div>
             <h2 className="font-bold">رزرو بنر نت‌استور</h2>
             <p className="mt-1 text-sm text-muted-foreground">
-              جایگاه بنر و مدت نمایش را به‌صورت ماهانه انتخاب کنید.
+              این جایگاه به‌صورت ماهانه رزرو می‌شود و هم‌زمان در سه سطح اصلی نت‌باکس و نت‌استور نمایش داده می‌شود.
             </p>
           </div>
         </div>
@@ -350,15 +344,15 @@ function GrowthTab({ myApps }: { myApps: ReturnType<typeof useStore>['myApps'] }
 
           <div>
             <Label>جایگاه بنر</Label>
-            <select
-              value={bannerSlotId}
-              onChange={(e) => setBannerSlotId(e.target.value)}
-              className="mt-1.5 h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
-            >
-              <option value="">انتخاب جایگاه</option>
-              {BANNER_SLOTS.map((slot) => <option key={slot.id} value={slot.id}>{slot.title}</option>)}
-            </select>
-            {selectedBanner && <p className="mt-1.5 text-xs text-muted-foreground">{selectedBanner.description}</p>}
+            <div className="mt-1.5 rounded-xl border border-border bg-secondary/40 p-4">
+              <p className="font-medium">{BANNER_PLACEMENT.title}</p>
+              <p className="mt-1 text-xs leading-6 text-muted-foreground">{BANNER_PLACEMENT.description}</p>
+              <ul className="mt-3 flex flex-col gap-1.5 text-sm">
+                {BANNER_PLACEMENT.surfaces.map((surface) => (
+                  <li key={surface}>• {surface}</li>
+                ))}
+              </ul>
+            </div>
           </div>
 
           <div>
@@ -375,26 +369,24 @@ function GrowthTab({ myApps }: { myApps: ReturnType<typeof useStore>['myApps'] }
             </select>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <div className="rounded-xl bg-secondary/60 p-4">
-              <p className="text-xs text-muted-foreground">قیمت ماهانه</p>
-              <p className="mt-1 font-bold">
-                {selectedBanner?.monthlyPriceToman == null ? 'تعیین نشده' : formatToman(selectedBanner.monthlyPriceToman)}
-              </p>
-            </div>
-            <div className="rounded-xl bg-secondary/60 p-4">
-              <p className="text-xs text-muted-foreground">مبلغ کل</p>
-              <p className="mt-1 font-bold">{bannerTotal == null ? '—' : formatToman(bannerTotal)}</p>
-            </div>
+          <div className="rounded-xl bg-secondary/60 p-4">
+            <p className="text-xs text-muted-foreground">قیمت رزرو</p>
+            <p className="mt-1 font-bold">برای دریافت قیمت تماس بگیرید</p>
+            <a
+              href={`tel:${BANNER_PLACEMENT.contactPhone}`}
+              dir="ltr"
+              className="mt-2 inline-block text-sm font-medium text-primary underline-offset-4 hover:underline"
+            >
+              {BANNER_PLACEMENT.contactPhone}
+            </a>
           </div>
 
-          {selectedBanner && selectedBanner.monthlyPriceToman == null && (
-            <p className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-3 text-sm">
-              قیمت ماهانه این جایگاه هنوز در تنظیمات نت‌استور وارد نشده است.
-            </p>
-          )}
-
-          <Button disabled={!bannerReady}>ادامه به پرداخت</Button>
+          <Button
+            render={<a href={`tel:${BANNER_PLACEMENT.contactPhone}`} />}
+            disabled={!bannerReady}
+          >
+            تماس برای رزرو
+          </Button>
         </div>
       </div>
     </section>
