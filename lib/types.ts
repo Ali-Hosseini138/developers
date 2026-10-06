@@ -62,6 +62,8 @@ export interface StoreApp {
   netboxPaymentIntegrated?: boolean
   developedForAndroidTv?: boolean
   airMouseCompatible?: boolean
+  reviewReason?: string
+  reviewedAt?: string
 }
 
 export interface User {
