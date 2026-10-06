@@ -3,7 +3,7 @@
 import { Suspense, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
-import { Loader2 } from 'lucide-react'
+import { Eye, EyeOff, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -25,6 +25,7 @@ function AuthFormInner({ mode }: { mode: 'login' | 'signup' }) {
   const [phone, setPhone] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
   const [errorMessage, setErrorMessage] = useState('')
   const [successMessage, setSuccessMessage] = useState('')
@@ -164,13 +165,26 @@ function AuthFormInner({ mode }: { mode: 'login' | 'signup' }) {
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="password">رمز عبور</Label>
           <div className="relative">
-            <Input id="password" type="password" dir="ltr" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" minLength={6} className="text-start" required />
+            <Input id="password" type={showPassword ? 'text' : 'password'} dir="ltr" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" minLength={6} className="pe-10 text-start" required />
+            <button
+              type="button"
+              onClick={() => setShowPassword((value) => !value)}
+              aria-label={showPassword ? 'پنهان کردن رمز عبور' : 'نمایش رمز عبور'}
+              className="absolute end-2 top-1/2 -translate-y-1/2 rounded-md p-1 text-muted-foreground hover:text-foreground"
+            >
+              {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+            </button>
           </div>
         </div>
 
         {registered && !isSignup && <p role="status" className="rounded-lg bg-accent/20 px-3 py-2 text-sm text-accent-foreground">ثبت‌نام انجام شد. اگر تأیید ایمیل فعال است، ابتدا ایمیل خود را تأیید کنید.</p>}
         {errorMessage && <p role="alert" className="rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive">{errorMessage}</p>}
-        {successMessage && <p role="status" className="rounded-lg bg-accent/20 px-3 py-2 text-sm text-accent-foreground">{successMessage}</p>}
+        {successMessage && (
+          <div role="status" className="rounded-lg bg-accent/20 px-3 py-3 text-sm text-accent-foreground">
+            <p>{successMessage}</p>
+            {isSignup && <Link href="/login" className="mt-2 inline-block font-semibold text-primary underline-offset-4 hover:underline">بعد از تأیید ایمیل، وارد شوید</Link>}
+          </div>
+        )}
 
         <Button type="submit" size="lg" disabled={loading} className="mt-2 gap-2">
           {loading && <Loader2 className="size-4 animate-spin" />}

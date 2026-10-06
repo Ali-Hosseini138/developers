@@ -9,7 +9,7 @@ import { formatDownloads } from '@/lib/format'
 
 export function FeaturedApps() {
   const { apps } = useStore()
-  const featured = apps.filter((a) => a.featured).slice(0, 3)
+  const featured = apps.filter((a) => a.featured && (!a.status || a.status === 'published')).slice(0, 3)
 
   if (featured.length === 0) return null
 

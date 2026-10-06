@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { LayoutDashboard, LogOut, Plus, User as UserIcon } from 'lucide-react'
+import { LayoutDashboard, LogOut, Plus, Settings, User as UserIcon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
@@ -18,7 +18,8 @@ import { useStore } from '@/components/store-provider'
 import { cn } from '@/lib/utils'
 
 const navLinks = [
-  { href: '/', label: 'فروشگاه' },
+  { href: '/', label: 'خانه' },
+  { href: '/integrations', label: 'راهنمای فنی' },
   { href: '/dashboard', label: 'داشبورد من' },
 ]
 
@@ -41,7 +42,7 @@ export function SiteHeader() {
               href={link.href}
               className={cn(
                 'rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground',
-                pathname === link.href && 'bg-secondary text-foreground',
+                (link.href === '/' ? pathname === '/' : pathname.startsWith(link.href)) && 'bg-secondary text-foreground',
               )}
             >
               {link.label}
@@ -59,7 +60,7 @@ export function SiteHeader() {
 
           {user ? (
             <DropdownMenu>
-              <DropdownMenuTrigger onClick={() => router.push('/account')} className="rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring" aria-label="مشاهده اطلاعات کاربری">
+              <DropdownMenuTrigger className="rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring" aria-label="باز کردن منوی حساب کاربری">
                 <Avatar className="size-9 border border-border">
                   <AvatarFallback className="bg-secondary text-sm font-semibold">
                     {user.name.charAt(0)}
@@ -86,11 +87,14 @@ export function SiteHeader() {
                   <Plus className="size-4" />
                   انتشار اپ جدید
                 </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => router.push('/account')}>
+                  <Settings className="size-4" />
+                  اطلاعات حساب
+                </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
                   onClick={() => {
-                    logout()
-                    router.push('/')
+                    void logout().finally(() => router.push('/'))
                   }}
                   variant="destructive"
                 >

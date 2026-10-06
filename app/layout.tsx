@@ -18,10 +18,9 @@ const jetbrainsMono = JetBrains_Mono({
 })
 
 export const metadata: Metadata = {
-  title: 'نت‌استور — فروشگاه نرم‌افزار توسعه‌دهندگان',
+  title: 'پنل توسعه‌دهندگان نت‌استور',
   description:
-    'نت‌استور، بازارچه‌ای برای توسعه‌دهندگان ایرانی که اپلیکیشن‌ها و ابزارهای خود را منتشر، معرفی و به اشتراک می‌گذارند.',
-  generator: 'v0.app',
+    'پنل توسعه‌دهندگان نت‌استور برای ثبت، بررسی، انتشار و مدیریت اپلیکیشن‌های Android TV.',
 }
 
 export const viewport: Viewport = {

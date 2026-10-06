@@ -24,13 +24,16 @@ const tabs = [
 type Tab = (typeof tabs)[number]['id']
 
 export default function DashboardPage() {
-  const { user, myApps, removeApp, tickets, addTicket } = useStore()
+  const { user, authReady, myApps, removeApp, submitAppForReview, tickets, addTicket } = useStore()
   const router = useRouter()
   const [tab, setTab] = useState<Tab>('apps')
   const [subject, setSubject] = useState('')
   const [message, setMessage] = useState('')
+  const [ticketSending, setTicketSending] = useState(false)
+  const [ticketError, setTicketError] = useState('')
 
-  useEffect(() => { if (!user) router.replace('/login?next=/dashboard') }, [user, router])
+  useEffect(() => { if (authReady && !user) router.replace('/login?next=/dashboard') }, [authReady, user, router])
+  if (!authReady) return <PageLoading />
   if (!user) return null
   const currentUser = user
 
@@ -38,9 +41,18 @@ export default function DashboardPage() {
 
   async function submitTicket(e: React.FormEvent) {
     e.preventDefault()
-    if (!subject.trim() || !message.trim()) return
-    await addTicket({ subject: subject.trim(), message: message.trim(), status: 'open' })
-    setSubject(''); setMessage('')
+    if (!subject.trim() || !message.trim() || ticketSending) return
+    setTicketSending(true)
+    setTicketError('')
+    try {
+      await addTicket({ subject: subject.trim(), message: message.trim(), status: 'open' })
+      setSubject('')
+      setMessage('')
+    } catch {
+      setTicketError('ارسال تیکت انجام نشد. دوباره تلاش کنید.')
+    } finally {
+      setTicketSending(false)
+    }
   }
 
   return (
@@ -50,24 +62,26 @@ export default function DashboardPage() {
         <Button render={<Link href="/upload" />} className="gap-1.5"><Plus className="size-4" />انتشار اپ جدید</Button>
       </div>
 
-      <div className="mt-8 grid gap-2 rounded-2xl border border-border bg-card p-2 sm:grid-cols-5">
-        {tabs.map(({ id, label, icon: Icon }) => <button key={id} type="button" onClick={() => setTab(id)} className={`flex items-center justify-center gap-2 rounded-xl px-3 py-3 text-sm font-medium transition-colors ${tab === id ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-secondary hover:text-foreground'}`}><Icon className="size-4" />{label}</button>)}
+      <div className="mt-8 flex gap-2 overflow-x-auto rounded-2xl border border-border bg-card p-2 sm:grid sm:grid-cols-5">
+        {tabs.map(({ id, label, icon: Icon }) => <button key={id} type="button" onClick={() => setTab(id)} className={`flex shrink-0 items-center justify-center gap-2 rounded-xl px-3 py-3 text-sm font-medium transition-colors sm:shrink ${tab === id ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-secondary hover:text-foreground'}`}><Icon className="size-4" />{label}</button>)}
       </div>
 
-      {tab === 'apps' && <AppsTab myApps={myApps} removeApp={removeApp} />}
+      {tab === 'apps' && <AppsTab myApps={myApps} removeApp={removeApp} submitAppForReview={submitAppForReview} />}
       {tab === 'account' && <AccountTab user={user} />}
       {tab === 'finance' && <FinanceTab />}
       {tab === 'growth' && <GrowthTab myApps={myApps} />}
-      {tab === 'support' && <SupportTab subject={subject} message={message} setSubject={setSubject} setMessage={setMessage} submitTicket={submitTicket} tickets={myTickets} />}
+      {tab === 'support' && <SupportTab subject={subject} message={message} setSubject={setSubject} setMessage={setMessage} submitTicket={submitTicket} tickets={myTickets} sending={ticketSending} errorMessage={ticketError} />}
     </main>
   )
 }
 
-function AppsTab({ myApps, removeApp }: { myApps: ReturnType<typeof useStore>['myApps']; removeApp: (id: string) => Promise<void> }) {
+function AppsTab({ myApps, removeApp, submitAppForReview }: { myApps: ReturnType<typeof useStore>['myApps']; removeApp: (id: string) => Promise<void>; submitAppForReview: (id: string) => Promise<void> }) {
   const [query, setQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState<'all' | 'draft' | 'pending' | 'published' | 'rejected'>('all')
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null)
   const [deleting, setDeleting] = useState(false)
+  const [submittingId, setSubmittingId] = useState<string | null>(null)
+  const [submitError, setSubmitError] = useState<{ id: string; message: string } | null>(null)
 
   const draftCount = myApps.filter((app) => !app.status || app.status === 'draft').length
   const pendingCount = myApps.filter((app) => app.status === 'pending').length
@@ -114,6 +128,27 @@ function AppsTab({ myApps, removeApp }: { myApps: ReturnType<typeof useStore>['m
     }
   }
 
+  async function sendForReview(id: string) {
+    if (submittingId) return
+    setSubmittingId(id)
+    setSubmitError(null)
+
+    try {
+      await submitAppForReview(id)
+    } catch (error) {
+      const code = error instanceof Error ? error.message : 'submit_failed'
+      const message =
+        code === 'incomplete_app'
+          ? 'اطلاعات این پیش‌نویس کامل نیست. ابتدا وارد ویرایش شوید و پکیج‌نیم، APK، آیکون، بنر و اطلاعات اصلی را کامل کنید.'
+          : code === 'unauthorized'
+            ? 'نشست ورود شما منقضی شده است. دوباره وارد شوید.'
+            : 'ارسال برای بررسی انجام نشد. دوباره تلاش کنید.'
+      setSubmitError({ id, message })
+    } finally {
+      setSubmittingId(null)
+    }
+  }
+
   return <>
     <div className="mt-8 grid grid-cols-2 gap-4 lg:grid-cols-5">
       <StatCard icon={<Package className="size-5" />} value={toFa(myApps.length)} label="کل اپ‌ها" />
@@ -144,7 +179,7 @@ function AppsTab({ myApps, removeApp }: { myApps: ReturnType<typeof useStore>['m
         </div>
       </div>
 
-      {filteredApps.length ? (
+      {myApps.length === 0 ? <EmptyApps /> : filteredApps.length ? (
         <div className="mt-4 flex flex-col gap-3">
           {filteredApps.map((app) => {
             const canDelete = !app.status || app.status === 'draft' || app.status === 'rejected'
@@ -165,12 +200,29 @@ function AppsTab({ myApps, removeApp }: { myApps: ReturnType<typeof useStore>['m
                     <p className="mt-2 text-xs">{statusHelp(app.status)}</p>
                   </div>
                   <div className="flex flex-wrap items-center gap-2">
-                    <Button render={<Link href={`/dashboard/edit/${app.id}`} />} size="sm" variant="outline" className="gap-1"><Pencil className="size-4" />ویرایش اطلاعات</Button>
+                    {app.status !== 'pending' && (
+                      <Button render={<Link href={`/dashboard/edit/${app.id}`} />} size="sm" variant="outline" className="gap-1"><Pencil className="size-4" />ویرایش اطلاعات</Button>
+                    )}
+                    {(!app.status || app.status === 'draft') && (
+                      <Button
+                        size="sm"
+                        onClick={() => void sendForReview(app.id)}
+                        disabled={submittingId === app.id}
+                      >
+                        {submittingId === app.id ? 'در حال ارسال...' : 'ارسال برای بررسی'}
+                      </Button>
+                    )}
                     {app.status === 'published' && <Button render={<Link href={`/dashboard/version/${app.id}`} />} size="sm" className="gap-1"><Plus className="size-4" />نسخه جدید</Button>}
                     {app.status === 'rejected' && <Button render={<Link href={`/dashboard/edit/${app.id}`} />} size="sm" className="gap-1">اصلاح و ارسال مجدد</Button>}
                     {canDelete && <Button size="sm" variant="ghost" onClick={() => setDeleteTarget(app.id)} className="text-destructive">حذف</Button>}
                   </div>
                 </div>
+
+                {submitError?.id === app.id && (
+                  <p role="alert" className="mt-3 rounded-xl bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                    {submitError.message}
+                  </p>
+                )}
 
                 {deleteTarget === app.id && (
                   <div className="mt-4 flex flex-col gap-3 rounded-xl border border-destructive/30 bg-destructive/5 p-4 sm:flex-row sm:items-center sm:justify-between">
@@ -193,7 +245,25 @@ function AppsTab({ myApps, removeApp }: { myApps: ReturnType<typeof useStore>['m
   </>
 }
 
-function AccountTab({ user }: { user: NonNullable<ReturnType<typeof useStore>['user']> }) { return <section className="mt-8 max-w-2xl rounded-2xl border border-border bg-card p-6"><div className="mb-6 flex items-center gap-3"><UserRound className="size-5 text-primary" /><div><h2 className="font-bold">اطلاعات حساب کاربری</h2><p className="text-sm text-muted-foreground">اطلاعات ثبت‌شده توسعه‌دهنده</p></div></div><div className="grid gap-5 sm:grid-cols-2"><ReadOnly label="نام یا سازمان" value={user.name} /><ReadOnly label="ایمیل" value={user.email} /><ReadOnly label="شماره تلفن" value={user.phone || 'ثبت نشده'} /><ReadOnly label="کد ملی" value={user.nationalId || 'ثبت نشده'} /></div></section> }
+function AccountTab({ user }: { user: NonNullable<ReturnType<typeof useStore>['user']> }) {
+  return (
+    <section className="mt-8 max-w-2xl rounded-2xl border border-border bg-card p-6">
+      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-center gap-3">
+          <UserRound className="size-5 text-primary" />
+          <div><h2 className="font-bold">اطلاعات حساب کاربری</h2><p className="text-sm text-muted-foreground">اطلاعات ثبت‌شده توسعه‌دهنده</p></div>
+        </div>
+        <Button render={<Link href="/account" />} size="sm" variant="outline">ویرایش اطلاعات</Button>
+      </div>
+      <div className="grid gap-5 sm:grid-cols-2">
+        <ReadOnly label="نام یا سازمان" value={user.name} />
+        <ReadOnly label="ایمیل" value={user.email} />
+        <ReadOnly label="شماره تلفن" value={user.phone || 'ثبت نشده'} />
+        <ReadOnly label="کد ملی" value={user.nationalId || 'ثبت نشده'} />
+      </div>
+    </section>
+  )
+}
 function ReadOnly({ label, value }: { label: string; value: string }) { return <div><Label>{label}</Label><Input value={value} readOnly className="mt-1.5 bg-secondary/50" /></div> }
 function FinanceTab() {
   return (
@@ -276,7 +346,7 @@ function GrowthTab({ myApps }: { myApps: ReturnType<typeof useStore>['myApps'] }
               max={INSTALL_CAMPAIGN_CONFIG.maxInstalls}
               step={INSTALL_CAMPAIGN_CONFIG.step}
               value={installCount}
-              onChange={(e) => setInstallCount(Number(e.target.value || 0))}
+              onChange={(e) => setInstallCount(Math.max(0, Number(e.target.value || 0)))}
               className="mt-1.5"
             />
             <p className="mt-1.5 text-xs text-muted-foreground">
@@ -387,6 +457,7 @@ function GrowthTab({ myApps }: { myApps: ReturnType<typeof useStore>['myApps'] }
   )
 }
 
-function SupportTab({ subject, message, setSubject, setMessage, submitTicket, tickets }: { subject: string; message: string; setSubject: (v: string) => void; setMessage: (v: string) => void; submitTicket: (e: React.FormEvent) => void; tickets: ReturnType<typeof useStore>['tickets'] }) { return <section className="mt-8 grid gap-6 lg:grid-cols-[0.9fr_1.1fr]"><form onSubmit={submitTicket} className="rounded-2xl border border-border bg-card p-6"><div className="flex items-center gap-3"><FileText className="size-5 text-primary" /><div><h2 className="font-bold">ارسال تیکت جدید</h2><p className="text-sm text-muted-foreground">پیام شما به تیم نت‌استور ارسال می‌شود</p></div></div><div className="mt-6 flex flex-col gap-4"><div><Label htmlFor="ticket-subject">موضوع</Label><Input id="ticket-subject" value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="مثلاً مشکل در انتشار نسخه جدید" className="mt-1.5" /></div><div><Label htmlFor="ticket-message">توضیحات</Label><Textarea id="ticket-message" value={message} onChange={(e) => setMessage(e.target.value)} placeholder="مشکل یا درخواست خود را توضیح دهید..." className="mt-1.5 min-h-32" /></div><Button type="submit" className="gap-2"><Ticket className="size-4" />ارسال به تیم پشتیبانی</Button></div></form><div className="rounded-2xl border border-border bg-card p-6"><h2 className="font-bold">تیکت‌های من</h2><div className="mt-4 flex flex-col gap-3">{tickets.length ? tickets.map((ticket) => <div key={ticket.id} className="rounded-xl border border-border p-4"><div className="flex items-center justify-between gap-3"><h3 className="font-medium">{ticket.subject}</h3><Badge variant={ticket.status === 'open' ? 'secondary' : 'outline'}>{ticket.status === 'open' ? 'در انتظار پاسخ' : ticket.status === 'answered' ? 'پاسخ داده شد' : 'بسته‌شده'}</Badge></div><p className="mt-2 text-sm leading-7 text-muted-foreground">{ticket.message}</p><p className="mt-2 text-xs text-muted-foreground">{ticket.createdAt}</p></div>) : <p className="py-12 text-center text-sm text-muted-foreground">هنوز تیکتی ثبت نکرده‌اید.</p>}</div></div></section> }
-function EmptyApps() { return <div className="flex flex-col items-center gap-4 rounded-2xl border border-dashed border-border py-16 text-center"><Package className="size-8 text-muted-foreground" /><p className="font-medium">هنوز اپی منتشر نکرده‌اید</p><Button render={<Link href="/upload" />} className="gap-1"><Plus className="size-4" />انتشار اولین اپ</Button></div> }
+function SupportTab({ subject, message, setSubject, setMessage, submitTicket, tickets, sending, errorMessage }: { subject: string; message: string; setSubject: (v: string) => void; setMessage: (v: string) => void; submitTicket: (e: React.FormEvent) => void; tickets: ReturnType<typeof useStore>['tickets']; sending: boolean; errorMessage: string }) { return <section className="mt-8 grid gap-6 lg:grid-cols-[0.9fr_1.1fr]"><form onSubmit={submitTicket} className="rounded-2xl border border-border bg-card p-6"><div className="flex items-center gap-3"><FileText className="size-5 text-primary" /><div><h2 className="font-bold">ارسال تیکت جدید</h2><p className="text-sm text-muted-foreground">پیام شما به تیم نت‌استور ارسال می‌شود</p></div></div><div className="mt-6 flex flex-col gap-4"><div><Label htmlFor="ticket-subject">موضوع</Label><Input id="ticket-subject" value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="مثلاً مشکل در انتشار نسخه جدید" className="mt-1.5" /></div><div><Label htmlFor="ticket-message">توضیحات</Label><Textarea id="ticket-message" value={message} onChange={(e) => setMessage(e.target.value)} placeholder="مشکل یا درخواست خود را توضیح دهید..." className="mt-1.5 min-h-32" /></div>{errorMessage && <p role="alert" className="rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive">{errorMessage}</p>}<Button type="submit" className="gap-2" disabled={sending || !subject.trim() || !message.trim()}><Ticket className="size-4" />{sending ? 'در حال ارسال...' : 'ارسال به تیم پشتیبانی'}</Button></div></form><div className="rounded-2xl border border-border bg-card p-6"><h2 className="font-bold">تیکت‌های من</h2><div className="mt-4 flex flex-col gap-3">{tickets.length ? tickets.map((ticket) => <div key={ticket.id} className="rounded-xl border border-border p-4"><div className="flex items-center justify-between gap-3"><h3 className="font-medium">{ticket.subject}</h3><Badge variant={ticket.status === 'open' ? 'secondary' : 'outline'}>{ticket.status === 'open' ? 'در انتظار پاسخ' : ticket.status === 'answered' ? 'پاسخ داده شد' : 'بسته‌شده'}</Badge></div><p className="mt-2 text-sm leading-7 text-muted-foreground">{ticket.message}</p><p className="mt-2 text-xs text-muted-foreground">{ticket.createdAt}</p></div>) : <p className="py-12 text-center text-sm text-muted-foreground">هنوز تیکتی ثبت نکرده‌اید.</p>}</div></div></section> }
+function EmptyApps() { return <div className="mt-4 flex flex-col items-center gap-4 rounded-2xl border border-dashed border-border py-16 text-center"><Package className="size-8 text-muted-foreground" /><div><p className="font-medium">هنوز اپلیکیشنی ثبت نکرده‌اید</p><p className="mt-1 text-sm text-muted-foreground">اولین اپ را اضافه کنید تا وضعیت بررسی و انتشار آن را از همین داشبورد دنبال کنید.</p></div><Button render={<Link href="/upload" />} className="gap-1"><Plus className="size-4" />ثبت اولین اپ</Button></div> }
+function PageLoading() { return <main className="mx-auto flex min-h-[40vh] max-w-6xl items-center justify-center px-4 py-10"><span className="text-sm text-muted-foreground">در حال بارگذاری حساب...</span></main> }
 function StatCard({ icon, value, label }: { icon: React.ReactNode; value: string; label: string }) { return <div className="rounded-2xl border border-border bg-card p-5"><span className="flex size-10 items-center justify-center rounded-xl bg-primary/10 text-primary">{icon}</span><p className="mt-3 text-2xl font-bold">{value}</p><p className="mt-0.5 text-xs text-muted-foreground">{label}</p></div> }

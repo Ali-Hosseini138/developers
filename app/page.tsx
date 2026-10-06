@@ -19,7 +19,8 @@ export default function HomePage() {
             <h1 className="mt-4 text-balance text-4xl font-bold tracking-tight sm:text-6xl">اپلیکیشن شما، در خانه کاربران تلویزیونی</h1>
             <p className="mt-6 max-w-xl text-pretty text-base leading-8 text-muted-foreground sm:text-lg">نت‌استور تنها فروشگاه نرم‌افزاری اختصاصی اندروید تی‌وی است؛ جایی برای دیده‌شدن اپلیکیشن شما توسط کاربران تلویزیون و اندروید باکس.</p>
             <div className="mt-8 flex flex-wrap gap-3">
-              <Button render={<Link href="/guide" />} size="lg" variant="outline">راهنمای انتشار<ArrowLeft className="size-4" /></Button>
+              <Button render={<Link href="/upload" />} size="lg">انتشار اپلیکیشن<ArrowLeft className="size-4" /></Button>
+              <Button render={<Link href="/guide" />} size="lg" variant="outline">راهنمای انتشار</Button>
             </div>
             <p className="mt-6 max-w-xl text-sm font-medium leading-7 text-primary">اپلیکیشن‌تان را در نت‌استور منتشر کنید و مسیر رسیدن به کاربران واقعی Android TV را کوتاه‌تر کنید.</p>
           </div>
