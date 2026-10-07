@@ -11,16 +11,16 @@ import { Input } from '@/components/ui/input'
 type AdminStat = { label: string; value: number }
 
 const PARTNERS = [
-  { id: 'filimo', name: 'فیلیمو', netboxDaily: 182, publicDaily: 71, salesDaily: 34 },
-  { id: 'filmnet', name: 'فیلم‌نت', netboxDaily: 164, publicDaily: 64, salesDaily: 29 },
-  { id: 'shida', name: 'شیدا', netboxDaily: 92, publicDaily: 41, salesDaily: 15 },
-  { id: 'gymshow', name: 'جیم‌شو', netboxDaily: 54, publicDaily: 28, salesDaily: 8 },
-  { id: 'appetit', name: 'اپتیت', netboxDaily: 43, publicDaily: 25, salesDaily: 6 },
-  { id: 'namava', name: 'نماوا', netboxDaily: 151, publicDaily: 59, salesDaily: 27 },
-  { id: 'gapfilm', name: 'گپ‌فیلم', netboxDaily: 83, publicDaily: 38, salesDaily: 13 },
-  { id: 'tantan', name: 'تن‌تن', netboxDaily: 48, publicDaily: 24, salesDaily: 7 },
-  { id: 'dramaqueen', name: 'دراما کوئین', netboxDaily: 77, publicDaily: 36, salesDaily: 12 },
-  { id: 'popcorn', name: 'پاپ‌کورن', netboxDaily: 68, publicDaily: 31, salesDaily: 10 },
+  { id: 'filimo', name: 'فیلیمو', netboxDaily: 182, publicDaily: 71, plans: [18, 9, 4, 3] },
+  { id: 'filmnet', name: 'فیلم‌نت', netboxDaily: 164, publicDaily: 64, plans: [15, 8, 4, 2] },
+  { id: 'shida', name: 'شیدا', netboxDaily: 92, publicDaily: 41, plans: [8, 4, 2, 1] },
+  { id: 'gymshow', name: 'جیم‌شو', netboxDaily: 54, publicDaily: 28, plans: [4, 2, 1, 1] },
+  { id: 'appetit', name: 'اپتیت', netboxDaily: 43, publicDaily: 25, plans: [3, 2, 1, 0.5] },
+  { id: 'namava', name: 'نماوا', netboxDaily: 151, publicDaily: 59, plans: [14, 7, 4, 2] },
+  { id: 'gapfilm', name: 'گپ‌فیلم', netboxDaily: 83, publicDaily: 38, plans: [7, 3, 2, 1] },
+  { id: 'tantan', name: 'تن‌تن', netboxDaily: 48, publicDaily: 24, plans: [4, 2, 1, 0.5] },
+  { id: 'dramaqueen', name: 'دراما کوئین', netboxDaily: 77, publicDaily: 36, plans: [6, 3, 2, 1] },
+  { id: 'popcorn', name: 'پاپ‌کورن', netboxDaily: 68, publicDaily: 31, plans: [5, 3, 1.5, 0.5] },
 ] as const
 
 type RangePreset = 7 | 30 | 90 | 180 | 'custom'
@@ -100,12 +100,20 @@ function PartnerAnalytics() {
   const rows = useMemo(() => PARTNERS.map((partner, index) => {
     const netbox = demoMetric(partner.netboxDaily, days, index + 1)
     const publicStore = demoMetric(partner.publicDaily, days, index + 7)
-    const subscriptionSales = demoMetric(partner.salesDaily, days, index + 13)
+    const oneMonth = demoMetric(partner.plans[0], days, index + 13)
+    const threeMonth = demoMetric(partner.plans[1], days, index + 17)
+    const sixMonth = demoMetric(partner.plans[2], days, index + 21)
+    const oneYear = demoMetric(partner.plans[3], days, index + 25)
+    const subscriptionSales = oneMonth + threeMonth + sixMonth + oneYear
     return {
       ...partner,
       netbox,
       publicStore,
       totalInstalls: netbox + publicStore,
+      oneMonth,
+      threeMonth,
+      sixMonth,
+      oneYear,
       subscriptionSales,
     }
   }), [days])
@@ -114,8 +122,12 @@ function PartnerAnalytics() {
     netbox: acc.netbox + row.netbox,
     publicStore: acc.publicStore + row.publicStore,
     totalInstalls: acc.totalInstalls + row.totalInstalls,
+    oneMonth: acc.oneMonth + row.oneMonth,
+    threeMonth: acc.threeMonth + row.threeMonth,
+    sixMonth: acc.sixMonth + row.sixMonth,
+    oneYear: acc.oneYear + row.oneYear,
     subscriptionSales: acc.subscriptionSales + row.subscriptionSales,
-  }), { netbox: 0, publicStore: 0, totalInstalls: 0, subscriptionSales: 0 })
+  }), { netbox: 0, publicStore: 0, totalInstalls: 0, oneMonth: 0, threeMonth: 0, sixMonth: 0, oneYear: 0, subscriptionSales: 0 })
 
   return (
     <section className="flex flex-col gap-6">
@@ -173,7 +185,14 @@ function PartnerAnalytics() {
         <PartnerKpi icon={<Store className="size-5" />} label="نصب نت‌استور نت‌باکس" value={totals.netbox} />
         <PartnerKpi icon={<Activity className="size-5" />} label="نصب نت‌استور پابلیک" value={totals.publicStore} />
         <PartnerKpi icon={<PackageCheck className="size-5" />} label="مجموع نصب" value={totals.totalInstalls} />
-        <PartnerKpi icon={<ShoppingCart className="size-5" />} label="فروش اشتراک" value={totals.subscriptionSales} />
+        <PartnerKpi icon={<ShoppingCart className="size-5" />} label="کل فروش اشتراک" value={totals.subscriptionSales} />
+      </div>
+
+      <div className="grid grid-cols-2 gap-4 xl:grid-cols-4">
+        <PartnerKpi icon={<ShoppingCart className="size-5" />} label="اشتراک ۱ ماهه" value={totals.oneMonth} />
+        <PartnerKpi icon={<ShoppingCart className="size-5" />} label="اشتراک ۳ ماهه" value={totals.threeMonth} />
+        <PartnerKpi icon={<ShoppingCart className="size-5" />} label="اشتراک ۶ ماهه" value={totals.sixMonth} />
+        <PartnerKpi icon={<ShoppingCart className="size-5" />} label="اشتراک ۱ ساله" value={totals.oneYear} />
       </div>
 
       <div className="overflow-hidden rounded-2xl border border-border bg-card">
@@ -189,7 +208,11 @@ function PartnerAnalytics() {
                 <th className="px-5 py-3 text-right font-medium">نصب نت‌استور نت‌باکس</th>
                 <th className="px-5 py-3 text-right font-medium">نصب نت‌استور پابلیک</th>
                 <th className="px-5 py-3 text-right font-medium">مجموع نصب</th>
-                <th className="px-5 py-3 text-right font-medium">فروش اشتراک</th>
+                <th className="px-5 py-3 text-right font-medium">۱ ماهه</th>
+                <th className="px-5 py-3 text-right font-medium">۳ ماهه</th>
+                <th className="px-5 py-3 text-right font-medium">۶ ماهه</th>
+                <th className="px-5 py-3 text-right font-medium">۱ ساله</th>
+                <th className="px-5 py-3 text-right font-medium">کل اشتراک</th>
                 <th className="px-5 py-3 text-right font-medium">نرخ فروش به نصب</th>
               </tr>
             </thead>
@@ -202,6 +225,10 @@ function PartnerAnalytics() {
                     <td className="px-5 py-4">{formatNumber(row.netbox)}</td>
                     <td className="px-5 py-4">{formatNumber(row.publicStore)}</td>
                     <td className="px-5 py-4 font-medium">{formatNumber(row.totalInstalls)}</td>
+                    <td className="px-5 py-4">{formatNumber(row.oneMonth)}</td>
+                    <td className="px-5 py-4">{formatNumber(row.threeMonth)}</td>
+                    <td className="px-5 py-4">{formatNumber(row.sixMonth)}</td>
+                    <td className="px-5 py-4">{formatNumber(row.oneYear)}</td>
                     <td className="px-5 py-4 font-medium">{formatNumber(row.subscriptionSales)}</td>
                     <td className="px-5 py-4">{conversion.toLocaleString('fa-IR', { maximumFractionDigits: 1 })}٪</td>
                   </tr>
@@ -214,6 +241,10 @@ function PartnerAnalytics() {
                 <td className="px-5 py-4">{formatNumber(totals.netbox)}</td>
                 <td className="px-5 py-4">{formatNumber(totals.publicStore)}</td>
                 <td className="px-5 py-4">{formatNumber(totals.totalInstalls)}</td>
+                <td className="px-5 py-4">{formatNumber(totals.oneMonth)}</td>
+                <td className="px-5 py-4">{formatNumber(totals.threeMonth)}</td>
+                <td className="px-5 py-4">{formatNumber(totals.sixMonth)}</td>
+                <td className="px-5 py-4">{formatNumber(totals.oneYear)}</td>
                 <td className="px-5 py-4">{formatNumber(totals.subscriptionSales)}</td>
                 <td className="px-5 py-4">
                   {totals.totalInstalls ? ((totals.subscriptionSales / totals.totalInstalls) * 100).toLocaleString('fa-IR', { maximumFractionDigits: 1 }) : '۰'}٪
