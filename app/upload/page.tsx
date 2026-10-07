@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useStore } from '@/components/store-provider'
-import { upload } from '@vercel/blob/client'
+import { uploadPrivateFile } from '@/lib/blob-upload-client'
 import { CATEGORIES, type AppCategory } from '@/lib/types'
 import { toFa } from '@/lib/format'
 
@@ -20,6 +20,7 @@ export default function UploadPage() {
   const router = useRouter()
   const [step, setStep] = useState(1)
   const [saving, setSaving] = useState(false)
+  const [submitStage, setSubmitStage] = useState('')
   const [errorMessage, setErrorMessage] = useState('')
   const [apkName, setApkName] = useState('')
   const [apkSize, setApkSize] = useState('')
@@ -70,33 +71,6 @@ export default function UploadPage() {
     reader.onload = () => callback(String(reader.result))
     reader.readAsDataURL(file)
   }
-  const uploadFile = async (file: File, label: string) => {
-    if (!user?.id) throw new Error('auth_required')
-
-    const isApk = file.name.toLowerCase().endsWith('.apk')
-    const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '-').slice(-120)
-    const pathname = `users/${user.id}/${crypto.randomUUID()}-${safeName}`
-    const contentType = isApk ? 'application/vnd.android.package-archive' : file.type
-
-    try {
-      const blob = await upload(pathname, file, {
-        access: 'private',
-        handleUploadUrl: '/api/blob-upload',
-        contentType,
-        multipart: isApk && file.size > 10 * 1024 * 1024,
-      })
-
-      return {
-        pathname: blob.pathname,
-        name: file.name,
-        size: file.size,
-        contentType,
-      }
-    } catch (error) {
-      const detail = error instanceof Error ? error.message : 'unknown_upload_error'
-      throw new Error(`upload_failed:${label}:${detail}`)
-    }
-  }
   const onApk = (file?: File) => {
     if (!file) return
     setErrorMessage('')
@@ -128,13 +102,21 @@ export default function UploadPage() {
     setErrorMessage('')
 
     try {
-      const apk = await uploadFile(apkFile, 'APK')
-      const iconUpload = await uploadFile(iconFile, 'آیکون')
-      const bannerUpload = await uploadFile(bannerFile, 'بنر')
+      setSubmitStage('در حال آپلود فایل APK...')
+      const apk = await uploadPrivateFile(user.id!, apkFile)
+
+      setSubmitStage('در حال آپلود آیکون...')
+      const iconUpload = await uploadPrivateFile(user.id!, iconFile)
+
+      setSubmitStage('در حال آپلود بنر...')
+      const bannerUpload = await uploadPrivateFile(user.id!, bannerFile)
+
+      setSubmitStage(screenshotFiles.length ? 'در حال آپلود تصاویر...' : 'در حال ثبت درخواست بررسی...')
       const shotUploads = await Promise.all(
-        screenshotFiles.map((file, index) => uploadFile(file, `اسکرین‌شات ${index + 1}`)),
+        screenshotFiles.map((file) => uploadPrivateFile(user.id!, file)),
       )
 
+      setSubmitStage('در حال ثبت درخواست بررسی...')
       const response = await fetch('/api/apps/submit', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -169,12 +151,16 @@ export default function UploadPage() {
       router.refresh()
     } catch (error) {
       const code = error instanceof Error ? error.message : 'submit_failed'
-      const uploadFailure = code.startsWith('upload_failed:')
-      const uploadParts = uploadFailure ? code.split(':') : []
       setErrorMessage(
-        uploadFailure
-          ? `آپلود ${uploadParts[1] || 'فایل'} انجام نشد. ${uploadParts.slice(2).join(':') || 'دوباره تلاش کنید.'}`
-          : code === 'auth_required'
+        code === 'invalid_apk_file'
+          ? 'فایل انتخاب‌شده APK معتبر نیست. فایل اصلی خروجی Android را انتخاب کنید.'
+          : code === 'apk_too_large'
+            ? 'حجم فایل APK نباید بیشتر از ۲۵۰ مگابایت باشد.'
+            : code === 'image_too_large'
+              ? 'حجم هر تصویر باید حداکثر ۸ مگابایت باشد.'
+              : code === 'unsupported_image_type'
+                ? 'فرمت تصویر پشتیبانی نمی‌شود. PNG، JPG یا WEBP انتخاب کنید.'
+                : code === 'auth_required'
           ? 'نشست ورود شما منقضی شده است. دوباره وارد شوید و ارسال را تکرار کنید.'
           : code === 'payment_required'
             ? 'این اپ پرداخت درون‌برنامه‌ای دارد و باید Netbox Payment را پیاده‌سازی کند.'
@@ -188,6 +174,7 @@ export default function UploadPage() {
       )
     } finally {
       setSaving(false)
+      setSubmitStage('')
     }
   }
 
@@ -245,7 +232,7 @@ export default function UploadPage() {
         {step === 5 && <div><Header title="تصاویر و رسانه" text="آیکون، بنر و تصاویر اپلیکیشن را اضافه کنید." /><div className="grid gap-6 sm:grid-cols-2"><MediaField title="آیکون اپلیکیشن (نسبت ۱:۱)" required value={icon} onFile={(f) => { setIconFile(f); readImage(f, setIcon) }} onClear={() => { setIcon(''); setIconFile(null) }} square /><MediaField title="بنر معرفی (نسبت ۱۶:۹)" required value={banner} onFile={(f) => { setBannerFile(f); readImage(f, setBanner) }} onClear={() => { setBanner(''); setBannerFile(null) }} /><div className="sm:col-span-2"><Label>تصاویر محیط اپ <span className="text-muted-foreground">(اختیاری)</span></Label><Dropzone accept="image/*" label="افزودن تصاویر" multiple onChange={(f) => { setScreenshotFiles((old) => [...old, f].slice(0, 6)); readImage(f, (url) => setScreenshots((old) => [...old, url].slice(0, 6))) }} /><div className="mt-3 flex flex-wrap gap-3">{screenshots.map((src, i) => <div key={src} className="relative"><img src={src} alt={`تصویر ${i + 1}`} className="size-20 rounded-lg object-cover" /><button type="button" aria-label="حذف تصویر" onClick={() => { setScreenshots((old) => old.filter((_, n) => n !== i)); setScreenshotFiles((old) => old.filter((_, n) => n !== i)) }} className="absolute -right-2 -top-2 rounded-full bg-destructive p-1 text-destructive-foreground"><X className="size-3" /></button></div>)}</div></div></div></div>}
         {step === 6 && <div><Header title="بازبینی اطلاعات" text="اطلاعات را بررسی کنید و اپلیکیشن را برای بررسی کارشناسان ارسال کنید." /><div className="grid gap-3 text-sm">{[['فایل APK', apkName], ['عنوان', name], ['پکیج‌نیم', packageName], ['دسته‌بندی', category], ['محدودیت سنی', ageRestriction], ['پرداخت درون‌برنامه‌ای', hasInAppPayment ? 'دارد — Netbox Payment تأیید شده' : 'ندارد'], ['نسخه مخصوص Android TV', developedForAndroidTv ? 'بله' : 'خیر — قابل استفاده با ایرماوس/ماوس'], ['وبسایت', website || '—'], ['ایمیل پشتیبانی', email || '—'], ['تصاویر', `${toFa(screenshots.length)} تصویر`]].map(([label, value]) => <div key={label} className="flex justify-between gap-4 rounded-xl bg-secondary/60 p-4"><span className="text-muted-foreground">{label}</span><span className="font-medium" dir="ltr">{value}</span></div>)}</div><div className="mt-5 rounded-xl border border-primary/20 bg-primary/5 p-4 text-sm leading-7">پس از ارسال، اطلاعات شما توسط کارشناس نت‌استور بررسی می‌شود و بعد از تأیید، اپلیکیشن در فروشگاه منتشر خواهد شد.</div></div>}
       </section>
-      <div className="mt-6 flex justify-between"><Button variant="ghost" onClick={() => setStep((s) => Math.max(1, s - 1))} disabled={step === 1} className="gap-2"><ArrowRight className="size-4" />قبلی</Button>{step < 6 ? <Button onClick={() => valid && setStep((s) => s + 1)} disabled={!valid} className="gap-2">گام بعدی<ArrowLeft className="size-4" /></Button> : <Button onClick={submitForReview} disabled={saving} className="gap-2">{saving ? <Loader2 className="size-4 animate-spin" /> : <Rocket className="size-4" />}ارسال برای بررسی</Button>}</div>
+      <div className="mt-6 flex justify-between"><Button variant="ghost" onClick={() => setStep((s) => Math.max(1, s - 1))} disabled={step === 1} className="gap-2"><ArrowRight className="size-4" />قبلی</Button>{step < 6 ? <Button onClick={() => valid && setStep((s) => s + 1)} disabled={!valid} className="gap-2">گام بعدی<ArrowLeft className="size-4" /></Button> : <Button onClick={submitForReview} disabled={saving} className="gap-2">{saving ? <Loader2 className="size-4 animate-spin" /> : <Rocket className="size-4" />}{saving ? (submitStage || 'در حال ارسال...') : 'ارسال برای بررسی'}</Button>}</div>
       {errorMessage && <p role="alert" className="mt-3 rounded-lg bg-destructive/10 px-3 py-2 text-center text-sm text-destructive">{errorMessage}</p>}
       {!valid && step < 5 && <p className="mt-3 text-center text-xs text-muted-foreground">فیلدهای الزامی را کامل کنید.</p>}
     </main>
