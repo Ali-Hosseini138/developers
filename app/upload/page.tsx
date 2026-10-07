@@ -70,7 +70,7 @@ export default function UploadPage() {
     reader.onload = () => callback(String(reader.result))
     reader.readAsDataURL(file)
   }
-  const uploadFile = async (file: File) => {
+  const uploadFile = async (file: File, label: string) => {
     if (!user?.id) throw new Error('auth_required')
 
     const isApk = file.name.toLowerCase().endsWith('.apk')
@@ -78,18 +78,23 @@ export default function UploadPage() {
     const pathname = `users/${user.id}/${crypto.randomUUID()}-${safeName}`
     const contentType = isApk ? 'application/vnd.android.package-archive' : file.type
 
-    const blob = await upload(pathname, file, {
-      access: 'private',
-      handleUploadUrl: '/api/blob-upload',
-      contentType,
-      multipart: isApk && file.size > 10 * 1024 * 1024,
-    })
+    try {
+      const blob = await upload(pathname, file, {
+        access: 'private',
+        handleUploadUrl: '/api/blob-upload',
+        contentType,
+        multipart: isApk && file.size > 10 * 1024 * 1024,
+      })
 
-    return {
-      pathname: blob.pathname,
-      name: file.name,
-      size: file.size,
-      contentType,
+      return {
+        pathname: blob.pathname,
+        name: file.name,
+        size: file.size,
+        contentType,
+      }
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : 'unknown_upload_error'
+      throw new Error(`upload_failed:${label}:${detail}`)
     }
   }
   const onApk = (file?: File) => {
@@ -123,8 +128,11 @@ export default function UploadPage() {
     setErrorMessage('')
 
     try {
-      const [apk, iconUpload, bannerUpload, ...shotUploads] = await Promise.all(
-        [apkFile, iconFile, bannerFile, ...screenshotFiles].map(uploadFile),
+      const apk = await uploadFile(apkFile, 'APK')
+      const iconUpload = await uploadFile(iconFile, 'آیکون')
+      const bannerUpload = await uploadFile(bannerFile, 'بنر')
+      const shotUploads = await Promise.all(
+        screenshotFiles.map((file, index) => uploadFile(file, `اسکرین‌شات ${index + 1}`)),
       )
 
       const response = await fetch('/api/apps/submit', {
@@ -161,8 +169,12 @@ export default function UploadPage() {
       router.refresh()
     } catch (error) {
       const code = error instanceof Error ? error.message : 'submit_failed'
+      const uploadFailure = code.startsWith('upload_failed:')
+      const uploadParts = uploadFailure ? code.split(':') : []
       setErrorMessage(
-        code === 'auth_required'
+        uploadFailure
+          ? `آپلود ${uploadParts[1] || 'فایل'} انجام نشد. ${uploadParts.slice(2).join(':') || 'دوباره تلاش کنید.'}`
+          : code === 'auth_required'
           ? 'نشست ورود شما منقضی شده است. دوباره وارد شوید و ارسال را تکرار کنید.'
           : code === 'payment_required'
             ? 'این اپ پرداخت درون‌برنامه‌ای دارد و باید Netbox Payment را پیاده‌سازی کند.'
@@ -170,7 +182,9 @@ export default function UploadPage() {
               ? 'اپی که مخصوص Android TV توسعه داده نشده فقط در صورتی قابل بررسی است که با ایرماوس یا ماوس به‌راحتی قابل استفاده باشد.'
               : code === 'database_insert_failed'
                 ? 'فایل‌ها آپلود شدند، اما ثبت اپ در دیتابیس انجام نشد. دوباره تلاش کنید.'
-                : 'ارسال اپ کامل نشد. لطفاً دوباره تلاش کنید.',
+                : code === 'submission_snapshot_failed'
+                  ? 'اپ ثبت شد، اما ایجاد درخواست بررسی انجام نشد. لطفاً با پشتیبانی تماس بگیرید.'
+                  : `ارسال اپ کامل نشد. کد خطا: ${code}`,
       )
     } finally {
       setSaving(false)
