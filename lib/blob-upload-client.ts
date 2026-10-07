@@ -19,6 +19,11 @@ export async function uploadPrivateFile(userId: string, file: File): Promise<Upl
 
   const isApk = file.name.toLowerCase().endsWith('.apk')
   if (isApk && file.size > MAX_APK_SIZE) throw new Error('apk_too_large')
+  if (isApk) {
+    const signature = new Uint8Array(await file.slice(0, 4).arrayBuffer())
+    const isZip = signature[0] === 0x50 && signature[1] === 0x4b && signature[2] === 0x03 && signature[3] === 0x04
+    if (!isZip) throw new Error('invalid_apk_file')
+  }
   if (!isApk && !IMAGE_TYPES.has(file.type)) throw new Error('unsupported_image_type')
   if (!isApk && file.size > MAX_IMAGE_SIZE) throw new Error('image_too_large')
 
