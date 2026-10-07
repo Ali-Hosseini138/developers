@@ -8,7 +8,7 @@ export type BannerPlacement = {
 
 export const INSTALL_CAMPAIGN_CONFIG = {
   pricePerInstallToman: 40000,
-  minInstalls: 100,
+  minInstalls: 500,
   maxInstalls: 100000,
   step: 100,
 }
