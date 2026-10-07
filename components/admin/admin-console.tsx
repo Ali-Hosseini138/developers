@@ -1,9 +1,10 @@
 'use client'
 
 import { useMemo, useState } from 'react'
-import { Activity, CalendarDays, Handshake, PackageCheck, ShoppingCart, Store } from 'lucide-react'
-import type { AdminApp } from '@/app/admin/page'
+import { Activity, CalendarDays, Handshake, MessageSquare, PackageCheck, ShoppingCart, Store } from 'lucide-react'
+import type { AdminApp, AdminSupportTicket } from '@/app/admin/page'
 import { AdminApps } from '@/components/admin/admin-apps'
+import { AdminTickets } from '@/components/admin/admin-tickets'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 
@@ -41,8 +42,8 @@ function daysBetween(from: string, to: string) {
   return Math.max(1, Math.floor((end - start) / 86400000) + 1)
 }
 
-export function AdminConsole({ apps, stats }: { apps: AdminApp[]; stats: AdminStat[] }) {
-  const [tab, setTab] = useState<'reviews' | 'partners'>('reviews')
+export function AdminConsole({ apps, stats, tickets }: { apps: AdminApp[]; stats: AdminStat[]; tickets: AdminSupportTicket[] }) {
+  const [tab, setTab] = useState<'reviews' | 'partners' | 'tickets'>('reviews')
 
   return (
     <>
@@ -55,9 +56,18 @@ export function AdminConsole({ apps, stats }: { apps: AdminApp[]; stats: AdminSt
           <Handshake className="size-4" />
           پارتنرها
         </Button>
+        <Button type="button" variant={tab === 'tickets' ? 'default' : 'ghost'} onClick={() => setTab('tickets')} className="shrink-0 gap-2">
+          <MessageSquare className="size-4" />
+          تیکت‌ها
+          {tickets.filter((ticket) => ticket.status === 'open').length > 0 && (
+            <span className="rounded-full bg-destructive px-2 py-0.5 text-[10px] text-destructive-foreground">
+              {tickets.filter((ticket) => ticket.status === 'open').length.toLocaleString('fa-IR')}
+            </span>
+          )}
+        </Button>
       </div>
 
-      {tab === 'reviews' ? (
+      {tab === 'reviews' && (
         <>
           <section className="mb-8 grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
             {stats.map((stat) => (
@@ -69,9 +79,9 @@ export function AdminConsole({ apps, stats }: { apps: AdminApp[]; stats: AdminSt
           </section>
           <AdminApps apps={apps} />
         </>
-      ) : (
-        <PartnerAnalytics />
       )}
+      {tab === 'partners' && <PartnerAnalytics />}
+      {tab === 'tickets' && <AdminTickets tickets={tickets} />}
     </>
   )
 }
