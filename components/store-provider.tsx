@@ -45,7 +45,16 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     const { data } = await supabase.from('apps').select('*').eq('owner_id', authUser.id).order('created_at', { ascending: false })
     if (data) { const rows = data as Record<string, any>[]; setApps((current) => [...rows.map(mapApp), ...current.filter((app) => !rows.some((row) => row.id === app.id))]) }
     const { data: ticketRows } = await supabase.from('support_tickets').select('*').eq('user_id', authUser.id).order('created_at', { ascending: false })
-    if (ticketRows) setTickets(ticketRows.map((row: Record<string, any>) => ({ id: row.id, subject: row.subject, message: row.message, status: row.status, createdAt: new Date(row.created_at).toLocaleDateString('fa-IR'), developer: nextUser.name })))
+    if (ticketRows) setTickets(ticketRows.map((row: Record<string, any>) => ({
+      id: row.id,
+      subject: row.subject,
+      message: row.message,
+      status: row.status,
+      createdAt: new Date(row.created_at).toLocaleDateString('fa-IR'),
+      developer: nextUser.name,
+      adminReply: row.admin_reply || undefined,
+      repliedAt: row.replied_at ? new Date(row.replied_at).toLocaleDateString('fa-IR') : undefined,
+    })))
   }, [])
 
   useEffect(() => {
