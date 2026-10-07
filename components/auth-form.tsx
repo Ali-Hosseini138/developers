@@ -48,8 +48,8 @@ function AuthFormInner({ mode }: { mode: 'login' | 'signup' }) {
 
     try {
       if (isSignup) {
-        if (password.length < 6) {
-          setErrorMessage('رمز عبور باید حداقل ۶ کاراکتر باشد.')
+        if (password.length < 8) {
+          setErrorMessage('رمز عبور باید حداقل ۸ کاراکتر باشد.')
           return
         }
 
@@ -165,7 +165,7 @@ function AuthFormInner({ mode }: { mode: 'login' | 'signup' }) {
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="password">رمز عبور</Label>
           <div className="relative">
-            <Input id="password" type={showPassword ? 'text' : 'password'} dir="ltr" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" minLength={6} className="pe-10 text-start" required />
+            <Input id="password" type={showPassword ? 'text' : 'password'} dir="ltr" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" minLength={8} className="pe-10 text-start" required />
             <button
               type="button"
               onClick={() => setShowPassword((value) => !value)}
@@ -192,12 +192,17 @@ function AuthFormInner({ mode }: { mode: 'login' | 'signup' }) {
         </Button>
 
         {!isSignup && (
-          <p className="text-center text-sm text-muted-foreground">
-            حساب کاربری ندارید؟{' '}
-            <Link href="/signup" className="font-medium text-primary underline-offset-4 hover:underline">
-              ثبت‌نام
+          <div className="flex flex-col gap-3 text-center text-sm">
+            <Link href="/forgot-password" className="font-medium text-primary underline-offset-4 hover:underline">
+              رمز عبور را فراموش کرده‌اید؟
             </Link>
-          </p>
+            <p className="text-muted-foreground">
+              حساب کاربری ندارید؟{' '}
+              <Link href="/signup" className="font-medium text-primary underline-offset-4 hover:underline">
+                ثبت‌نام
+              </Link>
+            </p>
+          </div>
         )}
       </form>
     </div>
