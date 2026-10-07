@@ -881,22 +881,11 @@ function GrowthTab({ myApps }: { myApps: ReturnType<typeof useStore>['myApps'] }
               </div>
             </div>
 
-            <div className="rounded-xl border border-border p-4">
-              <p className="text-xs text-muted-foreground">پرداخت کمپین</p>
-              <p className="mt-1 text-sm font-medium">
-                پس از تأیید تعداد نصب و مبلغ نهایی، کاربر وارد درگاه پرداخت می‌شود.
-              </p>
-            </div>
-
             <Button
               disabled={publishedApps.length > 0 && !selectedInstallApp}
             >
-              ادامه به پرداخت
+              پرداخت
             </Button>
-
-            <p className="text-center text-xs text-muted-foreground">
-              اتصال درگاه پرداخت در مرحله بعد انجام می‌شود؛ این دکمه فعلاً برای نمایش جریان خرید در نسخه دمو قرار دارد.
-            </p>
           </div>
         </div>
 
