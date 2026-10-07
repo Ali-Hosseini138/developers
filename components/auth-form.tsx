@@ -146,31 +146,31 @@ function AuthFormInner({ mode }: { mode: 'login' | 'signup' }) {
         {isSignup && (
           <>
             <div className="grid gap-4 sm:grid-cols-2">
-              <div className="flex flex-col gap-1.5"><Label htmlFor="name">نام</Label><Input id="name" value={name} onChange={(e) => setName(e.target.value)} placeholder="نام" required /></div>
-              <div className="flex flex-col gap-1.5"><Label htmlFor="lastName">نام خانوادگی</Label><Input id="lastName" value={lastName} onChange={(e) => setLastName(e.target.value)} placeholder="نام خانوادگی" required /></div>
+              <div className="flex flex-col gap-1.5"><Label htmlFor="name">نام</Label><Input id="name" value={name} onChange={(e) => setName(e.target.value)} placeholder="نام" className="h-11" autoComplete="given-name" required /></div>
+              <div className="flex flex-col gap-1.5"><Label htmlFor="lastName">نام خانوادگی</Label><Input id="lastName" value={lastName} onChange={(e) => setLastName(e.target.value)} placeholder="نام خانوادگی" className="h-11" autoComplete="family-name" required /></div>
             </div>
-            <div className="flex flex-col gap-1.5"><Label htmlFor="organization">نام سازمان یا استودیو <span className="text-muted-foreground">(اختیاری)</span></Label><Input id="organization" value={organization} onChange={(e) => setOrganization(e.target.value)} placeholder="مثلاً: استودیو نبض" /></div>
+            <div className="flex flex-col gap-1.5"><Label htmlFor="organization">نام سازمان یا استودیو <span className="text-muted-foreground">(اختیاری)</span></Label><Input id="organization" value={organization} onChange={(e) => setOrganization(e.target.value)} placeholder="مثلاً: استودیو نبض" className="h-11" autoComplete="organization" /></div>
             <div className="grid gap-4 sm:grid-cols-2">
-              <div className="flex flex-col gap-1.5"><Label htmlFor="phone">شماره تلفن</Label><Input id="phone" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="۰۹۱۲۱۲۳۴۵۶۷" dir="ltr" required /></div>
-              <div className="flex flex-col gap-1.5"><Label htmlFor="nationalId">کد ملی</Label><Input id="nationalId" value={nationalId} onChange={(e) => setNationalId(e.target.value)} placeholder="کد ملی" dir="ltr" required minLength={10} /></div>
+              <div className="flex flex-col gap-1.5"><Label htmlFor="phone">شماره تلفن</Label><Input id="phone" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="09121234567" dir="ltr" inputMode="tel" autoComplete="tel" className="h-11 text-left" required /></div>
+              <div className="flex flex-col gap-1.5"><Label htmlFor="nationalId">کد ملی</Label><Input id="nationalId" value={nationalId} onChange={(e) => setNationalId(e.target.value)} placeholder="0012345678" dir="ltr" inputMode="numeric" className="h-11 text-left" required minLength={10} maxLength={10} /></div>
             </div>
           </>
         )}
 
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="email">ایمیل</Label>
-          <Input id="email" type="email" dir="ltr" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" className="text-start" required />
+          <Input id="email" type="email" dir="ltr" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" autoComplete="email" className="h-11 text-left" required />
         </div>
 
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="password">رمز عبور</Label>
           <div className="relative">
-            <Input id="password" type={showPassword ? 'text' : 'password'} dir="ltr" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" minLength={8} className="pe-10 text-start" required />
+            <Input id="password" type={showPassword ? 'text' : 'password'} dir="ltr" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" minLength={8} autoComplete={isSignup ? 'new-password' : 'current-password'} className="h-11 pl-11 pr-3 text-left" required />
             <button
               type="button"
               onClick={() => setShowPassword((value) => !value)}
               aria-label={showPassword ? 'پنهان کردن رمز عبور' : 'نمایش رمز عبور'}
-              className="absolute end-2 top-1/2 -translate-y-1/2 rounded-md p-1 text-muted-foreground hover:text-foreground"
+              className="absolute left-2 top-1/2 flex size-8 -translate-y-1/2 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
             </button>
