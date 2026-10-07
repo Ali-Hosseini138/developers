@@ -149,7 +149,13 @@ export async function POST(request: Request) {
     })
 
   if (submissionError) {
-    return NextResponse.json({ error: 'submission_snapshot_failed' }, { status: 500 })
+    await supabase
+      .from('apps')
+      .update({ status: 'draft', updated_at: new Date().toISOString() })
+      .eq('id', data.id)
+      .eq('owner_id', user.id)
+
+    return NextResponse.json({ error: 'submission_snapshot_failed', appId: data.id }, { status: 500 })
   }
 
   return NextResponse.json({ ok: true, appId: data.id, status: data.status })
