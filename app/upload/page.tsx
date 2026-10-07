@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useStore } from '@/components/store-provider'
+import { upload } from '@vercel/blob/client'
 import { CATEGORIES, type AppCategory } from '@/lib/types'
 import { toFa } from '@/lib/format'
 
@@ -70,11 +71,26 @@ export default function UploadPage() {
     reader.readAsDataURL(file)
   }
   const uploadFile = async (file: File) => {
-    const body = new FormData()
-    body.append('file', file)
-    const response = await fetch('/api/blob-upload', { method: 'POST', body })
-    if (!response.ok) throw new Error('upload_failed')
-    return response.json() as Promise<{ pathname: string; name: string; size: number; contentType: string }>
+    if (!user?.id) throw new Error('auth_required')
+
+    const isApk = file.name.toLowerCase().endsWith('.apk')
+    const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '-').slice(-120)
+    const pathname = `users/${user.id}/${crypto.randomUUID()}-${safeName}`
+    const contentType = isApk ? 'application/vnd.android.package-archive' : file.type
+
+    const blob = await upload(pathname, file, {
+      access: 'private',
+      handleUploadUrl: '/api/blob-upload',
+      contentType,
+      multipart: isApk && file.size > 10 * 1024 * 1024,
+    })
+
+    return {
+      pathname: blob.pathname,
+      name: file.name,
+      size: file.size,
+      contentType,
+    }
   }
   const onApk = (file?: File) => {
     if (!file) return
