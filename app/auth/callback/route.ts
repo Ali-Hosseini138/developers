@@ -13,7 +13,11 @@ export async function GET(request: Request) {
 
   if (code) {
     const supabase = await createClient()
-    await supabase.auth.exchangeCodeForSession(code)
+    const { error } = await supabase.auth.exchangeCodeForSession(code)
+    if (error) {
+      const fallback = next === '/reset-password' ? '/forgot-password?error=expired' : '/login?error=callback'
+      return NextResponse.redirect(new URL(fallback, url.origin))
+    }
   }
 
   return NextResponse.redirect(new URL(next, url.origin))
