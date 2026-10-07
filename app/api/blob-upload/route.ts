@@ -8,13 +8,6 @@ const maxApkSize = 250 * 1024 * 1024
 const maxImageSize = 8 * 1024 * 1024
 
 export async function POST(request: Request) {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-
-  if (!user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
-
   let body: HandleUploadBody
   try {
     body = (await request.json()) as HandleUploadBody
@@ -27,6 +20,16 @@ export async function POST(request: Request) {
       body,
       request,
       onBeforeGenerateToken: async (pathname) => {
+        // Authentication belongs here, not at the top of the route.
+        // Vercel Blob calls this same endpoint after the upload completes,
+        // and that server-to-server callback does not carry the user's cookies.
+        const supabase = await createClient()
+        const { data: { user }, error } = await supabase.auth.getUser()
+
+        if (error || !user) {
+          throw new Error('Unauthorized')
+        }
+
         if (!pathname.startsWith(`users/${user.id}/`)) {
           throw new Error('Forbidden upload path')
         }
@@ -37,12 +40,12 @@ export async function POST(request: Request) {
           allowedContentTypes: isApk ? [apkType] : imageTypes,
           maximumSizeInBytes: isApk ? maxApkSize : maxImageSize,
           addRandomSuffix: false,
-          tokenPayload: JSON.stringify({ userId: user.id }),
+          tokenPayload: JSON.stringify({ userId: user.id, pathname }),
         }
       },
       onUploadCompleted: async () => {
-        // No database mutation is needed here. The submitted app stores the
-        // returned private Blob pathname after all uploads complete.
+        // The upload is already complete. No database mutation is needed here;
+        // the app submission stores the private Blob pathname afterwards.
       },
     })
 
