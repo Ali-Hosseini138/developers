@@ -5,7 +5,7 @@ import { logoutAction } from './actions'
 import { Button } from '@/components/ui/button'
 import { AdminConsole } from '@/components/admin/admin-console'
 
-export const metadata = { title: 'مرکز بررسی — نت‌استور' }
+export const metadata = { title: 'پنل مدیریت — نت‌استور' }
 export const dynamic = 'force-dynamic'
 
 export type ReviewSubmission = {
@@ -213,9 +213,9 @@ export default async function AdminPage() {
       <header className="mb-8 flex flex-wrap items-center justify-between gap-4 border-b border-border pb-6">
         <div>
           <p className="text-xs font-medium uppercase tracking-widest text-muted-foreground">NetStore Review Center</p>
-          <h1 className="mt-1 text-2xl font-bold text-foreground">مرکز بررسی و انتشار</h1>
+          <h1 className="mt-1 text-2xl font-bold text-foreground">پنل مدیریت نت‌استور</h1>
           <p className="mt-2 text-sm text-muted-foreground">
-            صف درخواست‌ها، تغییرات هر ارسال، فایل‌ها، شرایط انتشار و سابقه تصمیم‌ها را از یکجا بررسی کنید.
+            بررسی و انتشار اپ‌ها، عملکرد پارتنرها و تیکت‌های توسعه‌دهندگان را از یکجا مدیریت کنید.
           </p>
         </div>
         <form action={logoutAction}>
