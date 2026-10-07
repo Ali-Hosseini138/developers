@@ -779,169 +779,257 @@ function formatToman(value: number) {
 
 function GrowthTab({ myApps }: { myApps: ReturnType<typeof useStore>['myApps'] }) {
   const publishedApps = myApps.filter((app) => app.status === 'published')
-  const [installAppId, setInstallAppId] = useState('')
+  const [installAppId, setInstallAppId] = useState(publishedApps[0]?.id || '')
   const [installCount, setInstallCount] = useState(1000)
-  const [bannerAppId, setBannerAppId] = useState('')
+  const [bannerAppId, setBannerAppId] = useState(publishedApps[0]?.id || '')
   const [bannerMonths, setBannerMonths] = useState(1)
 
   const pricePerInstall = INSTALL_CAMPAIGN_CONFIG.pricePerInstallToman
-  const installTotal = pricePerInstall == null ? null : installCount * pricePerInstall
+  const normalizedInstallCount = Math.max(INSTALL_CAMPAIGN_CONFIG.minInstalls, installCount || 0)
+  const installTotal = pricePerInstall == null ? null : normalizedInstallCount * pricePerInstall
   const bannerReady = Boolean(bannerAppId) && bannerMonths >= 1
+  const selectedInstallApp = publishedApps.find((app) => app.id === installAppId)
+  const selectedBannerApp = publishedApps.find((app) => app.id === bannerAppId)
 
-  if (publishedApps.length === 0) {
-    return (
-      <section className="mt-8 rounded-2xl border border-dashed border-border bg-card p-10 text-center">
-        <Megaphone className="mx-auto size-8 text-muted-foreground" />
-        <h2 className="mt-3 font-bold">تبلیغات و رشد</h2>
-        <p className="mt-2 text-sm text-muted-foreground">
-          برای خرید نصب یا رزرو بنر، ابتدا باید حداقل یک اپلیکیشن منتشرشده داشته باشید.
-        </p>
-      </section>
-    )
-  }
+  const demoOrders = [
+    {
+      id: 'demo-1',
+      appName: publishedApps[0]?.name || 'اپلیکیشن نمونه',
+      installs: 2500,
+      total: 2500 * (pricePerInstall || 0),
+      status: 'در حال اجرا',
+      date: '۱۴۰۵/۰۷/۱۲',
+      delivered: 1720,
+    },
+    {
+      id: 'demo-2',
+      appName: publishedApps[1]?.name || publishedApps[0]?.name || 'اپلیکیشن نمونه',
+      installs: 1000,
+      total: 1000 * (pricePerInstall || 0),
+      status: 'تکمیل شده',
+      date: '۱۴۰۵/۰۶/۲۸',
+      delivered: 1000,
+    },
+  ]
 
   return (
-    <section className="mt-8 grid gap-6 lg:grid-cols-2">
-      <div className="rounded-2xl border border-border bg-card p-6">
-        <div className="flex items-start gap-3">
-          <span className="flex size-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
-            <Package className="size-5" />
-          </span>
-          <div>
-            <h2 className="font-bold">خرید نصب</h2>
-            <p className="mt-1 text-sm text-muted-foreground">
-              تعداد نصب هدف را انتخاب کنید و هزینه کل کمپین را قبل از پرداخت ببینید.
+    <section className="mt-8 flex flex-col gap-6">
+      <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 px-4 py-3 text-sm">
+        <strong>داده نمایشی — Demo</strong>
+        <span className="mr-2 text-muted-foreground">
+          سفارش‌ها و وضعیت کمپین‌های این بخش نمایشی هستند؛ قیمت خرید نصب و شماره تماس طبق تنظیمات فعلی پنل نمایش داده می‌شوند.
+        </span>
+      </div>
+
+      <div className="grid gap-6 lg:grid-cols-2">
+        <div className="rounded-2xl border border-border bg-card p-6">
+          <div className="flex items-start gap-3">
+            <span className="flex size-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
+              <Package className="size-5" />
+            </span>
+            <div>
+              <h2 className="font-bold">خرید نصب برای اپلیکیشن</h2>
+              <p className="mt-1 text-sm text-muted-foreground">
+                تعداد نصب هدف را انتخاب کنید و هزینه کمپین را قبل از ثبت سفارش ببینید.
+              </p>
+            </div>
+          </div>
+
+          <div className="mt-6 flex flex-col gap-4">
+            <div>
+              <Label>اپلیکیشن</Label>
+              <select
+                value={installAppId}
+                onChange={(e) => setInstallAppId(e.target.value)}
+                className="mt-1.5 h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+              >
+                {publishedApps.length === 0 && <option value="">اپلیکیشن دمو</option>}
+                {publishedApps.map((app) => <option key={app.id} value={app.id}>{app.name}</option>)}
+              </select>
+            </div>
+
+            <div>
+              <Label htmlFor="install-count">تعداد نصب موردنظر</Label>
+              <Input
+                id="install-count"
+                type="number"
+                min={INSTALL_CAMPAIGN_CONFIG.minInstalls}
+                max={INSTALL_CAMPAIGN_CONFIG.maxInstalls}
+                step={INSTALL_CAMPAIGN_CONFIG.step}
+                value={installCount}
+                onChange={(e) => setInstallCount(Number(e.target.value || 0))}
+                onBlur={() => {
+                  if (installCount < INSTALL_CAMPAIGN_CONFIG.minInstalls) {
+                    setInstallCount(INSTALL_CAMPAIGN_CONFIG.minInstalls)
+                  }
+                }}
+                className="mt-1.5"
+              />
+              <p className="mt-1.5 text-xs text-muted-foreground">
+                حداقل خرید {INSTALL_CAMPAIGN_CONFIG.minInstalls.toLocaleString('fa-IR')} نصب است.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="rounded-xl bg-secondary/60 p-4">
+                <p className="text-xs text-muted-foreground">قیمت هر نصب</p>
+                <p className="mt-1 font-bold">{pricePerInstall == null ? 'تعیین نشده' : formatToman(pricePerInstall)}</p>
+              </div>
+              <div className="rounded-xl bg-secondary/60 p-4">
+                <p className="text-xs text-muted-foreground">مبلغ کل کمپین</p>
+                <p className="mt-1 font-bold">{installTotal == null ? '—' : formatToman(installTotal)}</p>
+              </div>
+            </div>
+
+            <div className="rounded-xl border border-border p-4">
+              <p className="text-xs text-muted-foreground">خرید و هماهنگی کمپین</p>
+              <p className="mt-1 text-sm font-medium">
+                برای ثبت سفارش خرید نصب با تیم نت‌استور تماس بگیرید.
+              </p>
+              <a
+                href={`tel:${BANNER_PLACEMENT.contactPhone}`}
+                dir="ltr"
+                className="mt-2 inline-block text-lg font-bold text-primary underline-offset-4 hover:underline"
+              >
+                {BANNER_PLACEMENT.contactPhone}
+              </a>
+            </div>
+
+            <Button
+              render={<a href={`tel:${BANNER_PLACEMENT.contactPhone}`} />}
+              disabled={publishedApps.length > 0 && !selectedInstallApp}
+            >
+              تماس برای خرید نصب
+            </Button>
+
+            <p className="text-center text-xs text-muted-foreground">
+              پرداخت آنلاین این سرویس فعلاً فعال نیست و سفارش از طریق هماهنگی با تیم نت‌استور انجام می‌شود.
             </p>
           </div>
         </div>
 
-        <div className="mt-6 flex flex-col gap-4">
-          <div>
-            <Label>اپلیکیشن</Label>
-            <select
-              value={installAppId}
-              onChange={(e) => setInstallAppId(e.target.value)}
-              className="mt-1.5 h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+        <div className="rounded-2xl border border-border bg-card p-6">
+          <div className="flex items-start gap-3">
+            <span className="flex size-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
+              <Megaphone className="size-5" />
+            </span>
+            <div>
+              <h2 className="font-bold">رزرو بنر نت‌استور</h2>
+              <p className="mt-1 text-sm text-muted-foreground">
+                جایگاه تبلیغاتی ویژه در نقاط اصلی نت‌باکس و نت‌استور.
+              </p>
+            </div>
+          </div>
+
+          <div className="mt-6 flex flex-col gap-4">
+            <div>
+              <Label>اپلیکیشن</Label>
+              <select
+                value={bannerAppId}
+                onChange={(e) => setBannerAppId(e.target.value)}
+                className="mt-1.5 h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+              >
+                {publishedApps.length === 0 && <option value="">اپلیکیشن دمو</option>}
+                {publishedApps.map((app) => <option key={app.id} value={app.id}>{app.name}</option>)}
+              </select>
+            </div>
+
+            <div>
+              <Label>جایگاه بنر</Label>
+              <div className="mt-1.5 rounded-xl border border-border bg-secondary/40 p-4">
+                <p className="font-medium">{BANNER_PLACEMENT.title}</p>
+                <p className="mt-1 text-xs leading-6 text-muted-foreground">{BANNER_PLACEMENT.description}</p>
+                <ul className="mt-3 flex flex-col gap-1.5 text-sm">
+                  {BANNER_PLACEMENT.surfaces.map((surface) => (
+                    <li key={surface}>• {surface}</li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+
+            <div>
+              <Label htmlFor="banner-months">مدت نمایش</Label>
+              <select
+                id="banner-months"
+                value={bannerMonths}
+                onChange={(e) => setBannerMonths(Number(e.target.value))}
+                className="mt-1.5 h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+              >
+                {Array.from({ length: 12 }, (_, i) => i + 1).map((month) => (
+                  <option key={month} value={month}>{month.toLocaleString('fa-IR')} ماه</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="rounded-xl bg-secondary/60 p-4">
+              <p className="text-xs text-muted-foreground">قیمت رزرو</p>
+              <p className="mt-1 font-bold">برای دریافت قیمت تماس بگیرید</p>
+              <a
+                href={`tel:${BANNER_PLACEMENT.contactPhone}`}
+                dir="ltr"
+                className="mt-2 inline-block text-lg font-bold text-primary underline-offset-4 hover:underline"
+              >
+                {BANNER_PLACEMENT.contactPhone}
+              </a>
+            </div>
+
+            <Button
+              render={<a href={`tel:${BANNER_PLACEMENT.contactPhone}`} />}
+              disabled={publishedApps.length > 0 && (!bannerReady || !selectedBannerApp)}
             >
-              <option value="">انتخاب اپلیکیشن</option>
-              {publishedApps.map((app) => <option key={app.id} value={app.id}>{app.name}</option>)}
-            </select>
+              تماس برای رزرو بنر
+            </Button>
           </div>
-
-          <div>
-            <Label htmlFor="install-count">تعداد نصب هدف</Label>
-            <Input
-              id="install-count"
-              type="number"
-              min={INSTALL_CAMPAIGN_CONFIG.minInstalls}
-              max={INSTALL_CAMPAIGN_CONFIG.maxInstalls}
-              step={INSTALL_CAMPAIGN_CONFIG.step}
-              value={installCount}
-              onChange={(e) => setInstallCount(Math.max(0, Number(e.target.value || 0)))}
-              className="mt-1.5"
-            />
-            <p className="mt-1.5 text-xs text-muted-foreground">
-              حداقل {INSTALL_CAMPAIGN_CONFIG.minInstalls.toLocaleString('fa-IR')} نصب
-            </p>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div className="rounded-xl bg-secondary/60 p-4">
-              <p className="text-xs text-muted-foreground">قیمت هر نصب</p>
-              <p className="mt-1 font-bold">{pricePerInstall == null ? 'تعیین نشده' : formatToman(pricePerInstall)}</p>
-            </div>
-            <div className="rounded-xl bg-secondary/60 p-4">
-              <p className="text-xs text-muted-foreground">مبلغ کل</p>
-              <p className="mt-1 font-bold">{installTotal == null ? '—' : formatToman(installTotal)}</p>
-            </div>
-          </div>
-
-          {pricePerInstall == null && (
-            <p className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-3 text-sm">
-              قیمت هر نصب هنوز در تنظیمات نت‌استور وارد نشده است.
-            </p>
-          )}
-
-          <Button disabled>
-            ادامه به پرداخت
-          </Button>
-          <p className="text-center text-xs text-muted-foreground">
-            مبلغ کمپین محاسبه می‌شود؛ اتصال درگاه پرداخت در مرحله بعد انجام می‌شود.
-          </p>
         </div>
       </div>
 
-      <div className="rounded-2xl border border-border bg-card p-6">
-        <div className="flex items-start gap-3">
-          <span className="flex size-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
-            <Megaphone className="size-5" />
-          </span>
-          <div>
-            <h2 className="font-bold">رزرو بنر نت‌استور</h2>
-            <p className="mt-1 text-sm text-muted-foreground">
-              این جایگاه به‌صورت ماهانه رزرو می‌شود و هم‌زمان در سه سطح اصلی نت‌باکس و نت‌استور نمایش داده می‌شود.
-            </p>
-          </div>
+      <div className="overflow-hidden rounded-2xl border border-border bg-card">
+        <div className="border-b border-border p-5">
+          <h3 className="font-bold">سفارش‌های خرید نصب</h3>
+          <p className="mt-1 text-sm text-muted-foreground">
+            نمونه‌ای از نحوه نمایش و پیگیری کمپین‌های خرید نصب توسعه‌دهنده.
+          </p>
         </div>
-
-        <div className="mt-6 flex flex-col gap-4">
-          <div>
-            <Label>اپلیکیشن</Label>
-            <select
-              value={bannerAppId}
-              onChange={(e) => setBannerAppId(e.target.value)}
-              className="mt-1.5 h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
-            >
-              <option value="">انتخاب اپلیکیشن</option>
-              {publishedApps.map((app) => <option key={app.id} value={app.id}>{app.name}</option>)}
-            </select>
-          </div>
-
-          <div>
-            <Label>جایگاه بنر</Label>
-            <div className="mt-1.5 rounded-xl border border-border bg-secondary/40 p-4">
-              <p className="font-medium">{BANNER_PLACEMENT.title}</p>
-              <p className="mt-1 text-xs leading-6 text-muted-foreground">{BANNER_PLACEMENT.description}</p>
-              <ul className="mt-3 flex flex-col gap-1.5 text-sm">
-                {BANNER_PLACEMENT.surfaces.map((surface) => (
-                  <li key={surface}>• {surface}</li>
-                ))}
-              </ul>
-            </div>
-          </div>
-
-          <div>
-            <Label htmlFor="banner-months">مدت نمایش</Label>
-            <select
-              id="banner-months"
-              value={bannerMonths}
-              onChange={(e) => setBannerMonths(Number(e.target.value))}
-              className="mt-1.5 h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
-            >
-              {Array.from({ length: 12 }, (_, i) => i + 1).map((month) => (
-                <option key={month} value={month}>{month.toLocaleString('fa-IR')} ماه</option>
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[820px] text-sm">
+            <thead className="bg-secondary/60 text-xs text-muted-foreground">
+              <tr>
+                <th className="px-5 py-3 text-right font-medium">اپلیکیشن</th>
+                <th className="px-5 py-3 text-right font-medium">تعداد خریداری‌شده</th>
+                <th className="px-5 py-3 text-right font-medium">تحویل‌شده</th>
+                <th className="px-5 py-3 text-right font-medium">مبلغ کمپین</th>
+                <th className="px-5 py-3 text-right font-medium">وضعیت</th>
+                <th className="px-5 py-3 text-right font-medium">تاریخ</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border">
+              {demoOrders.map((order) => (
+                <tr key={order.id}>
+                  <td className="px-5 py-4 font-semibold">{order.appName}</td>
+                  <td className="px-5 py-4">{toFa(order.installs)}</td>
+                  <td className="px-5 py-4">
+                    <div className="flex items-center gap-3">
+                      <span>{toFa(order.delivered)}</span>
+                      <div className="h-1.5 w-24 overflow-hidden rounded-full bg-secondary">
+                        <div
+                          className="h-full rounded-full bg-primary"
+                          style={{ width: `${Math.min(100, (order.delivered / order.installs) * 100)}%` }}
+                        />
+                      </div>
+                    </div>
+                  </td>
+                  <td className="px-5 py-4">{formatToman(order.total)}</td>
+                  <td className="px-5 py-4">
+                    <Badge variant={order.status === 'تکمیل شده' ? 'outline' : 'secondary'}>{order.status}</Badge>
+                  </td>
+                  <td className="px-5 py-4">{order.date}</td>
+                </tr>
               ))}
-            </select>
-          </div>
-
-          <div className="rounded-xl bg-secondary/60 p-4">
-            <p className="text-xs text-muted-foreground">قیمت رزرو</p>
-            <p className="mt-1 font-bold">برای دریافت قیمت تماس بگیرید</p>
-            <a
-              href={`tel:${BANNER_PLACEMENT.contactPhone}`}
-              dir="ltr"
-              className="mt-2 inline-block text-sm font-medium text-primary underline-offset-4 hover:underline"
-            >
-              {BANNER_PLACEMENT.contactPhone}
-            </a>
-          </div>
-
-          <Button
-            render={<a href={`tel:${BANNER_PLACEMENT.contactPhone}`} />}
-            disabled={!bannerReady}
-          >
-            تماس برای رزرو
-          </Button>
+            </tbody>
+          </table>
+        </div>
+        <div className="border-t border-border bg-amber-500/5 px-5 py-3 text-xs text-muted-foreground">
+          این جدول فقط داده نمایشی دارد و هنوز به سفارش واقعی یا درگاه پرداخت متصل نیست.
         </div>
       </div>
     </section>
