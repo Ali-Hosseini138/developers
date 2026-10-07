@@ -77,7 +77,7 @@ export async function updateVersionStatusAction(formData: FormData) {
   const supabase = createAdminClient()
   const { data: version, error: versionError } = await supabase
     .from('app_versions')
-    .select('id, app_id, apk_path, apk_name, package_name')
+    .select('id, app_id, apk_path, apk_name, apk_size, package_name')
     .eq('id', versionId)
     .single()
 
@@ -108,6 +108,7 @@ export async function updateVersionStatusAction(formData: FormData) {
     const appPatch: Record<string, unknown> = {
       apk_path: version.apk_path,
       apk_name: version.apk_name,
+      apk_size: version.apk_size,
       updated_at: reviewedAt,
       status: 'published',
       review_reason: null,
