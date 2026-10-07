@@ -213,12 +213,10 @@ function PartnerAnalytics() {
                 <th className="px-5 py-3 text-right font-medium">۶ ماهه</th>
                 <th className="px-5 py-3 text-right font-medium">۱ ساله</th>
                 <th className="px-5 py-3 text-right font-medium">کل اشتراک</th>
-                <th className="px-5 py-3 text-right font-medium">نرخ فروش به نصب</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
               {rows.map((row) => {
-                const conversion = row.totalInstalls ? (row.subscriptionSales / row.totalInstalls) * 100 : 0
                 return (
                   <tr key={row.id} className="hover:bg-secondary/30">
                     <td className="px-5 py-4 font-semibold">{row.name}</td>
@@ -230,7 +228,6 @@ function PartnerAnalytics() {
                     <td className="px-5 py-4">{formatNumber(row.sixMonth)}</td>
                     <td className="px-5 py-4">{formatNumber(row.oneYear)}</td>
                     <td className="px-5 py-4 font-medium">{formatNumber(row.subscriptionSales)}</td>
-                    <td className="px-5 py-4">{conversion.toLocaleString('fa-IR', { maximumFractionDigits: 1 })}٪</td>
                   </tr>
                 )
               })}
@@ -246,9 +243,6 @@ function PartnerAnalytics() {
                 <td className="px-5 py-4">{formatNumber(totals.sixMonth)}</td>
                 <td className="px-5 py-4">{formatNumber(totals.oneYear)}</td>
                 <td className="px-5 py-4">{formatNumber(totals.subscriptionSales)}</td>
-                <td className="px-5 py-4">
-                  {totals.totalInstalls ? ((totals.subscriptionSales / totals.totalInstalls) * 100).toLocaleString('fa-IR', { maximumFractionDigits: 1 }) : '۰'}٪
-                </td>
               </tr>
             </tfoot>
           </table>
