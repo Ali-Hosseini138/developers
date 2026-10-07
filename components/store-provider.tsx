@@ -13,7 +13,7 @@ interface StoreContextValue {
   addApp: (app: StoreApp) => Promise<void>
   updateApp: (id: string, patch: Partial<StoreApp>) => Promise<void>
   updateProfile: (patch: Pick<User, 'name' | 'phone' | 'nationalId' | 'organization'>) => Promise<void>
-  addVersion: (appId: string, apk: { pathname: string; name: string }, packageName: string | undefined, changelog: string) => Promise<void>
+  addVersion: (appId: string, apk: { pathname: string; name: string; size: number }, packageName: string | undefined, changelog: string) => Promise<void>
   removeApp: (id: string) => Promise<void>
   submitAppForReview: (id: string) => Promise<void>
   getApp: (id: string) => StoreApp | undefined
@@ -137,7 +137,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     if (authError) throw authError
     setUser((current) => current ? { ...current, ...patch } : current)
   }, [user?.id])
-  const addVersion = useCallback(async (appId: string, apk: { pathname: string; name: string }, packageName: string | undefined, changelog: string) => {
+  const addVersion = useCallback(async (appId: string, apk: { pathname: string; name: string; size: number }, packageName: string | undefined, changelog: string) => {
     if (!user?.id) throw new Error('unauthorized')
     const { data: ownedApp, error: ownershipError } = await supabase
       .from('apps')
@@ -152,6 +152,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       app_id: appId,
       apk_path: apk.pathname,
       apk_name: apk.name,
+      apk_size: apk.size,
       package_name: packageName || null,
       changelog,
       status: 'pending',
