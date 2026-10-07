@@ -291,68 +291,141 @@ function buildDemoMetrics(days: number) {
 function AnalyticsTab({ myApps }: { myApps: ReturnType<typeof useStore>['myApps'] }) {
   const supabase = useMemo(() => createClient(), [])
   const publishedApps = myApps.filter((app) => app.status === 'published')
-  const [selectedAppId, setSelectedAppId] = useState(publishedApps[0]?.id || '')
+  const hasMultipleApps = publishedApps.length > 1
+  const [selectedAppId, setSelectedAppId] = useState(hasMultipleApps ? 'all' : publishedApps[0]?.id || '')
   const [range, setRange] = useState<7 | 30 | 90>(30)
-  const [installs, setInstalls] = useState<InstallMetric[]>([])
-  const [sales, setSales] = useState<SalesMetric[]>([])
+  const [installRows, setInstallRows] = useState<Array<InstallMetric & { app_id?: string }>>([])
+  const [salesRows, setSalesRows] = useState<Array<SalesMetric & { app_id?: string }>>([])
   const [loading, setLoading] = useState(false)
   const [errorMessage, setErrorMessage] = useState('')
 
   const selectedApp = publishedApps.find((app) => app.id === selectedAppId)
-  const paymentEnabled = Boolean(selectedApp?.netboxPaymentIntegrated)
+  const selectedIds = selectedAppId === 'all'
+    ? publishedApps.map((app) => app.id)
+    : selectedAppId
+      ? [selectedAppId]
+      : []
+
+  const paymentEnabled = selectedAppId === 'all'
+    ? publishedApps.some((app) => app.netboxPaymentIntegrated)
+    : Boolean(selectedApp?.netboxPaymentIntegrated)
+
   const demoMetrics = useMemo(() => buildDemoMetrics(range), [range])
-  const usingDemo = !loading && installs.length === 0 && sales.length === 0
-  const visibleInstalls = usingDemo ? demoMetrics.installs : installs
-  const visibleSales = usingDemo ? demoMetrics.sales : sales
-  const visiblePaymentEnabled = paymentEnabled || usingDemo
 
   useEffect(() => {
-    if (!selectedAppId && publishedApps[0]?.id) setSelectedAppId(publishedApps[0].id)
+    if (publishedApps.length > 1 && !selectedAppId) setSelectedAppId('all')
+    if (publishedApps.length === 1 && !selectedAppId) setSelectedAppId(publishedApps[0].id)
+    if (publishedApps.length === 0 && selectedAppId) setSelectedAppId('')
   }, [publishedApps, selectedAppId])
 
   useEffect(() => {
-    if (!selectedAppId) {
-      setInstalls([])
-      setSales([])
+    if (selectedIds.length === 0) {
+      setInstallRows([])
+      setSalesRows([])
       return
     }
 
     const load = async () => {
       setLoading(true)
       setErrorMessage('')
+
       const since = new Date()
       since.setDate(since.getDate() - (range - 1))
       const sinceDate = since.toISOString().slice(0, 10)
 
-      const installQuery = supabase
+      let installQuery = supabase
         .from('app_daily_installs')
-        .select('metric_date, installs')
-        .eq('app_id', selectedAppId)
+        .select('app_id, metric_date, installs')
         .gte('metric_date', sinceDate)
         .order('metric_date', { ascending: true })
 
-      const salesQuery = paymentEnabled
-        ? supabase
-            .from('app_daily_sales')
-            .select('metric_date, orders, total_sales_rial')
-            .eq('app_id', selectedAppId)
-            .gte('metric_date', sinceDate)
-            .order('metric_date', { ascending: true })
+      installQuery = selectedIds.length === 1
+        ? installQuery.eq('app_id', selectedIds[0])
+        : installQuery.in('app_id', selectedIds)
+
+      const paymentAppIds = selectedAppId === 'all'
+        ? publishedApps.filter((app) => app.netboxPaymentIntegrated).map((app) => app.id)
+        : paymentEnabled && selectedAppId
+          ? [selectedAppId]
+          : []
+
+      const salesPromise = paymentAppIds.length
+        ? (() => {
+            let query = supabase
+              .from('app_daily_sales')
+              .select('app_id, metric_date, orders, total_sales_rial')
+              .gte('metric_date', sinceDate)
+              .order('metric_date', { ascending: true })
+
+            query = paymentAppIds.length === 1
+              ? query.eq('app_id', paymentAppIds[0])
+              : query.in('app_id', paymentAppIds)
+
+            return query
+          })()
         : Promise.resolve({ data: [], error: null })
 
-      const [installResult, salesResult] = await Promise.all([installQuery, salesQuery])
+      const [installResult, salesResult] = await Promise.all([installQuery, salesPromise])
 
       if (installResult.error || salesResult.error) {
         setErrorMessage('دریافت آمار انجام نشد. دوباره تلاش کنید.')
+        setInstallRows([])
+        setSalesRows([])
       } else {
-        setInstalls((installResult.data || []) as InstallMetric[])
-        setSales((salesResult.data || []) as SalesMetric[])
+        setInstallRows((installResult.data || []) as Array<InstallMetric & { app_id?: string }>)
+        setSalesRows((salesResult.data || []) as Array<SalesMetric & { app_id?: string }>)
       }
+
       setLoading(false)
     }
 
     void load()
-  }, [selectedAppId, range, paymentEnabled, supabase])
+  }, [selectedAppId, range, paymentEnabled, publishedApps, supabase])
+
+  const aggregatedInstalls = useMemo(() => {
+    if (selectedAppId !== 'all') {
+      return installRows.map(({ metric_date, installs }) => ({ metric_date, installs }))
+    }
+
+    const daily = new Map<string, number>()
+    for (const row of installRows) {
+      daily.set(row.metric_date, (daily.get(row.metric_date) || 0) + Number(row.installs || 0))
+    }
+    return [...daily.entries()]
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([metric_date, installs]) => ({ metric_date, installs }))
+  }, [installRows, selectedAppId])
+
+  const aggregatedSales = useMemo(() => {
+    if (selectedAppId !== 'all') {
+      return salesRows.map(({ metric_date, orders, total_sales_rial }) => ({ metric_date, orders, total_sales_rial }))
+    }
+
+    const daily = new Map<string, { orders: number; total_sales_rial: number }>()
+    for (const row of salesRows) {
+      const current = daily.get(row.metric_date) || { orders: 0, total_sales_rial: 0 }
+      current.orders += Number(row.orders || 0)
+      current.total_sales_rial += Number(row.total_sales_rial || 0)
+      daily.set(row.metric_date, current)
+    }
+    return [...daily.entries()]
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([metric_date, values]) => ({ metric_date, ...values }))
+  }, [salesRows, selectedAppId])
+
+  const usingDemo = !loading && aggregatedInstalls.length === 0 && aggregatedSales.length === 0
+  const demoMultiplier = selectedAppId === 'all' ? Math.max(publishedApps.length, 2) : 1
+  const visibleInstalls = usingDemo
+    ? demoMetrics.installs.map((item) => ({ ...item, installs: item.installs * demoMultiplier }))
+    : aggregatedInstalls
+  const visibleSales = usingDemo
+    ? demoMetrics.sales.map((item) => ({
+        ...item,
+        orders: item.orders * demoMultiplier,
+        total_sales_rial: item.total_sales_rial * demoMultiplier,
+      }))
+    : aggregatedSales
+  const visiblePaymentEnabled = paymentEnabled || usingDemo
 
   const totalInstalls = visibleInstalls.reduce((sum, item) => sum + item.installs, 0)
   const averageDailyInstalls = visibleInstalls.length ? Math.round(totalInstalls / visibleInstalls.length) : 0
@@ -360,20 +433,52 @@ function AnalyticsTab({ myApps }: { myApps: ReturnType<typeof useStore>['myApps'
   const totalOrders = visibleSales.reduce((sum, item) => sum + item.orders, 0)
   const averageOrder = totalOrders ? Math.round(totalSales / totalOrders) : 0
 
+  const appComparison = useMemo(() => publishedApps.map((app, index) => {
+    const realInstalls = installRows
+      .filter((row) => row.app_id === app.id)
+      .reduce((sum, row) => sum + Number(row.installs || 0), 0)
+    const appSalesRows = salesRows.filter((row) => row.app_id === app.id)
+    const realSales = appSalesRows.reduce((sum, row) => sum + Number(row.total_sales_rial || 0), 0)
+    const realOrders = appSalesRows.reduce((sum, row) => sum + Number(row.orders || 0), 0)
+
+    if (!usingDemo) {
+      return { app, installs: realInstalls, sales: realSales, orders: realOrders }
+    }
+
+    const installFactor = 0.72 + ((index * 17) % 45) / 100
+    const salesFactor = 0.68 + ((index * 13) % 40) / 100
+    const demoInstalls = Math.round(demoMetrics.installs.reduce((sum, row) => sum + row.installs, 0) * installFactor)
+    const demoOrders = app.netboxPaymentIntegrated
+      ? Math.round(demoMetrics.sales.reduce((sum, row) => sum + row.orders, 0) * salesFactor)
+      : 0
+    const demoSales = app.netboxPaymentIntegrated
+      ? Math.round(demoMetrics.sales.reduce((sum, row) => sum + row.total_sales_rial, 0) * salesFactor)
+      : 0
+
+    return { app, installs: demoInstalls, sales: demoSales, orders: demoOrders }
+  }), [publishedApps, installRows, salesRows, usingDemo, demoMetrics])
+
   return (
     <section className="mt-8 flex flex-col gap-6">
       <div className="flex flex-col gap-4 rounded-2xl border border-border bg-card p-5 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <Label>اپلیکیشن</Label>
+          <Label>نمای آمار</Label>
           <select
             value={selectedAppId}
             onChange={(e) => setSelectedAppId(e.target.value)}
             className="mt-1.5 h-10 min-w-64 rounded-md border border-input bg-background px-3 text-sm"
           >
             {publishedApps.length === 0 && <option value="">اپلیکیشن دمو</option>}
+            {hasMultipleApps && <option value="all">همه اپلیکیشن‌ها — نمای کلی</option>}
             {publishedApps.map((app) => <option key={app.id} value={app.id}>{app.name}</option>)}
           </select>
+          {hasMultipleApps && selectedAppId === 'all' && (
+            <p className="mt-2 text-xs text-muted-foreground">
+              اعداد و نمودارها مجموع عملکرد {publishedApps.length.toLocaleString('fa-IR')} اپلیکیشن منتشرشده شما هستند.
+            </p>
+          )}
         </div>
+
         <div>
           <Label>بازه زمانی</Label>
           <div className="mt-1.5 flex gap-2">
@@ -399,14 +504,16 @@ function AnalyticsTab({ myApps }: { myApps: ReturnType<typeof useStore>['myApps'
         </div>
       )}
 
-      {errorMessage && !usingDemo && <p role="alert" className="rounded-xl bg-destructive/10 px-4 py-3 text-sm text-destructive">{errorMessage}</p>}
+      {errorMessage && !usingDemo && (
+        <p role="alert" className="rounded-xl bg-destructive/10 px-4 py-3 text-sm text-destructive">{errorMessage}</p>
+      )}
 
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <MetricCard label="نصب در بازه" value={toFa(totalInstalls)} />
+        <MetricCard label={selectedAppId === 'all' ? 'مجموع نصب اپ‌ها' : 'نصب در بازه'} value={toFa(totalInstalls)} />
         <MetricCard label="میانگین نصب روزانه" value={toFa(averageDailyInstalls)} />
         {visiblePaymentEnabled ? (
           <>
-            <MetricCard label="فروش کل" value={formatRial(totalSales)} />
+            <MetricCard label={selectedAppId === 'all' ? 'مجموع فروش اپ‌ها' : 'فروش کل'} value={formatRial(totalSales)} />
             <MetricCard label="تعداد سفارش" value={toFa(totalOrders)} />
           </>
         ) : (
@@ -417,9 +524,54 @@ function AnalyticsTab({ myApps }: { myApps: ReturnType<typeof useStore>['myApps'
         )}
       </div>
 
+      {selectedAppId === 'all' && publishedApps.length > 1 && (
+        <div className="overflow-hidden rounded-2xl border border-border bg-card">
+          <div className="border-b border-border p-5">
+            <h3 className="font-bold">مقایسه اپلیکیشن‌ها</h3>
+            <p className="mt-1 text-sm text-muted-foreground">عملکرد هر اپ در بازه زمانی انتخاب‌شده را کنار هم ببینید.</p>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[720px] text-sm">
+              <thead className="bg-secondary/60 text-xs text-muted-foreground">
+                <tr>
+                  <th className="px-5 py-3 text-right font-medium">اپلیکیشن</th>
+                  <th className="px-5 py-3 text-right font-medium">نصب</th>
+                  <th className="px-5 py-3 text-right font-medium">فروش اشتراک</th>
+                  <th className="px-5 py-3 text-right font-medium">سفارش</th>
+                  <th className="px-5 py-3 text-right font-medium">سهم از نصب کل</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {[...appComparison]
+                  .sort((a, b) => b.installs - a.installs)
+                  .map(({ app, installs, sales, orders }) => (
+                    <tr key={app.id} className="cursor-pointer hover:bg-secondary/30" onClick={() => setSelectedAppId(app.id)}>
+                      <td className="px-5 py-4">
+                        <div className="flex items-center gap-3">
+                          <img src={app.icon || '/placeholder.svg'} alt="" className="size-9 rounded-lg border border-border object-cover" />
+                          <div>
+                            <p className="font-semibold">{app.name}</p>
+                            <p className="mt-0.5 text-xs text-muted-foreground">مشاهده جزئیات</p>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-5 py-4 font-medium">{toFa(installs)}</td>
+                      <td className="px-5 py-4">{app.netboxPaymentIntegrated ? formatRial(sales) : '—'}</td>
+                      <td className="px-5 py-4">{app.netboxPaymentIntegrated ? toFa(orders) : '—'}</td>
+                      <td className="px-5 py-4">
+                        {totalInstalls ? ((installs / totalInstalls) * 100).toLocaleString('fa-IR', { maximumFractionDigits: 1 }) : '۰'}٪
+                      </td>
+                    </tr>
+                  ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
       <TrendCard
-        title="ترند روزانه نصب"
-        description="تعداد نصب ثبت‌شده برای هر روز"
+        title={selectedAppId === 'all' ? 'ترند روزانه نصب همه اپ‌ها' : 'ترند روزانه نصب'}
+        description={selectedAppId === 'all' ? 'مجموع نصب روزانه تمام اپلیکیشن‌های منتشرشده' : 'تعداد نصب ثبت‌شده برای هر روز'}
         loading={loading}
         points={visibleInstalls.map((item) => ({ date: item.metric_date, value: item.installs }))}
         valueFormatter={(value) => toFa(value)}
@@ -429,18 +581,18 @@ function AnalyticsTab({ myApps }: { myApps: ReturnType<typeof useStore>['myApps'
         <>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <MetricCard label="میانگین مبلغ سفارش" value={totalOrders ? formatRial(averageOrder) : '—'} />
-            <MetricCard label="وضعیت پرداخت" value={usingDemo ? 'Demo' : 'Netbox Payment فعال'} />
+            <MetricCard label="وضعیت پرداخت" value={usingDemo ? 'Demo' : selectedAppId === 'all' ? 'تجمیع Netbox Payment' : 'Netbox Payment فعال'} />
           </div>
           <TrendCard
-            title="ترند روزانه فروش اشتراک"
-            description="مجموع فروش روزانه ثبت‌شده از Netbox Payment"
+            title={selectedAppId === 'all' ? 'ترند روزانه فروش همه اپ‌ها' : 'ترند روزانه فروش اشتراک'}
+            description={selectedAppId === 'all' ? 'مجموع فروش روزانه اپ‌های دارای Netbox Payment' : 'مجموع فروش روزانه ثبت‌شده از Netbox Payment'}
             loading={loading}
             points={visibleSales.map((item) => ({ date: item.metric_date, value: Number(item.total_sales_rial || 0) }))}
             valueFormatter={formatRial}
           />
           <TrendCard
-            title="ترند روزانه سفارش‌ها"
-            description="تعداد خریدهای موفق ثبت‌شده در هر روز"
+            title={selectedAppId === 'all' ? 'ترند روزانه سفارش همه اپ‌ها' : 'ترند روزانه سفارش‌ها'}
+            description={selectedAppId === 'all' ? 'مجموع خریدهای موفق تمام اپ‌های دارای پرداخت' : 'تعداد خریدهای موفق ثبت‌شده در هر روز'}
             loading={loading}
             points={visibleSales.map((item) => ({ date: item.metric_date, value: item.orders }))}
             valueFormatter={(value) => toFa(value)}
