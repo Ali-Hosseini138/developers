@@ -2,5 +2,46 @@ import Link from 'next/link'
 import { ArrowRight, Mail, Phone } from 'lucide-react'
 
 export default function AboutPage() {
-  return <main className="mx-auto max-w-4xl px-4 py-12 sm:px-6"><Link href="/" className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground"><ArrowRight className="size-4" />بازگشت به صفحه اصلی</Link><div className="mt-8 rounded-3xl border border-border bg-card p-7 sm:p-10"><img src="https://netstore.app/logo/netstore-logo-blue.svg" alt="لوگوی نت‌استور" className="h-12 w-auto" /><h1 className="mt-7 text-3xl font-bold">درباره نت‌استور</h1><div className="mt-5 space-y-5 leading-8 text-muted-foreground"><p>اگر بخواهیم خیلی ساده بگوییم، نت استور یک بازارچه یا فروشگاه نرم‌افزاری کاملاً ایرانی است که با هدف پر کردن خلاهای بزرگ کاربران تلویزیون‌های هوشمند پا به میدان گذاشته است. داستان از اینجا شروع شد که این برنامه در ابتدا به عنوان اپ استور نت باکس روی دستگاه‌های این برند قرار گرفت، اما به دلیل استقبال کاربران، حالا به یک پلتفرم مستقل و عمومی برای تمام دستگاه‌های اندروید تی وی تبدیل شده است.</p><p>اپلیکیشن نت استور ادعای رقابت با بازارهای جهانی یا داشتن میلیون‌ها برنامه را ندارد، بلکه تمرکز اصلی خود را روی کیفیت و کاربردی بودن برنامه‌ها در فضای ایران گذاشته است. با دانلود نت استور و باز کردن محیط آن، شما با یک رابط کاربری بسیار ساده و کاملاً فارسی روبرو می‌شوید که دسته بندی‌های مشخصی برای فیلم و سریال، موسیقی، بازی، و ابزارهای کاربردی دارد.</p><p>یکی از بزرگ‌ترین ویژگی‌های این سیستم که در میان کاربران به اپ استور نت ملی یا پلی استور نت ملی هم معروف شده، پایداری فوق‌العاده آن روی شبکه داخلی است؛ به این معنی که سرورهای دانلود آن در داخل کشور میزبانی می‌شوند تا فرآیند دریافت و به‌روزرسانی برنامه‌ها بدون قطعی با سرعت بالا انجام شود.</p></div><h2 className="mt-8 text-xl font-bold">ارتباط با پشتیبانی</h2><div className="mt-4 grid gap-3 sm:grid-cols-2"><a href="mailto:info@netbox.info" className="flex items-center gap-3 rounded-xl bg-secondary/60 p-4"><Mail className="size-5 text-primary" /><span dir="ltr">info@netbox.info</span></a><a href="tel:02182808606" className="flex items-center gap-3 rounded-xl bg-secondary/60 p-4"><Phone className="size-5 text-primary" /><span dir="ltr">۰۲۱ ۸۲۸۰ ۸۶۰۶</span></a></div></div></main>
+  return (
+    <main className="mx-auto max-w-4xl px-4 py-12 sm:px-6">
+      <Link href="/" className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
+        <ArrowRight className="size-4" />
+        بازگشت به صفحه اصلی
+      </Link>
+
+      <div className="mt-8 rounded-3xl border border-border bg-card p-7 sm:p-10">
+        <img src="https://netstore.app/logo/netstore-logo-blue.svg" alt="لوگوی نت‌استور" className="h-12 w-auto" />
+        <h1 className="mt-7 text-3xl font-bold">درباره نت‌استور</h1>
+
+        <div className="mt-5 space-y-5 leading-8 text-muted-foreground">
+          <p>
+            نت‌استور فروشگاه نرم‌افزاری ویژه تلویزیون‌ها و دستگاه‌های Android TV است. این سرویس ابتدا برای کاربران دستگاه‌های نت‌باکس شکل گرفت و امروز امکان انتشار و معرفی اپلیکیشن‌های سازگار با تجربه تلویزیونی را در اختیار توسعه‌دهندگان قرار می‌دهد.
+          </p>
+          <p>
+            پنل توسعه‌دهندگان نت‌استور برای مدیریت چرخه انتشار ساخته شده است؛ از ثبت اطلاعات و فایل APK تا بررسی، انتشار نسخه‌های جدید، مشاهده آمار و ارتباط با تیم پشتیبانی.
+          </p>
+          <p>
+            تمرکز نت‌استور روی اپلیکیشن‌هایی است که تجربه مناسبی روی صفحه تلویزیون ارائه می‌کنند. اپ‌هایی که مستقیماً برای Android TV توسعه داده نشده‌اند نیز در صورت سازگاری مناسب با ماوس یا ایرماوس می‌توانند برای بررسی ارسال شوند.
+          </p>
+        </div>
+
+        <section id="support" className="mt-8 scroll-mt-24">
+          <h2 className="text-xl font-bold">ارتباط با پشتیبانی</h2>
+          <p className="mt-2 text-sm leading-7 text-muted-foreground">
+            توسعه‌دهندگان عضو پنل می‌توانند از بخش «پشتیبانی و تیکت» درخواست خود را پیگیری کنند. برای ارتباط عمومی نیز از راه‌های زیر استفاده کنید.
+          </p>
+          <div className="mt-4 grid gap-3 sm:grid-cols-2">
+            <a href="mailto:info@netbox.info" className="flex items-center gap-3 rounded-xl bg-secondary/60 p-4">
+              <Mail className="size-5 text-primary" />
+              <span dir="ltr">info@netbox.info</span>
+            </a>
+            <a href="tel:02182808606" className="flex items-center gap-3 rounded-xl bg-secondary/60 p-4">
+              <Phone className="size-5 text-primary" />
+              <span dir="ltr">۰۲۱ ۸۲۸۰ ۸۶۰۶</span>
+            </a>
+          </div>
+        </section>
+      </div>
+    </main>
+  )
 }
