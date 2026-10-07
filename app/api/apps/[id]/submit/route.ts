@@ -74,6 +74,12 @@ export async function POST(
     })
 
   if (submissionError) {
+    await supabase
+      .from('apps')
+      .update({ status: app.status, updated_at: app.updated_at })
+      .eq('id', app.id)
+      .eq('owner_id', user.id)
+
     return NextResponse.json({ error: 'submission_snapshot_failed' }, { status: 500 })
   }
 
