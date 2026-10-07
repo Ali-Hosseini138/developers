@@ -882,28 +882,20 @@ function GrowthTab({ myApps }: { myApps: ReturnType<typeof useStore>['myApps'] }
             </div>
 
             <div className="rounded-xl border border-border p-4">
-              <p className="text-xs text-muted-foreground">خرید و هماهنگی کمپین</p>
+              <p className="text-xs text-muted-foreground">پرداخت کمپین</p>
               <p className="mt-1 text-sm font-medium">
-                برای ثبت سفارش خرید نصب با تیم نت‌استور تماس بگیرید.
+                پس از تأیید تعداد نصب و مبلغ نهایی، کاربر وارد درگاه پرداخت می‌شود.
               </p>
-              <a
-                href={`tel:${BANNER_PLACEMENT.contactPhone}`}
-                dir="ltr"
-                className="mt-2 inline-block text-lg font-bold text-primary underline-offset-4 hover:underline"
-              >
-                {BANNER_PLACEMENT.contactPhone}
-              </a>
             </div>
 
             <Button
-              render={<a href={`tel:${BANNER_PLACEMENT.contactPhone}`} />}
               disabled={publishedApps.length > 0 && !selectedInstallApp}
             >
-              تماس برای خرید نصب
+              ادامه به پرداخت
             </Button>
 
             <p className="text-center text-xs text-muted-foreground">
-              پرداخت آنلاین این سرویس فعلاً فعال نیست و سفارش از طریق هماهنگی با تیم نت‌استور انجام می‌شود.
+              اتصال درگاه پرداخت در مرحله بعد انجام می‌شود؛ این دکمه فعلاً برای نمایش جریان خرید در نسخه دمو قرار دارد.
             </p>
           </div>
         </div>
