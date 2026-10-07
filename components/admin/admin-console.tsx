@@ -201,7 +201,7 @@ function PartnerAnalytics() {
           <p className="mt-1 text-sm text-muted-foreground">اعداد جدول همگی برای همان بازه زمانی انتخاب‌شده تجمیع شده‌اند.</p>
         </div>
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[860px] text-sm">
+          <table className="w-full min-w-[1220px] text-sm">
             <thead className="bg-secondary/60 text-xs text-muted-foreground">
               <tr>
                 <th className="px-5 py-3 text-right font-medium">پارتنر</th>
