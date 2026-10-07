@@ -84,4 +84,6 @@ export interface SupportTicket {
   status: TicketStatus
   createdAt: string
   developer: string
+  adminReply?: string
+  repliedAt?: string
 }
