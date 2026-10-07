@@ -9,13 +9,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { useStore } from '@/components/store-provider'
-
-type UploadedFile = {
-  pathname: string
-  name: string
-  size: number
-  contentType: string
-}
+import { uploadPrivateFile } from '@/lib/blob-upload-client'
 
 export default function NewVersionPage() {
   const { id } = useParams<{ id: string }>()
@@ -35,19 +29,7 @@ export default function NewVersionPage() {
   if (!authReady) return <main className="mx-auto flex min-h-[40vh] max-w-2xl items-center justify-center px-4 py-10"><span className="text-sm text-muted-foreground">در حال بارگذاری اپ...</span></main>
   if (!user) return null
   if (!app) return <main className="mx-auto max-w-2xl px-4 py-10 sm:px-6"><Link href="/dashboard" className="text-sm text-primary">بازگشت به داشبورد</Link><div className="mt-6 rounded-2xl border border-dashed border-border p-8 text-center text-sm text-muted-foreground">این اپ پیدا نشد یا به حساب شما تعلق ندارد.</div></main>
-
-  async function uploadApk(file: File) {
-    const body = new FormData()
-    body.append('file', file)
-    const response = await fetch('/api/blob-upload', { method: 'POST', body })
-
-    if (!response.ok) {
-      const payload = await response.json().catch(() => null)
-      throw new Error(payload?.error || 'upload_failed')
-    }
-
-    return response.json() as Promise<UploadedFile>
-  }
+  if (app.status !== 'published') return <main className="mx-auto max-w-2xl px-4 py-10 sm:px-6"><Link href="/dashboard" className="text-sm text-primary">بازگشت به داشبورد</Link><div className="mt-6 rounded-2xl border border-dashed border-border p-8 text-center text-sm text-muted-foreground">نسخه جدید فقط برای اپلیکیشن منتشرشده قابل ارسال است.</div></main>
 
   async function submit(e: React.FormEvent) {
     e.preventDefault()
@@ -57,17 +39,24 @@ export default function NewVersionPage() {
     setErrorMessage('')
 
     try {
-      const uploadedApk = await uploadApk(apkFile)
+      const uploadedApk = await uploadPrivateFile(user.id!, apkFile)
       await addVersion(
         app.id,
-        { pathname: uploadedApk.pathname, name: uploadedApk.name },
+        { pathname: uploadedApk.pathname, name: uploadedApk.name, size: uploadedApk.size },
         app.packageName,
         changes.trim(),
       )
       setSaved(true)
       setTimeout(() => router.push('/dashboard'), 700)
-    } catch {
-      setErrorMessage('ثبت نسخه انجام نشد. فایل را بررسی کنید و دوباره تلاش کنید.')
+    } catch (error) {
+      const code = error instanceof Error ? error.message : 'submit_failed'
+      setErrorMessage(
+        code === 'apk_too_large'
+          ? 'حجم فایل APK نباید بیشتر از ۲۵۰ مگابایت باشد.'
+          : code === 'auth_required'
+            ? 'نشست ورود شما منقضی شده است. دوباره وارد شوید.'
+            : 'ثبت نسخه انجام نشد. فایل را بررسی کنید و دوباره تلاش کنید.',
+      )
     } finally {
       setSaving(false)
     }
