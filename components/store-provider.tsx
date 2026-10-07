@@ -194,7 +194,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       },
       status: 'pending',
     })
-    if (submissionError) throw submissionError
+    if (submissionError) {
+      await supabase
+        .from('app_versions')
+        .delete()
+        .eq('id', version.id)
+        .eq('app_id', appId)
+      throw submissionError
+    }
   }, [user?.id])
 
   const removeApp = useCallback(async (id: string) => {
