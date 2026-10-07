@@ -37,8 +37,28 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [authReady, setAuthReady] = useState(false)
   const [tickets, setTickets] = useState<SupportTicket[]>([])
 
+  const loadPublishedApps = useCallback(async () => {
+    const { data } = await supabase
+      .from('apps')
+      .select('*')
+      .eq('status', 'published')
+      .order('updated_at', { ascending: false })
+
+    if (!data) return
+    const rows = data as Record<string, any>[]
+    setApps((current) => [
+      ...rows.map(mapApp),
+      ...current.filter((app) => !rows.some((row) => row.id === app.id)),
+    ])
+  }, [])
+
   const loadUserData = useCallback(async (authUser: SupabaseUser | null) => {
-    if (!authUser) { setUser(null); setTickets([]); return }
+    if (!authUser) {
+      setUser(null)
+      setTickets([])
+      setApps((current) => current.filter((app) => !app.ownerId || app.status === 'published'))
+      return
+    }
     const { data: profile } = await supabase.from('profiles').select('*').eq('id', authUser.id).maybeSingle()
     const nextUser: User = { id: authUser.id, name: profile?.full_name || authUser.user_metadata?.full_name || authUser.email?.split('@')[0] || 'توسعه‌دهنده', email: authUser.email || '', phone: profile?.phone || authUser.user_metadata?.phone, nationalId: profile?.national_id || authUser.user_metadata?.national_id, organization: authUser.user_metadata?.organization || undefined }
     setUser(nextUser)
@@ -58,6 +78,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   }, [])
 
   useEffect(() => {
+    void loadPublishedApps()
     supabase.auth.getUser().then(async ({ data }: { data: { user: SupabaseUser | null } }) => {
       await loadUserData(data.user)
       setAuthReady(true)
@@ -66,7 +87,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       void loadUserData(session?.user ?? null).finally(() => setAuthReady(true))
     })
     return () => listener.subscription.unsubscribe()
-  }, [loadUserData])
+  }, [loadPublishedApps, loadUserData])
 
   const addApp = useCallback(async (app: StoreApp) => {
     if (!user?.id) return
