@@ -48,7 +48,7 @@ export function SiteFooter() {
               links={[
                 { label: 'درباره ما', href: '/about' },
                 { label: 'قوانین', href: '/rules' },
-                { label: 'تماس', href: '/about' },
+                { label: 'تماس', href: '/about#support' },
               ]}
             />
           </div>
