@@ -67,6 +67,20 @@ export type AdminApp = {
   submissions: ReviewSubmission[]
 }
 
+export type AdminSupportTicket = {
+  id: string
+  user_id: string
+  subject: string
+  message: string
+  status: 'open' | 'answered' | 'closed'
+  created_at: string
+  updated_at: string
+  admin_reply: string | null
+  replied_at: string | null
+  developer: string
+  developer_email: string | null
+}
+
 export default async function AdminPage() {
   if (!(await isAdmin())) redirect('/admin/login')
 
@@ -76,16 +90,19 @@ export default async function AdminPage() {
     { data: versions },
     { data: profiles },
     { data: submissions },
-    { count: ticketCount },
+    { data: tickets },
   ] = await Promise.all([
     supabase.from('apps').select('*').order('updated_at', { ascending: false }),
     supabase.from('app_versions').select('*').order('created_at', { ascending: false }),
     supabase.from('profiles').select('id, full_name'),
     supabase.from('review_submissions').select('*').order('submitted_at', { ascending: false }),
-    supabase.from('support_tickets').select('id', { count: 'exact', head: true }),
+    supabase.from('support_tickets').select('*').order('created_at', { ascending: false }),
   ])
 
-  const ownerIds = [...new Set((apps || []).map((row: Record<string, any>) => row.owner_id).filter(Boolean))]
+  const ownerIds = [...new Set([
+    ...(apps || []).map((row: Record<string, any>) => row.owner_id),
+    ...(tickets || []).map((row: Record<string, any>) => row.user_id),
+  ].filter(Boolean))]
   const authUsers = new Map<string, string | null>()
   for (const ownerId of ownerIds) {
     const { data } = await supabase.auth.admin.getUserById(ownerId)
@@ -163,6 +180,20 @@ export default async function AdminPage() {
     return new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()
   })
 
+  const adminTickets: AdminSupportTicket[] = (tickets || []).map((row: Record<string, any>) => ({
+    id: row.id,
+    user_id: row.user_id,
+    subject: row.subject,
+    message: row.message,
+    status: row.status,
+    created_at: row.created_at,
+    updated_at: row.updated_at,
+    admin_reply: row.admin_reply,
+    replied_at: row.replied_at,
+    developer: profileMap.get(row.user_id) || 'ناشناس',
+    developer_email: authUsers.get(row.user_id) || null,
+  }))
+
   const pendingApps = adminApps.filter((app) => app.status === 'pending').length
   const pendingVersions = adminApps.flatMap((app) => app.versions).filter((version) => version.status === 'pending').length
   const rejected = adminApps.filter((app) => app.status === 'rejected').length
@@ -174,7 +205,7 @@ export default async function AdminPage() {
     { label: 'نسخه جدید', value: pendingVersions },
     { label: 'رد شده', value: rejected },
     { label: 'منتشر شده', value: published },
-    { label: 'تیکت‌ها', value: ticketCount || 0 },
+    { label: 'تیکت‌ها', value: adminTickets.length },
   ]
 
   return (
@@ -192,7 +223,7 @@ export default async function AdminPage() {
         </form>
       </header>
 
-      <AdminConsole apps={adminApps} stats={stats} />
+      <AdminConsole apps={adminApps} stats={stats} tickets={adminTickets} />
     </main>
   )
 }
