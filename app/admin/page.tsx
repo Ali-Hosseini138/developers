@@ -3,7 +3,7 @@ import { isAdmin } from '@/lib/admin-auth'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { logoutAction } from './actions'
 import { Button } from '@/components/ui/button'
-import { AdminApps } from '@/components/admin/admin-apps'
+import { AdminConsole } from '@/components/admin/admin-console'
 
 export const metadata = { title: 'مرکز بررسی — نت‌استور' }
 export const dynamic = 'force-dynamic'
@@ -192,16 +192,7 @@ export default async function AdminPage() {
         </form>
       </header>
 
-      <section className="mb-8 grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
-        {stats.map((stat) => (
-          <div key={stat.label} className="rounded-xl border border-border bg-card p-4">
-            <p className="text-xs text-muted-foreground">{stat.label}</p>
-            <p className="mt-1 text-2xl font-bold text-card-foreground">{stat.value.toLocaleString('fa-IR')}</p>
-          </div>
-        ))}
-      </section>
-
-      <AdminApps apps={adminApps} />
+      <AdminConsole apps={adminApps} stats={stats} />
     </main>
   )
 }
