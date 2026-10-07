@@ -127,3 +127,37 @@ export async function updateVersionStatusAction(formData: FormData) {
   revalidatePath('/admin')
   revalidatePath('/dashboard')
 }
+
+
+export async function updateSupportTicketAction(formData: FormData) {
+  if (!(await isAdmin())) redirect('/admin/login')
+
+  const ticketId = String(formData.get('ticketId') || '')
+  const action = String(formData.get('action') || '')
+  const reply = String(formData.get('reply') || '').trim()
+
+  if (!ticketId || !['reply', 'close', 'reopen'].includes(action)) return
+  if (action === 'reply' && reply.length < 2) {
+    throw new Error('متن پاسخ نمی‌تواند خالی باشد.')
+  }
+
+  const supabase = createAdminClient()
+  const now = new Date().toISOString()
+
+  const patch =
+    action === 'reply'
+      ? { admin_reply: reply, replied_at: now, status: 'answered', updated_at: now }
+      : action === 'close'
+        ? { status: 'closed', updated_at: now }
+        : { status: 'open', updated_at: now }
+
+  const { error } = await supabase
+    .from('support_tickets')
+    .update(patch)
+    .eq('id', ticketId)
+
+  if (error) throw error
+
+  revalidatePath('/admin')
+  revalidatePath('/dashboard')
+}
