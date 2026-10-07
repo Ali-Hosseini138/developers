@@ -10,16 +10,10 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useStore } from '@/components/store-provider'
+import { uploadPrivateFile } from '@/lib/blob-upload-client'
 import { CATEGORIES } from '@/lib/types'
 
 const ageOptions = ['همه سنین', '+۷', '+۱۲', '+۱۵', '+۱۸'] as const
-
-type UploadedFile = {
-  pathname: string
-  name: string
-  size: number
-  contentType: string
-}
 
 export default function EditAppPage() {
   const { id } = useParams<{ id: string }>()
@@ -63,14 +57,6 @@ export default function EditAppPage() {
     reader.readAsDataURL(file)
   }
 
-  async function uploadFile(file: File) {
-    const body = new FormData()
-    body.append('file', file)
-    const response = await fetch('/api/blob-upload', { method: 'POST', body })
-    if (!response.ok) throw new Error('upload_failed')
-    return response.json() as Promise<UploadedFile>
-  }
-
   async function save(e: React.FormEvent) {
     e.preventDefault()
     if (saving) return
@@ -86,9 +72,9 @@ export default function EditAppPage() {
 
     try {
       const [iconUpload, bannerUpload, ...newScreenshots] = await Promise.all([
-        ...(iconFile ? [uploadFile(iconFile)] : [Promise.resolve(null)]),
-        ...(bannerFile ? [uploadFile(bannerFile)] : [Promise.resolve(null)]),
-        ...newScreenshotFiles.map(uploadFile),
+        ...(iconFile ? [uploadPrivateFile(user.id!, iconFile)] : [Promise.resolve(null)]),
+        ...(bannerFile ? [uploadPrivateFile(user.id!, bannerFile)] : [Promise.resolve(null)]),
+        ...newScreenshotFiles.map((file) => uploadPrivateFile(user.id!, file)),
       ])
 
       await updateApp(app.id, {
@@ -114,8 +100,17 @@ export default function EditAppPage() {
       }
       setSaved(true)
       setTimeout(() => router.push('/dashboard'), 700)
-    } catch {
-      setErrorMessage('ذخیره تغییرات انجام نشد. فایل‌ها یا اطلاعات را بررسی کنید و دوباره تلاش کنید.')
+    } catch (error) {
+      const code = error instanceof Error ? error.message : 'save_failed'
+      setErrorMessage(
+        code === 'image_too_large'
+          ? 'حجم هر تصویر باید حداکثر ۸ مگابایت باشد.'
+          : code === 'unsupported_image_type'
+            ? 'فرمت تصویر پشتیبانی نمی‌شود. PNG، JPG یا WEBP انتخاب کنید.'
+            : code === 'auth_required'
+              ? 'نشست ورود شما منقضی شده است. دوباره وارد شوید.'
+              : 'ذخیره تغییرات انجام نشد. فایل‌ها یا اطلاعات را بررسی کنید و دوباره تلاش کنید.',
+      )
     } finally {
       setSaving(false)
     }
