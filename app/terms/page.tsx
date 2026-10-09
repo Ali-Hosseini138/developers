@@ -1,13 +1,13 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { Suspense, useEffect, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Check, Loader2, ShieldCheck } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useStore } from '@/components/store-provider'
 import { PUBLISHING_RULES } from '@/lib/publishing-rules'
 
-export default function TermsAcceptancePage() {
+function TermsAcceptanceContent() {
   const { user, authReady, acceptTerms } = useStore()
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -106,5 +106,20 @@ export default function TermsAcceptancePage() {
         </Button>
       </div>
     </main>
+  )
+}
+
+
+export default function TermsAcceptancePage() {
+  return (
+    <Suspense
+      fallback={
+        <main className="mx-auto flex min-h-[55vh] max-w-3xl items-center justify-center px-4 py-12">
+          <Loader2 className="size-6 animate-spin text-muted-foreground" />
+        </main>
+      }
+    >
+      <TermsAcceptanceContent />
+    </Suspense>
   )
 }
