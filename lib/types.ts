@@ -73,6 +73,7 @@ export interface User {
   phone?: string
   nationalId?: string
   organization?: string
+  termsAcceptedAt?: string
 }
 
 export type TicketStatus = 'open' | 'answered' | 'closed'
