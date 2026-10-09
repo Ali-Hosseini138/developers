@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useParams, useRouter } from 'next/navigation'
-import { ArrowRight, Loader2, Save, UploadCloud } from 'lucide-react'
+import { ArrowRight, Loader2, Save } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -11,6 +11,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useStore } from '@/components/store-provider'
 import { uploadPrivateFile } from '@/lib/blob-upload-client'
+import { FileDropzone } from '@/components/upload/file-dropzone'
 import { CATEGORIES } from '@/lib/types'
 
 const ageOptions = ['همه سنین', '+۷', '+۱۲', '+۱۵', '+۱۸'] as const
@@ -135,21 +136,20 @@ export default function EditAppPage() {
           className={`mt-3 w-full rounded-lg object-cover ${ratio === '1:1' ? 'aspect-square max-w-40' : 'aspect-video'}`}
         />
       )}
-      <Label className="mt-3 flex cursor-pointer items-center justify-center gap-2 rounded-lg border border-dashed border-border p-3 text-sm hover:border-primary/50">
-        <UploadCloud className="size-4" />
-        انتخاب فایل جدید
-        <input
-          type="file"
+      <div className="mt-3">
+        <FileDropzone
           accept="image/png,image/jpeg,image/webp"
-          className="sr-only"
-          onChange={(e) => {
-            const file = e.target.files?.[0]
+          label="انتخاب فایل جدید"
+          hint="تصویر را بکشید و رها کنید یا برای انتخاب کلیک کنید"
+          compact
+          onFiles={(files) => {
+            const file = files[0]
             if (!file) return
             setFile(file)
             readImage(file, setPreview)
           }}
         />
-      </Label>
+      </div>
     </div>
   )
 
@@ -217,21 +217,18 @@ export default function EditAppPage() {
         </div>
 
         <Field label="تصاویر محیط برنامه">
-          <Label className="flex cursor-pointer items-center gap-2 rounded-lg border border-dashed border-border p-4 text-sm">
-            <UploadCloud className="size-4" />
-            افزودن تصویر جدید
-            <input
-              type="file"
-              accept="image/png,image/jpeg,image/webp"
-              multiple
-              className="sr-only"
-              onChange={(e) => {
-                const files = Array.from(e.target.files || [])
-                setNewScreenshotFiles((old) => [...old, ...files].slice(0, 6))
-                files.forEach((file) => readImage(file, (url) => setScreenshots((old) => [...old, url].slice(0, 6))))
-              }}
-            />
-          </Label>
+          <FileDropzone
+            accept="image/png,image/jpeg,image/webp"
+            label="افزودن تصویر جدید"
+            hint="تصاویر را بکشید و رها کنید یا برای انتخاب کلیک کنید"
+            multiple
+            compact
+            onFiles={(files) => {
+              const accepted = files.slice(0, Math.max(0, 6 - newScreenshotFiles.length))
+              setNewScreenshotFiles((old) => [...old, ...accepted].slice(0, 6))
+              accepted.forEach((file) => readImage(file, (url) => setScreenshots((old) => [...old, url].slice(0, 6))))
+            }}
+          />
           <div className="mt-3 flex flex-wrap gap-3">
             {screenshots.map((src, index) => (
               <img key={`${src}-${index}`} src={src} alt={`تصویر محیط ${index + 1}`} className="size-20 rounded-lg object-cover" />
