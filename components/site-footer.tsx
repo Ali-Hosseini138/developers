@@ -55,7 +55,7 @@ export function SiteFooter() {
         </div>
 
         <div className="mt-10 border-t border-border pt-6 text-center text-sm text-muted-foreground">
-          © ۱۴۰۵ نت‌استور — ساخته‌شده برای توسعه‌دهندگان نرم‌افزار
+          تمام حقوق مادی و معنوی این وبسایت متعلق به شرکت توسعه ارتباطات دیجیتال سپهر (نت‌باکس) می‌باشد
         </div>
       </div>
     </footer>
