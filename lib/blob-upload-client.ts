@@ -12,7 +12,7 @@ export type UploadedPrivateFile = {
 const APK_TYPE = 'application/vnd.android.package-archive'
 const IMAGE_TYPES = new Set(['image/png', 'image/jpeg', 'image/webp'])
 const MAX_APK_SIZE = 250 * 1024 * 1024
-const MAX_IMAGE_SIZE = 8 * 1024 * 1024
+const MAX_IMAGE_SIZE = 5 * 1024 * 1024
 
 export async function uploadPrivateFile(userId: string, file: File): Promise<UploadedPrivateFile> {
   if (!userId) throw new Error('auth_required')
