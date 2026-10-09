@@ -16,11 +16,11 @@ import { createClient } from '@/lib/supabase/client'
 
 const tabs = [
   { id: 'apps', label: 'داشبورد من', icon: Package },
-  { id: 'account', label: 'اطلاعات حساب کاربری', icon: UserRound },
   { id: 'analytics', label: 'آمار و عملکرد', icon: Activity },
   { id: 'finance', label: 'مالی', icon: Wallet },
   { id: 'growth', label: 'تبلیغات و رشد', icon: Megaphone },
   { id: 'support', label: 'پشتیبانی و تیکت', icon: HelpCircle },
+  { id: 'account', label: 'اطلاعات حساب کاربری', icon: UserRound },
 ] as const
 
 type Tab = (typeof tabs)[number]['id']
@@ -64,16 +64,32 @@ export default function DashboardPage() {
         <Button render={<Link href="/upload" />} className="gap-1.5"><Plus className="size-4" />انتشار اپ جدید</Button>
       </div>
 
-      <div className="mt-8 flex gap-2 overflow-x-auto rounded-2xl border border-border bg-card p-2 sm:grid sm:grid-cols-6">
-        {tabs.map(({ id, label, icon: Icon }) => <button key={id} type="button" onClick={() => setTab(id)} className={`flex shrink-0 items-center justify-center gap-2 rounded-xl px-3 py-3 text-sm font-medium transition-colors sm:shrink ${tab === id ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-secondary hover:text-foreground'}`}><Icon className="size-4" />{label}</button>)}
-      </div>
+      <div className="mt-8 flex flex-col gap-6 lg:flex-row-reverse lg:items-start">
+        <aside className="lg:sticky lg:top-24 lg:w-64 lg:shrink-0">
+          <div className="flex gap-2 overflow-x-auto rounded-2xl border border-border bg-card p-2 lg:flex-col lg:overflow-visible">
+            {tabs.map(({ id, label, icon: Icon }) => (
+              <button
+                key={id}
+                type="button"
+                onClick={() => setTab(id)}
+                className={`flex shrink-0 items-center gap-2 rounded-xl px-3 py-3 text-sm font-medium transition-colors lg:w-full lg:justify-start ${tab === id ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-secondary hover:text-foreground'}`}
+              >
+                <Icon className="size-4" />
+                {label}
+              </button>
+            ))}
+          </div>
+        </aside>
 
-      {tab === 'apps' && <AppsTab myApps={myApps} removeApp={removeApp} submitAppForReview={submitAppForReview} />}
-      {tab === 'account' && <AccountTab user={user} />}
-      {tab === 'analytics' && <AnalyticsTab myApps={myApps} />}
-      {tab === 'finance' && <FinanceTab />}
-      {tab === 'growth' && <GrowthTab myApps={myApps} />}
-      {tab === 'support' && <SupportTab subject={subject} message={message} setSubject={setSubject} setMessage={setMessage} submitTicket={submitTicket} tickets={myTickets} sending={ticketSending} errorMessage={ticketError} />}
+        <div className="min-w-0 flex-1">
+          {tab === 'apps' && <AppsTab myApps={myApps} removeApp={removeApp} submitAppForReview={submitAppForReview} />}
+          {tab === 'account' && <AccountTab user={user} />}
+          {tab === 'analytics' && <AnalyticsTab myApps={myApps} />}
+          {tab === 'finance' && <FinanceTab />}
+          {tab === 'growth' && <GrowthTab myApps={myApps} />}
+          {tab === 'support' && <SupportTab subject={subject} message={message} setSubject={setSubject} setMessage={setMessage} submitTicket={submitTicket} tickets={myTickets} sending={ticketSending} errorMessage={ticketError} />}
+        </div>
+      </div>
     </main>
   )
 }
