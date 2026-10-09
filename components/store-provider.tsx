@@ -13,6 +13,7 @@ interface StoreContextValue {
   addApp: (app: StoreApp) => Promise<void>
   updateApp: (id: string, patch: Partial<StoreApp>) => Promise<void>
   updateProfile: (patch: Pick<User, 'name' | 'phone' | 'nationalId' | 'organization'>) => Promise<void>
+  acceptTerms: () => Promise<void>
   addVersion: (appId: string, apk: { pathname: string; name: string; size: number }, packageName: string | undefined, changelog: string) => Promise<void>
   removeApp: (id: string) => Promise<void>
   submitAppForReview: (id: string) => Promise<void>
@@ -60,7 +61,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       return
     }
     const { data: profile } = await supabase.from('profiles').select('*').eq('id', authUser.id).maybeSingle()
-    const nextUser: User = { id: authUser.id, name: profile?.full_name || authUser.user_metadata?.full_name || authUser.email?.split('@')[0] || 'توسعه‌دهنده', email: authUser.email || '', phone: profile?.phone || authUser.user_metadata?.phone, nationalId: profile?.national_id || authUser.user_metadata?.national_id, organization: authUser.user_metadata?.organization || undefined }
+    const nextUser: User = { id: authUser.id, name: profile?.full_name || authUser.user_metadata?.full_name || authUser.email?.split('@')[0] || 'توسعه‌دهنده', email: authUser.email || '', phone: profile?.phone || authUser.user_metadata?.phone, nationalId: profile?.national_id || authUser.user_metadata?.national_id, organization: authUser.user_metadata?.organization || undefined, termsAcceptedAt: profile?.terms_accepted_at || undefined }
     setUser(nextUser)
     const { data } = await supabase.from('apps').select('*').eq('owner_id', authUser.id).order('created_at', { ascending: false })
     if (data) { const rows = data as Record<string, any>[]; setApps((current) => [...rows.map(mapApp), ...current.filter((app) => !rows.some((row) => row.id === app.id))]) }
@@ -158,6 +159,18 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     if (authError) throw authError
     setUser((current) => current ? { ...current, ...patch } : current)
   }, [user?.id])
+  const acceptTerms = useCallback(async () => {
+    if (!user?.id) throw new Error('unauthorized')
+    const acceptedAt = new Date().toISOString()
+    const { error } = await supabase
+      .from('profiles')
+      .update({ terms_accepted_at: acceptedAt })
+      .eq('id', user.id)
+
+    if (error) throw error
+    setUser((current) => current ? { ...current, termsAcceptedAt: acceptedAt } : current)
+  }, [user?.id])
+
   const addVersion = useCallback(async (appId: string, apk: { pathname: string; name: string; size: number }, packageName: string | undefined, changelog: string) => {
     if (!user?.id) throw new Error('unauthorized')
     const { data: ownedApp, error: ownershipError } = await supabase
@@ -247,7 +260,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const login = useCallback((u: User) => setUser(u), [])
   const logout = useCallback(async () => { await supabase.auth.signOut(); setUser(null) }, [])
   const myApps = useMemo(() => user?.id ? apps.filter((app) => app.ownerId === user.id) : [], [apps, user?.id])
-  const value = useMemo(() => ({ apps, user, authReady, addApp, updateApp, updateProfile, addVersion, removeApp, submitAppForReview, getApp, myApps, tickets, addTicket, login, logout }), [apps, user, authReady, addApp, updateApp, updateProfile, addVersion, removeApp, submitAppForReview, getApp, myApps, tickets, addTicket, login, logout])
+  const value = useMemo(() => ({ apps, user, authReady, addApp, updateApp, updateProfile, acceptTerms, addVersion, removeApp, submitAppForReview, getApp, myApps, tickets, addTicket, login, logout }), [apps, user, authReady, addApp, updateApp, updateProfile, acceptTerms, addVersion, removeApp, submitAppForReview, getApp, myApps, tickets, addTicket, login, logout])
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>
 }
 
