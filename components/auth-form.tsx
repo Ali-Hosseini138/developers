@@ -21,7 +21,7 @@ import { createClient } from '@/lib/supabase/client'
 
 type AccountType = 'individual' | 'legal'
 
-const signupSteps = ['اطلاعات ورود', 'نوع حساب', 'اطلاعات هویتی', 'تأیید موبایل']
+const signupSteps = ['اطلاعات ورود', 'نوع حساب', 'اطلاعات هویتی', 'شماره موبایل']
 
 function normalizeIranPhone(value: string) {
   const digits = value.replace(/\D/g, '')
@@ -107,11 +107,13 @@ function AuthFormInner({ mode }: { mode: 'login' | 'signup' }) {
 
     setLoading(true)
     try {
-      const { data, error } = await supabase.auth.signUp({
-        email: normalizedEmail,
-        password,
-        options: {
-          data: {
+      const response = await fetch('/api/auth/signup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: normalizedEmail,
+          password,
+          metadata: {
             full_name: displayName,
             phone: phone.trim() || null,
             national_id: nationalId.trim(),
@@ -122,41 +124,44 @@ function AuthFormInner({ mode }: { mode: 'login' | 'signup' }) {
                 ? [name.trim(), lastName.trim()].filter(Boolean).join(' ')
                 : null,
           },
-        },
+        }),
       })
 
-      if (error) throw error
+      const payload = await response.json().catch(() => ({}))
 
-      if (data.user && Array.isArray(data.user.identities) && data.user.identities.length === 0) {
-        setErrorMessage('این ایمیل قبلاً ثبت شده است. وارد حساب شوید یا از بازیابی رمز عبور استفاده کنید.')
+      if (!response.ok) {
+        setErrorMessage(
+          payload.error === 'already_registered'
+            ? 'این ایمیل قبلاً ثبت شده است. وارد حساب شوید یا از بازیابی رمز عبور استفاده کنید.'
+            : 'تکمیل ثبت‌نام انجام نشد. اطلاعات را بررسی و دوباره تلاش کنید.',
+        )
         return
       }
 
-      if (data.user && data.session) {
-        login({
-          id: data.user.id,
-          name: displayName || 'توسعه‌دهنده',
-          email: data.user.email || normalizedEmail,
-          phone: phone.trim() || undefined,
-          nationalId: nationalId.trim(),
-          organization: accountType === 'legal' ? organization.trim() : undefined,
-        })
+      const result = await supabase.auth.signInWithPassword({
+        email: normalizedEmail,
+        password,
+      })
 
-        router.push(`/terms?next=${encodeURIComponent(next)}`)
-        router.refresh()
+      if (result.error || !result.data.user) {
+        setErrorMessage('حساب ساخته شد اما ورود خودکار انجام نشد. از صفحه ورود وارد شوید.')
         return
       }
 
-      router.push('/login?registered=1')
-    } catch (error) {
-      const message = error instanceof Error ? error.message.toLowerCase() : ''
-      setErrorMessage(
-        message.includes('already') || message.includes('registered')
-          ? 'این ایمیل قبلاً ثبت شده است.'
-          : message.includes('rate')
-            ? 'تعداد درخواست‌ها بیش از حد مجاز است. کمی بعد دوباره تلاش کنید.'
-            : 'تکمیل ثبت‌نام انجام نشد. دوباره تلاش کنید.',
-      )
+      const authUser = result.data.user
+      login({
+        id: authUser.id,
+        name: displayName || 'توسعه‌دهنده',
+        email: authUser.email || normalizedEmail,
+        phone: phone.trim() || undefined,
+        nationalId: nationalId.trim(),
+        organization: accountType === 'legal' ? organization.trim() : undefined,
+      })
+
+      router.push(`/terms?next=${encodeURIComponent(next)}`)
+      router.refresh()
+    } catch {
+      setErrorMessage('ارتباط با سرویس ثبت‌نام برقرار نشد. دوباره تلاش کنید.')
     } finally {
       setLoading(false)
     }
