@@ -10,6 +10,7 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { useStore } from '@/components/store-provider'
 import { uploadPrivateFile } from '@/lib/blob-upload-client'
+import { FileDropzone } from '@/components/upload/file-dropzone'
 
 export default function NewVersionPage() {
   const { id } = useParams<{ id: string }>()
@@ -78,29 +79,25 @@ export default function NewVersionPage() {
       </div>
 
       <form onSubmit={submit} className="mt-8 flex flex-col gap-5 rounded-2xl border border-border bg-card p-6">
-        <div className="rounded-xl border border-dashed border-primary/40 bg-primary/5 p-6 text-center">
-          <UploadCloud className="mx-auto size-8 text-primary" />
-          <p className="mt-3 font-medium">فایل APK نسخه جدید</p>
-          <Input
-            id="new-apk"
-            type="file"
+        <div>
+          <FileDropzone
             accept=".apk,application/vnd.android.package-archive"
-            className="mt-4"
-            onChange={(e) => {
-              const file = e.target.files?.[0] || null
-              if (file && file.size > 250 * 1024 * 1024) {
+            label="فایل APK نسخه جدید"
+            hint="فایل APK را اینجا بکشید و رها کنید یا برای انتخاب کلیک کنید"
+            onFiles={(files) => {
+              const file = files[0]
+              if (!file) return
+              if (file.size > 250 * 1024 * 1024) {
                 setApkFile(null)
                 setErrorMessage('حجم فایل APK نباید بیشتر از ۲۵۰ مگابایت باشد.')
-                e.currentTarget.value = ''
                 return
               }
               setErrorMessage('')
               setApkFile(file)
             }}
-            required
           />
-          <p className="mt-2 text-xs text-muted-foreground">
-            حداکثر حجم فایل ۲۵۰ مگابایت است.
+          <p className="mt-2 text-center text-xs text-muted-foreground">
+            {apkFile ? `${apkFile.name} — ${(apkFile.size / 1024 / 1024).toFixed(1)} MB` : 'حداکثر حجم فایل ۲۵۰ مگابایت است.'}
           </p>
         </div>
 
