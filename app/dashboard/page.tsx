@@ -323,7 +323,9 @@ function AnalyticsTab({ myApps }: { myApps: ReturnType<typeof useStore>['myApps'
   const publishedApps = myApps.filter((app) => app.status === 'published')
   const hasMultipleApps = publishedApps.length > 1
   const [selectedAppId, setSelectedAppId] = useState(hasMultipleApps ? 'all' : publishedApps[0]?.id || '')
-  const [range, setRange] = useState<7 | 30 | 90>(30)
+  const [range, setRange] = useState<1 | 7 | 30 | 90 | 365 | 'custom'>(30)
+  const [customStartDate, setCustomStartDate] = useState('')
+  const [customEndDate, setCustomEndDate] = useState('')
   const [installRows, setInstallRows] = useState<Array<InstallMetric & { app_id?: string }>>([])
   const [salesRows, setSalesRows] = useState<Array<SalesMetric & { app_id?: string }>>([])
   const [loading, setLoading] = useState(false)
@@ -340,7 +342,26 @@ function AnalyticsTab({ myApps }: { myApps: ReturnType<typeof useStore>['myApps'
     ? publishedApps.some((app) => app.netboxPaymentIntegrated)
     : Boolean(selectedApp?.netboxPaymentIntegrated)
 
-  const demoMetrics = useMemo(() => buildDemoMetrics(range), [range])
+  const dateWindow = useMemo(() => {
+    if (range === 'custom') {
+      if (!customStartDate || !customEndDate || customStartDate > customEndDate) return null
+      const start = new Date(`${customStartDate}T00:00:00`)
+      const end = new Date(`${customEndDate}T00:00:00`)
+      const days = Math.max(1, Math.floor((end.getTime() - start.getTime()) / 86400000) + 1)
+      return { start: customStartDate, end: customEndDate, days }
+    }
+
+    const end = new Date()
+    const start = new Date()
+    start.setDate(end.getDate() - (range - 1))
+    return {
+      start: start.toISOString().slice(0, 10),
+      end: end.toISOString().slice(0, 10),
+      days: range,
+    }
+  }, [range, customStartDate, customEndDate])
+
+  const demoMetrics = useMemo(() => buildDemoMetrics(dateWindow?.days || 30), [dateWindow])
 
   useEffect(() => {
     if (publishedApps.length > 1 && !selectedAppId) setSelectedAppId('all')
@@ -359,14 +380,18 @@ function AnalyticsTab({ myApps }: { myApps: ReturnType<typeof useStore>['myApps'
       setLoading(true)
       setErrorMessage('')
 
-      const since = new Date()
-      since.setDate(since.getDate() - (range - 1))
-      const sinceDate = since.toISOString().slice(0, 10)
+      if (!dateWindow) {
+        setInstallRows([])
+        setSalesRows([])
+        setLoading(false)
+        return
+      }
 
       let installQuery = supabase
         .from('app_daily_installs')
         .select('app_id, metric_date, installs')
-        .gte('metric_date', sinceDate)
+        .gte('metric_date', dateWindow.start)
+        .lte('metric_date', dateWindow.end)
         .order('metric_date', { ascending: true })
 
       installQuery = selectedIds.length === 1
@@ -384,7 +409,8 @@ function AnalyticsTab({ myApps }: { myApps: ReturnType<typeof useStore>['myApps'
             let query = supabase
               .from('app_daily_sales')
               .select('app_id, metric_date, orders, total_sales_rial')
-              .gte('metric_date', sinceDate)
+              .gte('metric_date', dateWindow.start)
+              .lte('metric_date', dateWindow.end)
               .order('metric_date', { ascending: true })
 
             query = paymentAppIds.length === 1
@@ -410,7 +436,7 @@ function AnalyticsTab({ myApps }: { myApps: ReturnType<typeof useStore>['myApps'
     }
 
     void load()
-  }, [selectedAppId, range, paymentEnabled, publishedApps, supabase])
+  }, [selectedAppId, dateWindow, paymentEnabled, publishedApps, supabase])
 
   const aggregatedInstalls = useMemo(() => {
     if (selectedAppId !== 'all') {
@@ -509,21 +535,67 @@ function AnalyticsTab({ myApps }: { myApps: ReturnType<typeof useStore>['myApps'
           )}
         </div>
 
-        <div>
+        <div className="min-w-0">
           <Label>بازه زمانی</Label>
-          <div className="mt-1.5 flex gap-2">
-            {[7, 30, 90].map((days) => (
+          <div className="mt-1.5 flex flex-wrap gap-2">
+            {[
+              { value: 1 as const, label: 'امروز' },
+              { value: 7 as const, label: '۷ روز' },
+              { value: 30 as const, label: '۳۰ روز' },
+              { value: 90 as const, label: '۹۰ روز' },
+              { value: 365 as const, label: '۱ سال' },
+            ].map(({ value, label }) => (
               <Button
-                key={days}
+                key={value}
                 type="button"
                 size="sm"
-                variant={range === days ? 'default' : 'outline'}
-                onClick={() => setRange(days as 7 | 30 | 90)}
+                variant={range === value ? 'default' : 'outline'}
+                onClick={() => setRange(value)}
               >
-                {days.toLocaleString('fa-IR')} روز
+                {label}
               </Button>
             ))}
+            <Button
+              type="button"
+              size="sm"
+              variant={range === 'custom' ? 'default' : 'outline'}
+              onClick={() => setRange('custom')}
+            >
+              بازه دلخواه
+            </Button>
           </div>
+
+          {range === 'custom' && (
+            <div className="mt-3 grid gap-3 sm:grid-cols-2">
+              <div>
+                <Label htmlFor="analytics-start-date" className="text-xs">از تاریخ</Label>
+                <Input
+                  id="analytics-start-date"
+                  type="date"
+                  dir="ltr"
+                  value={customStartDate}
+                  onChange={(e) => setCustomStartDate(e.target.value)}
+                  max={customEndDate || undefined}
+                  className="mt-1 h-10"
+                />
+              </div>
+              <div>
+                <Label htmlFor="analytics-end-date" className="text-xs">تا تاریخ</Label>
+                <Input
+                  id="analytics-end-date"
+                  type="date"
+                  dir="ltr"
+                  value={customEndDate}
+                  onChange={(e) => setCustomEndDate(e.target.value)}
+                  min={customStartDate || undefined}
+                  className="mt-1 h-10"
+                />
+              </div>
+              {customStartDate && customEndDate && customStartDate > customEndDate && (
+                <p className="text-xs text-destructive sm:col-span-2">تاریخ پایان باید بعد از تاریخ شروع باشد.</p>
+              )}
+            </div>
+          )}
         </div>
       </div>
 
