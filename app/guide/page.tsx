@@ -297,9 +297,8 @@ export default function GuidePage() {
             <p className="mt-3 leading-8 text-muted-foreground">{section.intro}</p>
             <ul className="mt-5 space-y-3 text-sm leading-7">
               {section.items.map((item) => (
-                <li key={item} className="flex gap-3">
-                  <CheckCircle2 className="mt-1.5 size-4 shrink-0 text-primary" />
-                  <span>{item}</span>
+                <li key={item}>
+                  {item}
                 </li>
               ))}
             </ul>
