@@ -22,6 +22,7 @@ export default function UploadPage() {
   const [step, setStep] = useState(1)
   const [saving, setSaving] = useState(false)
   const [submitStage, setSubmitStage] = useState('')
+  const [submitProgress, setSubmitProgress] = useState(0)
   const [errorMessage, setErrorMessage] = useState('')
   const [apkName, setApkName] = useState('')
   const [apkSize, setApkSize] = useState('')
@@ -99,23 +100,35 @@ export default function UploadPage() {
     }
 
     setSaving(true)
+    setSubmitProgress(0)
     setErrorMessage('')
+
+    const filesToUpload = [apkFile, iconFile, bannerFile, ...screenshotFiles]
+    const totalUploadBytes = Math.max(1, filesToUpload.reduce((sum, file) => sum + file.size, 0))
+    const uploadedBytes = new Map<File, number>()
+
+    const updateOverallProgress = (file: File, percentage: number) => {
+      uploadedBytes.set(file, file.size * (Math.max(0, Math.min(100, percentage)) / 100))
+      const uploaded = [...uploadedBytes.values()].reduce((sum, bytes) => sum + bytes, 0)
+      setSubmitProgress(Math.min(95, Math.round((uploaded / totalUploadBytes) * 95)))
+    }
 
     try {
       setSubmitStage('در حال آپلود فایل APK...')
-      const apk = await uploadPrivateFile(user.id!, apkFile)
+      const apk = await uploadPrivateFile(user.id!, apkFile, (percentage) => updateOverallProgress(apkFile, percentage))
 
       setSubmitStage('در حال آپلود آیکون...')
-      const iconUpload = await uploadPrivateFile(user.id!, iconFile)
+      const iconUpload = await uploadPrivateFile(user.id!, iconFile, (percentage) => updateOverallProgress(iconFile, percentage))
 
       setSubmitStage('در حال آپلود بنر...')
-      const bannerUpload = await uploadPrivateFile(user.id!, bannerFile)
+      const bannerUpload = await uploadPrivateFile(user.id!, bannerFile, (percentage) => updateOverallProgress(bannerFile, percentage))
 
       setSubmitStage(screenshotFiles.length ? 'در حال آپلود تصاویر...' : 'در حال ثبت درخواست بررسی...')
       const shotUploads = await Promise.all(
-        screenshotFiles.map((file) => uploadPrivateFile(user.id!, file)),
+        screenshotFiles.map((file) => uploadPrivateFile(user.id!, file, (percentage) => updateOverallProgress(file, percentage))),
       )
 
+      setSubmitProgress(97)
       setSubmitStage('در حال ثبت درخواست بررسی...')
       const response = await fetch('/api/apps/submit', {
         method: 'POST',
@@ -147,6 +160,9 @@ export default function UploadPage() {
         throw new Error(result?.error || 'submit_failed')
       }
 
+      setSubmitProgress(100)
+      setSubmitStage('ارسال با موفقیت انجام شد')
+      await new Promise((resolve) => setTimeout(resolve, 350))
       router.push('/dashboard')
       router.refresh()
     } catch (error) {
@@ -231,7 +247,29 @@ export default function UploadPage() {
         {step === 4 && <div><Header title="اطلاعات نمایشی" text="این اطلاعات در صفحه معرفی اپ نمایش داده می‌شوند." /><div className="flex flex-col gap-4"><Field label="آدرس وبسایت"><Input value={website} onChange={(e) => setWebsite(e.target.value)} dir="ltr" type="url" placeholder="https://example.com" /></Field><Field label="ایمیل پشتیبانی"><Input value={email} onChange={(e) => setEmail(e.target.value)} dir="ltr" type="email" placeholder="support@example.com" /></Field></div></div>}
         {step === 5 && <div><Header title="بازبینی اطلاعات" text="اطلاعات را بررسی کنید و اپلیکیشن را برای بررسی کارشناسان ارسال کنید." /><div className="grid gap-3 text-sm">{[['فایل APK', apkName], ['عنوان', name], ['پکیج‌نیم', packageName], ['دسته‌بندی', category], ['محدودیت سنی', ageRestriction], ['پرداخت درون‌برنامه‌ای', hasInAppPayment ? 'دارد — Netbox Payment تأیید شده' : 'ندارد'], ['نسخه مخصوص Android TV', developedForAndroidTv ? 'بله' : 'خیر — قابل استفاده با ایرماوس/ماوس'], ['وبسایت', website || '—'], ['ایمیل پشتیبانی', email || '—'], ['تصاویر', `${toFa(screenshots.length)} تصویر`]].map(([label, value]) => <div key={label} className="flex justify-between gap-4 rounded-xl bg-secondary/60 p-4"><span className="text-muted-foreground">{label}</span><span className="font-medium" dir="ltr">{value}</span></div>)}</div><div className="mt-5 rounded-xl border border-primary/20 bg-primary/5 p-4 text-sm leading-7">پس از ارسال، اطلاعات شما توسط کارشناس نت‌استور بررسی می‌شود و بعد از تأیید، اپلیکیشن در فروشگاه منتشر خواهد شد.</div></div>}
       </section>
-      <div className="mt-6 flex justify-between"><Button variant="ghost" onClick={() => setStep((s) => Math.max(1, s - 1))} disabled={step === 1} className="gap-2"><ArrowRight className="size-4" />قبلی</Button>{step < 5 ? <Button onClick={() => valid && setStep((s) => s + 1)} disabled={!valid} className="gap-2">گام بعدی<ArrowLeft className="size-4" /></Button> : <Button onClick={submitForReview} disabled={saving} className="gap-2">{saving ? <Loader2 className="size-4 animate-spin" /> : <Rocket className="size-4" />}{saving ? (submitStage || 'در حال ارسال...') : 'ارسال برای بررسی'}</Button>}</div>
+      <div className="mt-6 flex justify-between"><Button variant="ghost" onClick={() => setStep((s) => Math.max(1, s - 1))} disabled={step === 1 || saving} className="gap-2"><ArrowRight className="size-4" />قبلی</Button>{step < 5 ? <Button onClick={() => valid && setStep((s) => s + 1)} disabled={!valid} className="gap-2">گام بعدی<ArrowLeft className="size-4" /></Button> : <Button onClick={submitForReview} disabled={saving} className="gap-2">{saving ? <Loader2 className="size-4 animate-spin" /> : <Rocket className="size-4" />}{saving ? 'در حال ارسال...' : 'ارسال برای بررسی'}</Button>}</div>
+      {saving && (
+        <div className="mt-4 rounded-2xl border border-primary/20 bg-primary/5 p-4">
+          <div className="flex items-center justify-between gap-4 text-sm">
+            <span className="font-medium">{submitStage || 'در حال آماده‌سازی ارسال...'}</span>
+            <span className="font-bold text-primary" dir="ltr">{toFa(submitProgress)}٪</span>
+          </div>
+          <div
+            className="mt-3 h-2.5 overflow-hidden rounded-full bg-secondary"
+            role="progressbar"
+            aria-label="پیشرفت ارسال اپلیکیشن"
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-valuenow={submitProgress}
+          >
+            <div
+              className="h-full rounded-full bg-primary transition-[width] duration-200"
+              style={{ width: `${submitProgress}%` }}
+            />
+          </div>
+          <p className="mt-2 text-xs text-muted-foreground">تا پایان ارسال این صفحه را نبندید.</p>
+        </div>
+      )}
       {errorMessage && <p role="alert" className="mt-3 rounded-lg bg-destructive/10 px-3 py-2 text-center text-sm text-destructive">{errorMessage}</p>}
       {!valid && step < 5 && <p className="mt-3 text-center text-xs text-muted-foreground">فیلدهای الزامی را کامل کنید.</p>}
     </main>
