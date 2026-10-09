@@ -14,7 +14,7 @@ const IMAGE_TYPES = new Set(['image/png', 'image/jpeg', 'image/webp'])
 const MAX_APK_SIZE = 250 * 1024 * 1024
 const MAX_IMAGE_SIZE = 5 * 1024 * 1024
 
-export async function uploadPrivateFile(userId: string, file: File): Promise<UploadedPrivateFile> {
+export async function uploadPrivateFile(userId: string, file: File, onProgress?: (percentage: number) => void): Promise<UploadedPrivateFile> {
   if (!userId) throw new Error('auth_required')
 
   const isApk = file.name.toLowerCase().endsWith('.apk')
@@ -41,6 +41,7 @@ export async function uploadPrivateFile(userId: string, file: File): Promise<Upl
     handleUploadUrl: '/api/blob-upload',
     contentType,
     multipart: isApk && file.size > 10 * 1024 * 1024,
+    onUploadProgress: ({ percentage }) => onProgress?.(percentage),
   })
 
   return {
