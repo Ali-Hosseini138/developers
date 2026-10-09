@@ -127,6 +127,11 @@ function AuthFormInner({ mode }: { mode: 'login' | 'signup' }) {
 
       if (error) throw error
 
+      if (data.user && Array.isArray(data.user.identities) && data.user.identities.length === 0) {
+        setErrorMessage('این ایمیل قبلاً ثبت شده است. وارد حساب شوید یا از بازیابی رمز عبور استفاده کنید.')
+        return
+      }
+
       if (data.user && data.session) {
         login({
           id: data.user.id,
@@ -169,7 +174,9 @@ function AuthFormInner({ mode }: { mode: 'login' | 'signup' }) {
         setErrorMessage(
           message.includes('rate')
             ? 'تعداد درخواست‌ها بیش از حد مجاز است. کمی بعد دوباره تلاش کنید.'
-            : 'ایمیل یا رمز عبور نادرست است.',
+            : message.includes('email not confirmed') || message.includes('not confirmed')
+              ? 'ایمیل شما هنوز تأیید نشده است. ایمیل تأیید را بررسی کنید یا از بازیابی رمز عبور استفاده کنید.'
+              : 'ایمیل یا رمز عبور نادرست است.',
         )
         return
       }
