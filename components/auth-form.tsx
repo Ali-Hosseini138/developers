@@ -138,7 +138,7 @@ function AuthFormInner({ mode }: { mode: 'login' | 'signup' }) {
           {isSignup ? 'ساخت حساب توسعه‌دهنده' : 'ورود به نت‌استور'}
         </h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          {isSignup ? 'ثبت‌نام کن و اولین اپلیکیشنت را منتشر کن' : 'برای انتشار و مدیریت اپ‌ها وارد شو'}
+          {isSignup ? 'ثبت‌نام کن و اولین اپلیکیشنت را منتشر کن' : 'پنل توسعه‌دهندگان'}
         </p>
       </div>
 
