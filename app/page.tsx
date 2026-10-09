@@ -12,16 +12,6 @@ export default function HomePage() {
     <main className="mx-auto max-w-6xl px-4 py-10 sm:px-6 lg:py-20">
       <section className="grid items-center gap-10 lg:grid-cols-[1.05fr_0.95fr] lg:gap-14">
         <div>
-          <img
-            src="https://netstore.app/logo/netstore-logo-blue.svg"
-            alt="لوگوی نت‌استور"
-            className="h-11 w-auto"
-          />
-
-          <p className="mt-7 text-sm font-semibold text-primary">
-            فروشگاه اختصاصی Android TV
-          </p>
-
           <h1 className="mt-4 max-w-2xl text-balance text-4xl font-bold tracking-tight sm:text-6xl">
             اپلیکیشن شما، در خانه کاربران تلویزیونی
           </h1>
