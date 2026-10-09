@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { LayoutDashboard, LogOut, Plus, Settings, User as UserIcon } from 'lucide-react'
+import { LayoutDashboard, LogOut, Settings, User as UserIcon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
@@ -50,13 +50,6 @@ export function SiteHeader() {
         </nav>
 
         <div className="ms-auto flex items-center gap-2">
-          {user && (
-            <Button render={<Link href="/upload" />} className="gap-1.5">
-              <Plus className="size-4" />
-              <span className="hidden sm:inline">انتشار اپ</span>
-            </Button>
-          )}
-
           {user ? (
             <DropdownMenu>
               <DropdownMenuTrigger className="rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring" aria-label="باز کردن منوی حساب کاربری">
