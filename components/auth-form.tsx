@@ -45,8 +45,6 @@ function AuthFormInner({ mode }: { mode: 'login' | 'signup' }) {
   const [organization, setOrganization] = useState('')
   const [nationalId, setNationalId] = useState('')
   const [phone, setPhone] = useState('')
-  const [otp, setOtp] = useState('')
-  const [otpSent, setOtpSent] = useState(false)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
@@ -76,7 +74,7 @@ function AuthFormInner({ mode }: { mode: 'login' | 'signup' }) {
       }
       return Boolean(organization.trim() && name.trim() && lastName.trim() && /^\d{10,11}$/.test(nationalId.trim()))
     }
-    if (signupStep === 4) return Boolean(normalizedPhone)
+    if (signupStep === 4) return Boolean(!phone.trim() || normalizedPhone)
     return false
   }, [isSignup, signupStep, accountType, name, lastName, organization, nationalId, normalizedEmail, password, normalizedPhone])
 
@@ -99,99 +97,59 @@ function AuthFormInner({ mode }: { mode: 'login' | 'signup' }) {
     setSignupStep((current) => Math.max(1, current - 1))
   }
 
-  async function sendOtp() {
+  async function finishSignup() {
     resetMessages()
-    if (!normalizedPhone) {
+
+    if (phone.trim() && !normalizedPhone) {
       setErrorMessage('شماره موبایل معتبر وارد کنید. نمونه: 09121234567')
       return
     }
 
     setLoading(true)
     try {
-      const { error } = await supabase.auth.signInWithOtp({
-        phone: normalizedPhone,
+      const { data, error } = await supabase.auth.signUp({
+        email: normalizedEmail,
+        password,
         options: {
-          shouldCreateUser: true,
           data: {
             full_name: displayName,
-            account_type: accountType,
+            phone: phone.trim() || null,
             national_id: nationalId.trim(),
             organization: accountType === 'legal' ? organization.trim() : null,
-            representative_name: accountType === 'legal' ? [name.trim(), lastName.trim()].filter(Boolean).join(' ') : null,
+            account_type: accountType,
+            representative_name:
+              accountType === 'legal'
+                ? [name.trim(), lastName.trim()].filter(Boolean).join(' ')
+                : null,
           },
         },
       })
 
       if (error) throw error
-      setOtpSent(true)
-      setSuccessMessage('کد تأیید برای شماره موبایل شما ارسال شد.')
-    } catch (error) {
-      const message = error instanceof Error ? error.message.toLowerCase() : ''
-      setErrorMessage(
-        message.includes('provider') || message.includes('sms')
-          ? 'سرویس ارسال پیامک هنوز برای این پروژه فعال نشده است.'
-          : message.includes('rate')
-            ? 'تعداد درخواست‌های ارسال کد زیاد است. کمی بعد دوباره تلاش کنید.'
-            : 'ارسال کد تأیید انجام نشد. شماره را بررسی و دوباره تلاش کنید.',
-      )
-    } finally {
-      setLoading(false)
-    }
-  }
 
-  async function verifyOtpAndFinish() {
-    resetMessages()
-    if (!normalizedPhone || otp.trim().length < 4) {
-      setErrorMessage('کد تأیید را وارد کنید.')
-      return
-    }
+      if (data.user && data.session) {
+        login({
+          id: data.user.id,
+          name: displayName || 'توسعه‌دهنده',
+          email: data.user.email || normalizedEmail,
+          phone: phone.trim() || undefined,
+          nationalId: nationalId.trim(),
+          organization: accountType === 'legal' ? organization.trim() : undefined,
+        })
 
-    setLoading(true)
-    try {
-      const { data: verified, error: verifyError } = await supabase.auth.verifyOtp({
-        phone: normalizedPhone,
-        token: otp.trim(),
-        type: 'sms',
-      })
-
-      if (verifyError || !verified.user) {
-        throw new Error(verifyError?.message || 'invalid_otp')
+        router.push(`/terms?next=${encodeURIComponent(next)}`)
+        router.refresh()
+        return
       }
 
-      const { data: updated, error: updateError } = await supabase.auth.updateUser({
-        email: normalizedEmail,
-        password,
-        data: {
-          full_name: displayName,
-          phone: phone.trim(),
-          national_id: nationalId.trim(),
-          organization: accountType === 'legal' ? organization.trim() : null,
-          account_type: accountType,
-          representative_name: accountType === 'legal' ? [name.trim(), lastName.trim()].filter(Boolean).join(' ') : null,
-        },
-      })
-
-      if (updateError) throw updateError
-
-      const authUser = updated.user || verified.user
-      login({
-        id: authUser.id,
-        name: displayName || 'توسعه‌دهنده',
-        email: authUser.email || normalizedEmail,
-        phone: phone.trim(),
-        nationalId: nationalId.trim(),
-        organization: accountType === 'legal' ? organization.trim() : undefined,
-      })
-
-      router.push(`/terms?next=${encodeURIComponent(next)}`)
-      router.refresh()
+      router.push('/login?registered=1')
     } catch (error) {
       const message = error instanceof Error ? error.message.toLowerCase() : ''
       setErrorMessage(
-        message.includes('expired') || message.includes('invalid')
-          ? 'کد واردشده اشتباه یا منقضی شده است.'
-          : message.includes('already') || message.includes('registered')
-            ? 'این ایمیل یا شماره موبایل قبلاً ثبت شده است.'
+        message.includes('already') || message.includes('registered')
+          ? 'این ایمیل قبلاً ثبت شده است.'
+          : message.includes('rate')
+            ? 'تعداد درخواست‌ها بیش از حد مجاز است. کمی بعد دوباره تلاش کنید.'
             : 'تکمیل ثبت‌نام انجام نشد. دوباره تلاش کنید.',
       )
     } finally {
@@ -390,61 +348,30 @@ function AuthFormInner({ mode }: { mode: 'login' | 'signup' }) {
 
             {signupStep === 4 && (
               <div>
-                <StepHeader title="تأیید شماره موبایل" text="در مرحله آخر، شماره موبایل خود را با کد یک‌بارمصرف تأیید کنید." />
+                <StepHeader
+                  title="شماره موبایل"
+                  text="فعلاً تأیید پیامکی غیرفعال است. می‌توانید شماره موبایل را وارد کنید یا این بخش را خالی بگذارید."
+                />
 
                 <div className="mt-6">
-                  <Label htmlFor="signup-phone">شماره موبایل</Label>
-                  <div className="mt-1.5 flex gap-2" dir="ltr">
-                    <Input
-                      id="signup-phone"
-                      value={phone}
-                      onChange={(e) => {
-                        setPhone(e.target.value)
-                        setOtpSent(false)
-                        setOtp('')
-                        resetMessages()
-                      }}
-                      placeholder="09121234567"
-                      inputMode="tel"
-                      autoComplete="tel"
-                      className="h-11 text-left"
-                    />
-                    <Button
-                      type="button"
-                      variant="outline"
-                      className="h-11 shrink-0"
-                      onClick={sendOtp}
-                      disabled={loading || !normalizedPhone}
-                    >
-                      {loading && !otpSent ? <Loader2 className="size-4 animate-spin" /> : 'ارسال کد'}
-                    </Button>
-                  </div>
+                  <Label htmlFor="signup-phone">شماره موبایل <span className="text-muted-foreground">(اختیاری)</span></Label>
+                  <Input
+                    id="signup-phone"
+                    value={phone}
+                    onChange={(e) => {
+                      setPhone(e.target.value)
+                      resetMessages()
+                    }}
+                    placeholder="09121234567"
+                    dir="ltr"
+                    inputMode="tel"
+                    autoComplete="tel"
+                    className="mt-1.5 h-11 text-left"
+                  />
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    برای تست پنل نیازی به دریافت کد پیامکی نیست.
+                  </p>
                 </div>
-
-                {otpSent && (
-                  <div className="mt-5">
-                    <Label htmlFor="signup-otp">کد تأیید</Label>
-                    <Input
-                      id="signup-otp"
-                      value={otp}
-                      onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                      placeholder="------"
-                      dir="ltr"
-                      inputMode="numeric"
-                      autoComplete="one-time-code"
-                      className="mt-1.5 h-12 text-center text-xl tracking-[0.45em]"
-                      maxLength={6}
-                    />
-                    <button
-                      type="button"
-                      onClick={sendOtp}
-                      disabled={loading}
-                      className="mt-3 text-sm font-medium text-primary disabled:opacity-50"
-                    >
-                      ارسال مجدد کد
-                    </button>
-                  </div>
-                )}
               </div>
             )}
 
@@ -463,7 +390,7 @@ function AuthFormInner({ mode }: { mode: 'login' | 'signup' }) {
                   <ArrowLeft className="size-4" />
                 </Button>
               ) : (
-                <Button type="button" onClick={verifyOtpAndFinish} disabled={!otpSent || otp.trim().length < 4 || loading} className="gap-2">
+                <Button type="button" onClick={finishSignup} disabled={!stepValid || loading} className="gap-2">
                   {loading ? <Loader2 className="size-4 animate-spin" /> : <Check className="size-4" />}
                   تکمیل ثبت‌نام
                 </Button>
