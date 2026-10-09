@@ -20,7 +20,6 @@ const tabs = [
   { id: 'finance', label: 'مالی', icon: Wallet },
   { id: 'growth', label: 'تبلیغات و رشد', icon: Megaphone },
   { id: 'support', label: 'پشتیبانی و تیکت', icon: HelpCircle },
-  { id: 'account', label: 'اطلاعات حساب کاربری', icon: UserRound },
 ] as const
 
 type Tab = (typeof tabs)[number]['id']
@@ -83,7 +82,6 @@ export default function DashboardPage() {
 
         <div className="min-w-0 flex-1">
           {tab === 'apps' && <AppsTab myApps={myApps} removeApp={removeApp} submitAppForReview={submitAppForReview} />}
-          {tab === 'account' && <AccountTab user={user} />}
           {tab === 'analytics' && <AnalyticsTab myApps={myApps} />}
           {tab === 'finance' && <FinanceTab />}
           {tab === 'growth' && <GrowthTab myApps={myApps} />}
