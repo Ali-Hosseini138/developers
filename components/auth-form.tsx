@@ -21,7 +21,7 @@ import { createClient } from '@/lib/supabase/client'
 
 type AccountType = 'individual' | 'legal'
 
-const signupSteps = ['نوع حساب', 'اطلاعات هویتی', 'اطلاعات ورود', 'تأیید موبایل']
+const signupSteps = ['اطلاعات ورود', 'نوع حساب', 'اطلاعات هویتی', 'تأیید موبایل']
 
 function normalizeIranPhone(value: string) {
   const digits = value.replace(/\D/g, '')
@@ -66,15 +66,15 @@ function AuthFormInner({ mode }: { mode: 'login' | 'signup' }) {
 
   const stepValid = useMemo(() => {
     if (!isSignup) return true
-    if (signupStep === 1) return Boolean(accountType)
-    if (signupStep === 2) {
+    if (signupStep === 1) {
+      return Boolean(normalizedEmail && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail) && password.length >= 8)
+    }
+    if (signupStep === 2) return Boolean(accountType)
+    if (signupStep === 3) {
       if (accountType === 'individual') {
         return Boolean(name.trim() && lastName.trim() && /^\d{10}$/.test(nationalId.trim()))
       }
       return Boolean(organization.trim() && name.trim() && lastName.trim() && /^\d{10,11}$/.test(nationalId.trim()))
-    }
-    if (signupStep === 3) {
-      return Boolean(normalizedEmail && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail) && password.length >= 8)
     }
     if (signupStep === 4) return Boolean(normalizedPhone)
     return false
@@ -255,6 +255,45 @@ function AuthFormInner({ mode }: { mode: 'login' | 'signup' }) {
           <div className="mt-7 rounded-2xl border border-border bg-card p-6 sm:p-8">
             {signupStep === 1 && (
               <div>
+                <StepHeader title="اطلاعات ورود" text="ایمیل و رمز عبوری که برای ورود به پنل استفاده می‌کنید." />
+
+                <div className="mt-6">
+                  <Label htmlFor="signup-email">ایمیل</Label>
+                  <Input
+                    id="signup-email"
+                    type="email"
+                    dir="ltr"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="you@example.com"
+                    autoComplete="email"
+                    className="mt-1.5 h-11 text-left"
+                  />
+                </div>
+
+                <div className="mt-5">
+                  <Label htmlFor="signup-password">رمز عبور</Label>
+                  <div className="relative mt-1.5">
+                    <Input
+                      id="signup-password"
+                      type={showPassword ? 'text' : 'password'}
+                      dir="ltr"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      placeholder="حداقل ۸ کاراکتر"
+                      minLength={8}
+                      autoComplete="new-password"
+                      className="h-11 pl-11 pr-3 text-left"
+                    />
+                    <PasswordToggle show={showPassword} onToggle={() => setShowPassword((value) => !value)} />
+                  </div>
+                  <p className="mt-2 text-xs text-muted-foreground">رمز عبور باید حداقل ۸ کاراکتر باشد.</p>
+                </div>
+              </div>
+            )}
+
+            {signupStep === 2 && (
+              <div>
                 <StepHeader title="نوع حساب" text="نوع حساب توسعه‌دهنده خود را مشخص کنید." />
                 <div className="mt-6 grid gap-4 sm:grid-cols-2">
                   <AccountTypeCard
@@ -275,7 +314,7 @@ function AuthFormInner({ mode }: { mode: 'login' | 'signup' }) {
               </div>
             )}
 
-            {signupStep === 2 && (
+            {signupStep === 3 && (
               <div>
                 <StepHeader
                   title={accountType === 'legal' ? 'اطلاعات شخص حقوقی' : 'اطلاعات شخص حقیقی'}
@@ -331,45 +370,6 @@ function AuthFormInner({ mode }: { mode: 'login' | 'signup' }) {
                     className="mt-1.5 h-11 text-left"
                     maxLength={accountType === 'legal' ? 11 : 10}
                   />
-                </div>
-              </div>
-            )}
-
-            {signupStep === 3 && (
-              <div>
-                <StepHeader title="اطلاعات ورود" text="ایمیل و رمز عبوری که برای ورود به پنل استفاده می‌کنید." />
-
-                <div className="mt-6">
-                  <Label htmlFor="signup-email">ایمیل</Label>
-                  <Input
-                    id="signup-email"
-                    type="email"
-                    dir="ltr"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="you@example.com"
-                    autoComplete="email"
-                    className="mt-1.5 h-11 text-left"
-                  />
-                </div>
-
-                <div className="mt-5">
-                  <Label htmlFor="signup-password">رمز عبور</Label>
-                  <div className="relative mt-1.5">
-                    <Input
-                      id="signup-password"
-                      type={showPassword ? 'text' : 'password'}
-                      dir="ltr"
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      placeholder="حداقل ۸ کاراکتر"
-                      minLength={8}
-                      autoComplete="new-password"
-                      className="h-11 pl-11 pr-3 text-left"
-                    />
-                    <PasswordToggle show={showPassword} onToggle={() => setShowPassword((value) => !value)} />
-                  </div>
-                  <p className="mt-2 text-xs text-muted-foreground">رمز عبور باید حداقل ۸ کاراکتر باشد.</p>
                 </div>
               </div>
             )}
