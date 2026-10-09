@@ -20,6 +20,7 @@ const tabs = [
   { id: 'finance', label: 'مالی', icon: Wallet },
   { id: 'growth', label: 'تبلیغات و رشد', icon: Megaphone },
   { id: 'support', label: 'پشتیبانی و تیکت', icon: HelpCircle },
+  { id: 'account', label: 'اطلاعات حساب', icon: UserRound },
 ] as const
 
 type Tab = (typeof tabs)[number]['id']
@@ -57,35 +58,50 @@ export default function DashboardPage() {
   }
 
   return (
-    <main className="mx-auto max-w-6xl px-4 py-10 sm:px-6">
+    <main className="mx-auto max-w-6xl px-4 py-10 sm:px-6 lg:pr-32">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div><h1 className="text-2xl font-bold tracking-tight">پنل توسعه‌دهنده</h1><p className="mt-1 text-sm text-muted-foreground">{user.name}، مدیریت اپ‌ها و ارتباط با نت‌استور</p></div>
         <Button render={<Link href="/upload" />} className="gap-1.5"><Plus className="size-4" />انتشار اپ جدید</Button>
       </div>
 
-      <div className="mt-8 flex flex-col gap-6 lg:flex-row-reverse lg:items-start">
-        <aside className="lg:sticky lg:top-24 lg:w-64 lg:shrink-0">
-          <div className="flex gap-2 overflow-x-auto rounded-2xl border border-border bg-card p-2 lg:flex-col lg:overflow-visible">
+      <div className="mt-8">
+        <aside className="fixed bottom-0 right-0 top-16 z-40 hidden w-28 border-l border-border bg-secondary/35 px-2 py-5 lg:flex lg:flex-col">
+          <nav className="flex flex-1 flex-col gap-1.5">
             {tabs.map(({ id, label, icon: Icon }) => (
               <button
                 key={id}
                 type="button"
                 onClick={() => setTab(id)}
-                className={`flex shrink-0 items-center gap-2 rounded-xl px-3 py-3 text-sm font-medium transition-colors lg:w-full lg:justify-start ${tab === id ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-secondary hover:text-foreground'}`}
+                className={`flex min-h-16 w-full flex-col items-center justify-center gap-1.5 rounded-xl px-2 py-2 text-xs font-medium transition-colors ${tab === id ? 'bg-primary/12 text-primary' : 'text-muted-foreground hover:bg-secondary hover:text-foreground'}`}
               >
-                <Icon className="size-4" />
-                {label}
+                <Icon className="size-5" />
+                <span className="text-center leading-5">{label}</span>
               </button>
             ))}
-          </div>
+          </nav>
         </aside>
 
-        <div className="min-w-0 flex-1">
+        <div className="mb-5 flex gap-2 overflow-x-auto rounded-2xl border border-border bg-card p-2 lg:hidden">
+          {tabs.map(({ id, label, icon: Icon }) => (
+            <button
+              key={id}
+              type="button"
+              onClick={() => setTab(id)}
+              className={`flex shrink-0 items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors ${tab === id ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-secondary hover:text-foreground'}`}
+            >
+              <Icon className="size-4" />
+              {label}
+            </button>
+          ))}
+        </div>
+
+        <div className="min-w-0 lg:pr-24">
           {tab === 'apps' && <AppsTab myApps={myApps} removeApp={removeApp} submitAppForReview={submitAppForReview} />}
           {tab === 'analytics' && <AnalyticsTab myApps={myApps} />}
           {tab === 'finance' && <FinanceTab />}
           {tab === 'growth' && <GrowthTab myApps={myApps} />}
           {tab === 'support' && <SupportTab subject={subject} message={message} setSubject={setSubject} setMessage={setMessage} submitTicket={submitTicket} tickets={myTickets} sending={ticketSending} errorMessage={ticketError} />}
+          {tab === 'account' && <AccountTab user={user} />}
         </div>
       </div>
     </main>
