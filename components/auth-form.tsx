@@ -183,7 +183,7 @@ function AuthFormInner({ mode }: { mode: 'login' | 'signup' }) {
         organization: accountType === 'legal' ? organization.trim() : undefined,
       })
 
-      router.push(next)
+      router.push(`/terms?next=${encodeURIComponent(next)}`)
       router.refresh()
     } catch (error) {
       const message = error instanceof Error ? error.message.toLowerCase() : ''
@@ -218,6 +218,12 @@ function AuthFormInner({ mode }: { mode: 'login' | 'signup' }) {
 
       if (result.data.user) {
         const metadata = result.data.user.user_metadata || {}
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('terms_accepted_at')
+          .eq('id', result.data.user.id)
+          .maybeSingle()
+
         login({
           id: result.data.user.id,
           name: metadata.full_name || normalizedEmail.split('@')[0] || 'توسعه‌دهنده',
@@ -225,7 +231,15 @@ function AuthFormInner({ mode }: { mode: 'login' | 'signup' }) {
           phone: metadata.phone,
           nationalId: metadata.national_id,
           organization: metadata.organization,
+          termsAcceptedAt: profile?.terms_accepted_at || undefined,
         })
+
+        router.push(
+          profile?.terms_accepted_at
+            ? next
+            : `/terms?next=${encodeURIComponent(next)}`,
+        )
+        return
       }
 
       router.push(next)
