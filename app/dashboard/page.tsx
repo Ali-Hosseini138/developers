@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { Activity, AlertTriangle, FileText, HelpCircle, Megaphone, Package, Pencil, Plus, Search, Ticket, UserRound, Wallet } from 'lucide-react'
+import { Activity, AlertTriangle, FileText, HelpCircle, Megaphone, Package, Pencil, Plus, Search, Ticket, Wallet } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
@@ -20,7 +20,6 @@ const tabs = [
   { id: 'finance', label: 'مالی', icon: Wallet },
   { id: 'growth', label: 'تبلیغات و رشد', icon: Megaphone },
   { id: 'support', label: 'پشتیبانی و تیکت', icon: HelpCircle },
-  { id: 'account', label: 'اطلاعات حساب', icon: UserRound },
 ] as const
 
 type Tab = (typeof tabs)[number]['id']
@@ -101,7 +100,6 @@ export default function DashboardPage() {
           {tab === 'finance' && <FinanceTab />}
           {tab === 'growth' && <GrowthTab myApps={myApps} />}
           {tab === 'support' && <SupportTab subject={subject} message={message} setSubject={setSubject} setMessage={setMessage} submitTicket={submitTicket} tickets={myTickets} sending={ticketSending} errorMessage={ticketError} />}
-          {tab === 'account' && <AccountTab user={user} />}
         </div>
       </div>
     </main>
@@ -803,26 +801,6 @@ function formatRial(value: number) {
   return `${Math.round(value).toLocaleString('fa-IR')} ریال`
 }
 
-function AccountTab({ user }: { user: NonNullable<ReturnType<typeof useStore>['user']> }) {
-  return (
-    <section className="mt-8 max-w-2xl rounded-2xl border border-border bg-card p-6">
-      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-3">
-          <UserRound className="size-5 text-primary" />
-          <div><h2 className="font-bold">اطلاعات حساب کاربری</h2><p className="text-sm text-muted-foreground">اطلاعات ثبت‌شده توسعه‌دهنده</p></div>
-        </div>
-        <Button render={<Link href="/account" />} size="sm" variant="outline">ویرایش اطلاعات</Button>
-      </div>
-      <div className="grid gap-5 sm:grid-cols-2">
-        <ReadOnly label="نام یا سازمان" value={user.name} />
-        <ReadOnly label="ایمیل" value={user.email} />
-        <ReadOnly label="شماره تلفن" value={user.phone || 'ثبت نشده'} />
-        <ReadOnly label="کد ملی" value={user.nationalId || 'ثبت نشده'} />
-      </div>
-    </section>
-  )
-}
-function ReadOnly({ label, value }: { label: string; value: string }) { return <div><Label>{label}</Label><Input value={value} readOnly className="mt-1.5 bg-secondary/50" /></div> }
 function FinanceTab() {
   const demo = useMemo(() => buildDemoMetrics(30), [])
   const totalSales = demo.sales.reduce((sum, item) => sum + item.total_sales_rial, 0)
