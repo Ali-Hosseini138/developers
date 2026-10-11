@@ -1,6 +1,6 @@
 import { handleUpload, type HandleUploadBody } from '@vercel/blob/client'
 import { NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { getDeveloperIdentity } from '@/lib/developer-identity'
 
 const imageTypes = ['image/png', 'image/jpeg', 'image/webp']
 const apkType = 'application/vnd.android.package-archive'
@@ -23,14 +23,13 @@ export async function POST(request: Request) {
         // Authentication belongs here, not at the top of the route.
         // Vercel Blob calls this same endpoint after the upload completes,
         // and that server-to-server callback does not carry the user's cookies.
-        const supabase = await createClient()
-        const { data: { user }, error } = await supabase.auth.getUser()
+        const identity = await getDeveloperIdentity()
 
-        if (error || !user) {
+        if (!identity) {
           throw new Error('Unauthorized')
         }
 
-        if (!pathname.startsWith(`users/${user.id}/`)) {
+        if (!pathname.startsWith(`users/${identity.id}/`)) {
           throw new Error('Forbidden upload path')
         }
 
@@ -40,7 +39,7 @@ export async function POST(request: Request) {
           allowedContentTypes: isApk ? [apkType] : imageTypes,
           maximumSizeInBytes: isApk ? maxApkSize : maxImageSize,
           addRandomSuffix: false,
-          tokenPayload: JSON.stringify({ userId: user.id, pathname }),
+          tokenPayload: JSON.stringify({ userId: identity.id, pathname }),
         }
       },
       onUploadCompleted: async () => {
