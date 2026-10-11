@@ -43,6 +43,7 @@ export default function UploadPage() {
   const [screenshotFiles, setScreenshotFiles] = useState<File[]>([])
   const [hasInAppPayment, setHasInAppPayment] = useState<boolean | null>(null)
   const [netboxPaymentIntegrated, setNetboxPaymentIntegrated] = useState(false)
+  const [netboxPaymentGraceAccepted, setNetboxPaymentGraceAccepted] = useState(false)
   const [developedForAndroidTv, setDevelopedForAndroidTv] = useState<boolean | null>(null)
   const [airMouseCompatible, setAirMouseCompatible] = useState(false)
 
@@ -51,12 +52,12 @@ export default function UploadPage() {
     if (step === 2) return Boolean(name.trim() && tagline.trim() && description.trim() && category && /^([A-Za-z][A-Za-z0-9_]*\.)+[A-Za-z][A-Za-z0-9_]*$/.test(packageName.trim()) && iconFile && bannerFile)
     if (step === 3) {
       if (hasInAppPayment === null || developedForAndroidTv === null) return false
-      if (hasInAppPayment && !netboxPaymentIntegrated) return false
+      if (hasInAppPayment && !netboxPaymentIntegrated && !netboxPaymentGraceAccepted) return false
       if (!developedForAndroidTv && !airMouseCompatible) return false
       return true
     }
     return true
-  }, [step, apkFile, name, tagline, description, category, packageName, hasInAppPayment, netboxPaymentIntegrated, developedForAndroidTv, airMouseCompatible, iconFile, bannerFile])
+  }, [step, apkFile, name, tagline, description, category, packageName, hasInAppPayment, netboxPaymentIntegrated, netboxPaymentGraceAccepted, developedForAndroidTv, airMouseCompatible, iconFile, bannerFile])
 
   useEffect(() => {
     if (authReady && !user) router.replace('/login?next=/upload')
@@ -139,6 +140,7 @@ export default function UploadPage() {
           description,
           hasInAppPayment,
           netboxPaymentIntegrated,
+          netboxPaymentGraceAccepted,
           developedForAndroidTv,
           airMouseCompatible,
           category,
@@ -213,14 +215,46 @@ export default function UploadPage() {
               <div className="rounded-2xl border border-border p-5">
                 <p className="font-semibold">آیا اپلیکیشن شما پرداخت یا خرید درون‌برنامه‌ای دارد؟</p>
                 <div className="mt-4 flex gap-2">
-                  <Button type="button" variant={hasInAppPayment === true ? 'default' : 'outline'} onClick={() => { setHasInAppPayment(true); setNetboxPaymentIntegrated(false) }}>بله</Button>
-                  <Button type="button" variant={hasInAppPayment === false ? 'default' : 'outline'} onClick={() => { setHasInAppPayment(false); setNetboxPaymentIntegrated(false) }}>خیر</Button>
+                  <Button type="button" variant={hasInAppPayment === true ? 'default' : 'outline'} onClick={() => { setHasInAppPayment(true); setNetboxPaymentIntegrated(false); setNetboxPaymentGraceAccepted(false) }}>بله</Button>
+                  <Button type="button" variant={hasInAppPayment === false ? 'default' : 'outline'} onClick={() => { setHasInAppPayment(false); setNetboxPaymentIntegrated(false); setNetboxPaymentGraceAccepted(false) }}>خیر</Button>
                 </div>
                 {hasInAppPayment && (
-                  <label className="mt-4 flex cursor-pointer items-start gap-3 rounded-xl border border-primary/20 bg-primary/5 p-4 text-sm leading-7">
-                    <input type="checkbox" checked={netboxPaymentIntegrated} onChange={(e) => setNetboxPaymentIntegrated(e.target.checked)} className="mt-1 size-4" />
-                    <span>تأیید می‌کنم که برای پرداخت‌های دیجیتال این نسخه، <strong>Netbox Payment</strong> پیاده‌سازی شده است. بدون این اتصال، اپ برای انتشار تأیید نمی‌شود.</span>
-                  </label>
+                  <div className="mt-4">
+                    <p className="text-sm font-medium">یکی از گزینه‌های زیر را انتخاب کنید:</p>
+                    <div className="mt-3 grid gap-3">
+                      <label className={`flex cursor-pointer items-start gap-3 rounded-xl border p-4 text-sm leading-7 transition-colors ${netboxPaymentIntegrated ? 'border-primary bg-primary/5' : 'border-border'}`}>
+                        <input
+                          type="radio"
+                          name="netbox-payment-status"
+                          checked={netboxPaymentIntegrated}
+                          onChange={() => {
+                            setNetboxPaymentIntegrated(true)
+                            setNetboxPaymentGraceAccepted(false)
+                          }}
+                          className="mt-1 size-4"
+                        />
+                        <span>
+                          تأیید می‌کنم که برای پرداخت‌های دیجیتال این نسخه، <strong>Netbox Payment</strong> پیاده‌سازی شده است.
+                        </span>
+                      </label>
+
+                      <label className={`flex cursor-pointer items-start gap-3 rounded-xl border p-4 text-sm leading-7 transition-colors ${netboxPaymentGraceAccepted ? 'border-primary bg-primary/5' : 'border-border'}`}>
+                        <input
+                          type="radio"
+                          name="netbox-payment-status"
+                          checked={netboxPaymentGraceAccepted}
+                          onChange={() => {
+                            setNetboxPaymentIntegrated(false)
+                            setNetboxPaymentGraceAccepted(true)
+                          }}
+                          className="mt-1 size-4"
+                        />
+                        <span>
+                          Netbox Payment در حال حاضر در اپلیکیشن پیاده‌سازی نشده است. متعهد می‌شوم حداکثر تا یک ماه پس از انتشار، این قابلیت را پیاده‌سازی کنم. در صورت عدم انجام این الزام در مهلت مقرر، اپلیکیشن می‌تواند از نت‌استور خارج شود.
+                        </span>
+                      </label>
+                    </div>
+                  </div>
                 )}
               </div>
 
@@ -245,7 +279,7 @@ export default function UploadPage() {
           </div>
         )}
         {step === 4 && <div><Header title="اطلاعات نمایشی" text="این اطلاعات در صفحه معرفی اپ نمایش داده می‌شوند." /><div className="flex flex-col gap-4"><Field label="آدرس وبسایت"><Input value={website} onChange={(e) => setWebsite(e.target.value)} dir="ltr" type="url" placeholder="https://example.com" /></Field><Field label="ایمیل پشتیبانی"><Input value={email} onChange={(e) => setEmail(e.target.value)} dir="ltr" type="email" placeholder="support@example.com" /></Field></div></div>}
-        {step === 5 && <div><Header title="بازبینی اطلاعات" text="اطلاعات را بررسی کنید و اپلیکیشن را برای بررسی کارشناسان ارسال کنید." /><div className="grid gap-3 text-sm">{[['فایل APK', apkName], ['عنوان', name], ['پکیج‌نیم', packageName], ['دسته‌بندی', category], ['محدودیت سنی', ageRestriction], ['پرداخت درون‌برنامه‌ای', hasInAppPayment ? 'دارد — Netbox Payment تأیید شده' : 'ندارد'], ['نسخه مخصوص Android TV', developedForAndroidTv ? 'بله' : 'خیر — قابل استفاده با ایرماوس/ماوس'], ['وبسایت', website || '—'], ['ایمیل پشتیبانی', email || '—'], ['تصاویر', `${toFa(screenshots.length)} تصویر`]].map(([label, value]) => <div key={label} className="flex justify-between gap-4 rounded-xl bg-secondary/60 p-4"><span className="text-muted-foreground">{label}</span><span className="font-medium" dir="ltr">{value}</span></div>)}</div><div className="mt-5 rounded-xl border border-primary/20 bg-primary/5 p-4 text-sm leading-7">پس از ارسال، اطلاعات شما توسط کارشناس نت‌استور بررسی می‌شود و بعد از تأیید، اپلیکیشن در فروشگاه منتشر خواهد شد.</div></div>}
+        {step === 5 && <div><Header title="بازبینی اطلاعات" text="اطلاعات را بررسی کنید و اپلیکیشن را برای بررسی کارشناسان ارسال کنید." /><div className="grid gap-3 text-sm">{[['فایل APK', apkName], ['عنوان', name], ['پکیج‌نیم', packageName], ['دسته‌بندی', category], ['محدودیت سنی', ageRestriction], ['پرداخت درون‌برنامه‌ای', hasInAppPayment ? (netboxPaymentIntegrated ? 'دارد — Netbox Payment پیاده‌سازی شده' : 'دارد — مهلت یک‌ماهه پیاده‌سازی پذیرفته شده') : 'ندارد'], ['نسخه مخصوص Android TV', developedForAndroidTv ? 'بله' : 'خیر — قابل استفاده با ایرماوس/ماوس'], ['وبسایت', website || '—'], ['ایمیل پشتیبانی', email || '—'], ['تصاویر', `${toFa(screenshots.length)} تصویر`]].map(([label, value]) => <div key={label} className="flex justify-between gap-4 rounded-xl bg-secondary/60 p-4"><span className="text-muted-foreground">{label}</span><span className="font-medium" dir="ltr">{value}</span></div>)}</div><div className="mt-5 rounded-xl border border-primary/20 bg-primary/5 p-4 text-sm leading-7">پس از ارسال، اطلاعات شما توسط کارشناس نت‌استور بررسی می‌شود و بعد از تأیید، اپلیکیشن در فروشگاه منتشر خواهد شد.</div></div>}
       </section>
       <div className="mt-6 flex justify-between"><Button variant="ghost" onClick={() => setStep((s) => Math.max(1, s - 1))} disabled={step === 1 || saving} className="gap-2"><ArrowRight className="size-4" />قبلی</Button>{step < 5 ? <Button onClick={() => valid && setStep((s) => s + 1)} disabled={!valid} className="gap-2">گام بعدی<ArrowLeft className="size-4" /></Button> : <Button onClick={submitForReview} disabled={saving} className="gap-2">{saving ? <Loader2 className="size-4 animate-spin" /> : <Rocket className="size-4" />}{saving ? 'در حال ارسال...' : 'ارسال برای بررسی'}</Button>}</div>
       {saving && (
