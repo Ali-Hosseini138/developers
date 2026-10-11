@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { ACCESS_COOKIE, EMAIL_COOKIE, REFRESH_COOKIE, authCookieOptions, developerApi } from '@/lib/developer-api'
+import { OWNER_COOKIE, encodeDeveloperIdentity, ensureDeveloperOwner } from '@/lib/developer-identity'
 
 export async function POST(request: Request) {
   try {
@@ -19,14 +20,16 @@ export async function POST(request: Request) {
       return NextResponse.json({ detail: 'توکن ورود از بک‌اند دریافت نشد.' }, { status: 502 })
     }
 
+    const identity = await ensureDeveloperOwner(email)
     const result = NextResponse.json({
       ok: true,
-      user: { email, name: email.split('@')[0] || 'توسعه‌دهنده' },
+      user: { id: identity.id, email, name: email.split('@')[0] || 'توسعه‌دهنده' },
       expiresIn: payload.expiresIn ?? 1800,
     })
     result.cookies.set(ACCESS_COOKIE, access, authCookieOptions(Number(payload.expiresIn || 1800)))
     result.cookies.set(REFRESH_COOKIE, refresh, authCookieOptions(7 * 24 * 60 * 60))
     result.cookies.set(EMAIL_COOKIE, email, authCookieOptions(7 * 24 * 60 * 60))
+    result.cookies.set(OWNER_COOKIE, encodeDeveloperIdentity(identity), authCookieOptions(7 * 24 * 60 * 60))
     return result
   } catch {
     return NextResponse.json({ detail: 'ارتباط با سرویس ورود برقرار نشد.' }, { status: 502 })
