@@ -1,6 +1,6 @@
 import { get } from '@vercel/blob'
 import { NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { getDeveloperIdentity } from '@/lib/developer-identity'
 import { createAdminClient } from '@/lib/supabase/admin'
 
 export async function GET(request: Request) {
@@ -9,9 +9,8 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  const isOwnerPath = Boolean(user && pathname.startsWith(`users/${user.id}/`))
+  const identity = await getDeveloperIdentity()
+  const isOwnerPath = Boolean(identity && pathname.startsWith(`users/${identity.id}/`))
 
   let isPublishedMedia = false
   if (!isOwnerPath) {
@@ -29,7 +28,7 @@ export async function GET(request: Request) {
   }
 
   if (!isOwnerPath && !isPublishedMedia) {
-    return NextResponse.json({ error: user ? 'Forbidden' : 'Unauthorized' }, { status: user ? 403 : 401 })
+    return NextResponse.json({ error: identity ? 'Forbidden' : 'Unauthorized' }, { status: identity ? 403 : 401 })
   }
 
   const result = await get(pathname, {
