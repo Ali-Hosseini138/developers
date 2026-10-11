@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
+import { getDeveloperIdentity } from '@/lib/developer-identity'
 import { CATEGORIES } from '@/lib/types'
 import { buildAppReviewSnapshot } from '@/lib/review-submission'
 
@@ -27,12 +28,11 @@ type SubmitBody = {
 }
 
 export async function POST(request: Request) {
-  const supabase = await createClient()
-  const { data: { user }, error: authError } = await supabase.auth.getUser()
-
-  if (authError || !user) {
+  const identity = await getDeveloperIdentity()
+  if (!identity) {
     return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
   }
+  const supabase = createAdminClient()
 
   let body: SubmitBody
   try {
@@ -96,7 +96,7 @@ export async function POST(request: Request) {
   const { data, error } = await supabase
     .from('apps')
     .insert({
-      owner_id: user.id,
+      owner_id: identity.id,
       name,
       tagline,
       description,
@@ -144,7 +144,7 @@ export async function POST(request: Request) {
     .insert({
       app_id: data.id,
       request_type: 'app',
-      submitted_by: user.id,
+      submitted_by: identity.id,
       snapshot: buildAppReviewSnapshot(savedApp),
       status: 'pending',
     })
@@ -154,7 +154,7 @@ export async function POST(request: Request) {
       .from('apps')
       .update({ status: 'draft', updated_at: new Date().toISOString() })
       .eq('id', data.id)
-      .eq('owner_id', user.id)
+      .eq('owner_id', identity.id)
 
     return NextResponse.json({ error: 'submission_snapshot_failed', appId: data.id }, { status: 500 })
   }
