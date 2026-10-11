@@ -12,6 +12,7 @@ type SubmitBody = {
   description?: string
   hasInAppPayment?: boolean
   netboxPaymentIntegrated?: boolean
+  netboxPaymentGraceAccepted?: boolean
   developedForAndroidTv?: boolean
   airMouseCompatible?: boolean
   category?: string
@@ -69,7 +70,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'missing_eligibility_answers' }, { status: 400 })
   }
 
-  if (body.hasInAppPayment && body.netboxPaymentIntegrated !== true) {
+  if (body.hasInAppPayment && body.netboxPaymentIntegrated !== true && body.netboxPaymentGraceAccepted !== true) {
     return NextResponse.json({ error: 'payment_required' }, { status: 400 })
   }
 
