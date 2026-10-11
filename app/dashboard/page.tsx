@@ -802,56 +802,20 @@ function formatRial(value: number) {
 }
 
 function FinanceTab() {
-  const demo = useMemo(() => buildDemoMetrics(30), [])
-  const totalSales = demo.sales.reduce((sum, item) => sum + item.total_sales_rial, 0)
-  const totalOrders = demo.sales.reduce((sum, item) => sum + item.orders, 0)
-  const averageOrder = totalOrders ? Math.round(totalSales / totalOrders) : 0
-  const bestDay = demo.sales.reduce((best, item) => item.total_sales_rial > best.total_sales_rial ? item : best, demo.sales[0])
-
   return (
-    <section className="mt-8 flex flex-col gap-6">
-      <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 px-4 py-3 text-sm">
-        <strong>داده نمایشی — Demo</strong>
-        <span className="mr-2 text-muted-foreground">این بخش هنوز به تسویه و تراکنش واقعی متصل نشده و اعداد زیر فقط برای دمو هستند.</span>
-      </div>
-
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <MetricCard label="فروش ۳۰ روز اخیر" value={formatRial(totalSales)} />
-        <MetricCard label="تراکنش موفق" value={toFa(totalOrders)} />
-        <MetricCard label="میانگین سفارش" value={formatRial(averageOrder)} />
-        <MetricCard label="بهترین روز فروش" value={formatRial(bestDay.total_sales_rial)} />
-      </div>
-
-      <TrendCard
-        title="روند فروش ۳۰ روز اخیر"
-        description="فروش روزانه اشتراک — داده نمایشی"
-        loading={false}
-        points={demo.sales.map((item) => ({ date: item.metric_date, value: item.total_sales_rial }))}
-        valueFormatter={formatRial}
-      />
-
-      <div className="grid gap-4 lg:grid-cols-3">
-        <div className="rounded-2xl border border-border bg-card p-5">
-          <Wallet className="size-5 text-primary" />
-          <p className="mt-3 text-xs text-muted-foreground">وضعیت تسویه</p>
-          <p className="mt-1 font-bold">در انتظار اتصال مالی</p>
-          <p className="mt-2 text-xs leading-6 text-muted-foreground">پس از اتصال Backend مالی، مبلغ قابل تسویه و سوابق واقعی اینجا نمایش داده می‌شوند.</p>
-        </div>
-        <div className="rounded-2xl border border-border bg-card p-5">
-          <p className="text-xs text-muted-foreground">فروش امروز</p>
-          <p className="mt-2 text-2xl font-bold">{formatRial(demo.sales.at(-1)?.total_sales_rial || 0)}</p>
-          <p className="mt-2 text-xs text-muted-foreground">داده نمایشی</p>
-        </div>
-        <div className="rounded-2xl border border-border bg-card p-5">
-          <p className="text-xs text-muted-foreground">سفارش امروز</p>
-          <p className="mt-2 text-2xl font-bold">{toFa(demo.sales.at(-1)?.orders || 0)}</p>
-          <p className="mt-2 text-xs text-muted-foreground">داده نمایشی</p>
-        </div>
+    <section className="mt-8">
+      <div className="mx-auto flex min-h-[360px] max-w-2xl flex-col items-center justify-center rounded-2xl border border-border bg-card px-6 py-12 text-center">
+        <span className="flex size-14 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+          <Wallet className="size-7" />
+        </span>
+        <h2 className="mt-5 text-xl font-bold">بخش مالی به‌زودی اضافه می‌شود</h2>
+        <p className="mt-3 max-w-lg text-sm leading-7 text-muted-foreground">
+          اطلاعات فروش، تراکنش‌ها، تسویه‌حساب و گزارش‌های مالی به‌زودی در پنل توسعه‌دهندگان نت‌استور در دسترس قرار می‌گیرند.
+        </p>
       </div>
     </section>
   )
 }
-
 
 function formatToman(value: number) {
   return `${value.toLocaleString('fa-IR')} تومان`
