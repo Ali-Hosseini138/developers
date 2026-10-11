@@ -3,7 +3,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { MOCK_APPS } from '@/lib/mock-data'
 import { createClient } from '@/lib/supabase/client'
-import type { Session, User as SupabaseUser } from '@supabase/supabase-js'
 import type { StoreApp, SupportTicket, User } from '@/lib/types'
 
 interface StoreContextValue {
@@ -53,42 +52,35 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     ])
   }, [])
 
-  const loadUserData = useCallback(async (authUser: SupabaseUser | null) => {
-    if (!authUser) {
-      setUser(null)
-      setTickets([])
-      setApps((current) => current.filter((app) => !app.ownerId || app.status === 'published'))
-      return
-    }
-    const { data: profile } = await supabase.from('profiles').select('*').eq('id', authUser.id).maybeSingle()
-    const nextUser: User = { id: authUser.id, name: profile?.full_name || authUser.user_metadata?.full_name || authUser.email?.split('@')[0] || 'توسعه‌دهنده', email: authUser.email || '', phone: profile?.phone || authUser.user_metadata?.phone, nationalId: profile?.national_id || authUser.user_metadata?.national_id, organization: authUser.user_metadata?.organization || undefined, termsAcceptedAt: profile?.terms_accepted_at || undefined }
-    setUser(nextUser)
-    const { data } = await supabase.from('apps').select('*').eq('owner_id', authUser.id).order('created_at', { ascending: false })
-    if (data) { const rows = data as Record<string, any>[]; setApps((current) => [...rows.map(mapApp), ...current.filter((app) => !rows.some((row) => row.id === app.id))]) }
-    const { data: ticketRows } = await supabase.from('support_tickets').select('*').eq('user_id', authUser.id).order('created_at', { ascending: false })
-    if (ticketRows) setTickets(ticketRows.map((row: Record<string, any>) => ({
-      id: row.id,
-      subject: row.subject,
-      message: row.message,
-      status: row.status,
-      createdAt: new Date(row.created_at).toLocaleDateString('fa-IR'),
-      developer: nextUser.name,
-      adminReply: row.admin_reply || undefined,
-      repliedAt: row.replied_at ? new Date(row.replied_at).toLocaleDateString('fa-IR') : undefined,
-    })))
-  }, [])
-
   useEffect(() => {
     void loadPublishedApps()
-    supabase.auth.getUser().then(async ({ data }: { data: { user: SupabaseUser | null } }) => {
-      await loadUserData(data.user)
-      setAuthReady(true)
-    })
-    const { data: listener } = supabase.auth.onAuthStateChange((_event: string, session: Session | null) => {
-      void loadUserData(session?.user ?? null).finally(() => setAuthReady(true))
-    })
-    return () => listener.subscription.unsubscribe()
-  }, [loadPublishedApps, loadUserData])
+
+    const loadBackendSession = async () => {
+      try {
+        let response = await fetch('/api/auth/session', { cache: 'no-store' })
+
+        if (response.status === 401) {
+          const refreshed = await fetch('/api/auth/refresh', { method: 'POST' })
+          if (refreshed.ok) response = await fetch('/api/auth/session', { cache: 'no-store' })
+        }
+
+        if (!response.ok) {
+          setUser(null)
+          setTickets([])
+          return
+        }
+
+        const payload = await response.json()
+        setUser(payload.user ?? null)
+      } catch {
+        setUser(null)
+      } finally {
+        setAuthReady(true)
+      }
+    }
+
+    void loadBackendSession()
+  }, [loadPublishedApps])
 
   const addApp = useCallback(async (app: StoreApp) => {
     if (!user?.id) return
@@ -258,7 +250,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     setTickets((prev) => [{ id: data.id, subject: data.subject, message: data.message, status: data.status, createdAt: new Date(data.created_at).toLocaleDateString('fa-IR'), developer: user.name }, ...prev])
   }, [user])
   const login = useCallback((u: User) => setUser(u), [])
-  const logout = useCallback(async () => { await supabase.auth.signOut(); setUser(null) }, [])
+  const logout = useCallback(async () => {
+    try {
+      await fetch('/api/auth/logout', { method: 'POST' })
+    } finally {
+      setUser(null)
+      setTickets([])
+    }
+  }, [])
   const myApps = useMemo(() => user?.id ? apps.filter((app) => app.ownerId === user.id) : [], [apps, user?.id])
   const value = useMemo(() => ({ apps, user, authReady, addApp, updateApp, updateProfile, acceptTerms, addVersion, removeApp, submitAppForReview, getApp, myApps, tickets, addTicket, login, logout }), [apps, user, authReady, addApp, updateApp, updateProfile, acceptTerms, addVersion, removeApp, submitAppForReview, getApp, myApps, tickets, addTicket, login, logout])
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>
