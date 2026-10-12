@@ -61,7 +61,7 @@ export default function UploadPage() {
       return true
     }
     return true
-  }, [step, apkFile, name, tagline, description, category, packageName, hasInAppPayment, netboxPaymentIntegrated, netboxPaymentGraceAccepted, developedForAndroidTv, airMouseCompatible, iconFile, bannerFile])
+  }, [step, apkFile, uploadedApk, apkUploading, name, tagline, description, category, packageName, hasInAppPayment, netboxPaymentIntegrated, netboxPaymentGraceAccepted, developedForAndroidTv, airMouseCompatible, iconFile, bannerFile])
 
   useEffect(() => {
     if (authReady && !user) router.replace('/login?next=/upload')
