@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { Activity, AlertTriangle, FileText, HelpCircle, Megaphone, Package, Pencil, Plus, Search, Ticket, Wallet } from 'lucide-react'
+import { Activity, AlertTriangle, BookOpen, ChevronDown, ChevronUp, FileText, HelpCircle, Megaphone, Package, Pencil, Plus, Search, Ticket, Wallet } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
@@ -32,6 +32,7 @@ export default function DashboardPage() {
   const [message, setMessage] = useState('')
   const [ticketSending, setTicketSending] = useState(false)
   const [ticketError, setTicketError] = useState('')
+  const [docsOpen, setDocsOpen] = useState(false)
 
   useEffect(() => { if (authReady && !user) router.replace('/login?next=/dashboard') }, [authReady, user, router])
   if (!authReady) return <PageLoading />
@@ -77,21 +78,70 @@ export default function DashboardPage() {
                 <span className="text-center leading-5">{label}</span>
               </button>
             ))}
+
+            <div className="mt-1 border-t border-border pt-2">
+              <button
+                type="button"
+                onClick={() => setDocsOpen((open) => !open)}
+                className="flex min-h-16 w-full flex-col items-center justify-center gap-1.5 rounded-xl px-2 py-2 text-xs font-medium text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+                aria-expanded={docsOpen}
+              >
+                <BookOpen className="size-5" />
+                <span className="flex items-center gap-1 text-center leading-5">
+                  مستندات فنی
+                  {docsOpen ? <ChevronUp className="size-3" /> : <ChevronDown className="size-3" />}
+                </span>
+              </button>
+
+              {docsOpen && (
+                <div className="mt-1 flex flex-col gap-1">
+                  <Link href="/integrations" className="rounded-lg px-2 py-2 text-center text-[11px] leading-5 text-muted-foreground hover:bg-secondary hover:text-foreground">
+                    راهنمای فنی
+                  </Link>
+                  <Link href="/rules" className="rounded-lg px-2 py-2 text-center text-[11px] leading-5 text-muted-foreground hover:bg-secondary hover:text-foreground">
+                    قوانین انتشار
+                  </Link>
+                  <Link href="/guide" className="rounded-lg px-2 py-2 text-center text-[11px] leading-5 text-muted-foreground hover:bg-secondary hover:text-foreground">
+                    مراحل انتشار
+                  </Link>
+                </div>
+              )}
+            </div>
           </nav>
         </aside>
 
-        <div className="mb-5 flex gap-2 overflow-x-auto rounded-2xl border border-border bg-card p-2 lg:hidden">
-          {tabs.map(({ id, label, icon: Icon }) => (
+        <div className="mb-5 lg:hidden">
+          <div className="flex gap-2 overflow-x-auto rounded-2xl border border-border bg-card p-2">
+            {tabs.map(({ id, label, icon: Icon }) => (
+              <button
+                key={id}
+                type="button"
+                onClick={() => setTab(id)}
+                className={`flex shrink-0 items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors ${tab === id ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-secondary hover:text-foreground'}`}
+              >
+                <Icon className="size-4" />
+                {label}
+              </button>
+            ))}
             <button
-              key={id}
               type="button"
-              onClick={() => setTab(id)}
-              className={`flex shrink-0 items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors ${tab === id ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-secondary hover:text-foreground'}`}
+              onClick={() => setDocsOpen((open) => !open)}
+              className="flex shrink-0 items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+              aria-expanded={docsOpen}
             >
-              <Icon className="size-4" />
-              {label}
+              <BookOpen className="size-4" />
+              مستندات فنی
+              {docsOpen ? <ChevronUp className="size-3.5" /> : <ChevronDown className="size-3.5" />}
             </button>
-          ))}
+          </div>
+
+          {docsOpen && (
+            <div className="mt-2 grid gap-2 rounded-2xl border border-border bg-card p-2 sm:grid-cols-3">
+              <Link href="/integrations" className="rounded-xl px-3 py-2.5 text-center text-sm text-muted-foreground hover:bg-secondary hover:text-foreground">راهنمای فنی</Link>
+              <Link href="/rules" className="rounded-xl px-3 py-2.5 text-center text-sm text-muted-foreground hover:bg-secondary hover:text-foreground">قوانین انتشار</Link>
+              <Link href="/guide" className="rounded-xl px-3 py-2.5 text-center text-sm text-muted-foreground hover:bg-secondary hover:text-foreground">مراحل انتشار</Link>
+            </div>
+          )}
         </div>
 
         <div className="min-w-0 lg:pr-24">
