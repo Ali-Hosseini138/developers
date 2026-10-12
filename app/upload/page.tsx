@@ -78,7 +78,11 @@ export default function UploadPage() {
     reader.readAsDataURL(file)
   }
   const onApk = async (file?: File) => {
-    if (!file || !user?.id || apkUploading) return
+    if (!file || apkUploading) return
+    if (!user?.id) {
+      setErrorMessage('اطلاعات نشست کاربری کامل نیست. صفحه را یک‌بار تازه‌سازی کنید و دوباره فایل را انتخاب کنید.')
+      return
+    }
     setErrorMessage('')
     setUploadedApk(null)
     setApkUploadProgress(0)
