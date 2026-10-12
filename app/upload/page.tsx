@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useStore } from '@/components/store-provider'
-import { uploadPrivateFile } from '@/lib/blob-upload-client'
+import { uploadPrivateFile, type UploadedPrivateFile } from '@/lib/blob-upload-client'
 import { FileDropzone } from '@/components/upload/file-dropzone'
 import { CATEGORIES, type AppCategory } from '@/lib/types'
 import { toFa } from '@/lib/format'
@@ -39,6 +39,9 @@ export default function UploadPage() {
   const [banner, setBanner] = useState('')
   const [screenshots, setScreenshots] = useState<string[]>([])
   const [apkFile, setApkFile] = useState<File | null>(null)
+  const [uploadedApk, setUploadedApk] = useState<UploadedPrivateFile | null>(null)
+  const [apkUploading, setApkUploading] = useState(false)
+  const [apkUploadProgress, setApkUploadProgress] = useState(0)
   const [iconFile, setIconFile] = useState<File | null>(null)
   const [bannerFile, setBannerFile] = useState<File | null>(null)
   const [screenshotFiles, setScreenshotFiles] = useState<File[]>([])
@@ -49,7 +52,7 @@ export default function UploadPage() {
   const [airMouseCompatible, setAirMouseCompatible] = useState(false)
 
   const valid = useMemo(() => {
-    if (step === 1) return Boolean(apkFile)
+    if (step === 1) return Boolean(apkFile && uploadedApk && !apkUploading)
     if (step === 2) return Boolean(name.trim() && tagline.trim() && description.trim() && category && /^([A-Za-z][A-Za-z0-9_]*\.)+[A-Za-z][A-Za-z0-9_]*$/.test(packageName.trim()) && iconFile && bannerFile)
     if (step === 3) {
       if (hasInAppPayment === null || developedForAndroidTv === null) return false
@@ -74,9 +77,12 @@ export default function UploadPage() {
     reader.onload = () => callback(String(reader.result))
     reader.readAsDataURL(file)
   }
-  const onApk = (file?: File) => {
-    if (!file) return
+  const onApk = async (file?: File) => {
+    if (!file || !user?.id || apkUploading) return
     setErrorMessage('')
+    setUploadedApk(null)
+    setApkUploadProgress(0)
+
     if (!file.name.toLowerCase().endsWith('.apk')) {
       setApkFile(null)
       setApkName('')
@@ -84,6 +90,7 @@ export default function UploadPage() {
       setErrorMessage('فایل انتخاب‌شده باید با فرمت APK باشد.')
       return
     }
+
     if (file.size > 250 * 1024 * 1024) {
       setApkFile(null)
       setApkName('')
@@ -91,12 +98,39 @@ export default function UploadPage() {
       setErrorMessage('حجم فایل APK نباید بیشتر از ۲۵۰ مگابایت باشد.')
       return
     }
+
     setApkFile(file)
     setApkName(file.name)
     setApkSize(`${toFa((file.size / 1024 / 1024).toFixed(1))} مگابایت`)
+    setApkUploading(true)
+
+    try {
+      const upload = await uploadPrivateFile(user.id, file, (percentage) => {
+        setApkUploadProgress(Math.round(percentage))
+      })
+      setUploadedApk(upload)
+      setApkUploadProgress(100)
+    } catch (error) {
+      setApkFile(null)
+      setUploadedApk(null)
+      setApkName('')
+      setApkSize('')
+      const code = error instanceof Error ? error.message : 'upload_failed'
+      setErrorMessage(
+        code === 'invalid_apk_file'
+          ? 'فایل انتخاب‌شده APK معتبر نیست. فایل اصلی خروجی Android را انتخاب کنید.'
+          : code === 'apk_too_large'
+            ? 'حجم فایل APK نباید بیشتر از ۲۵۰ مگابایت باشد.'
+            : code === 'auth_required'
+              ? 'نشست ورود شما منقضی شده است. دوباره وارد شوید.'
+              : 'آپلود فایل APK انجام نشد. دوباره تلاش کنید.',
+      )
+    } finally {
+      setApkUploading(false)
+    }
   }
   const submitForReview = async () => {
-    if (!apkFile || !iconFile || !bannerFile) {
+    if (!apkFile || !uploadedApk || !iconFile || !bannerFile) {
       setErrorMessage('فایل APK، آیکون و بنر باید انتخاب شده باشند.')
       return
     }
@@ -106,7 +140,7 @@ export default function UploadPage() {
     setApkUploadComplete(false)
     setErrorMessage('')
 
-    const filesToUpload = [apkFile, iconFile, bannerFile, ...screenshotFiles]
+    const filesToUpload = [iconFile, bannerFile, ...screenshotFiles]
     const totalUploadBytes = Math.max(1, filesToUpload.reduce((sum, file) => sum + file.size, 0))
     const uploadedBytes = new Map<File, number>()
 
@@ -117,10 +151,8 @@ export default function UploadPage() {
     }
 
     try {
-      setSubmitStage('در حال آپلود فایل APK...')
-      const apk = await uploadPrivateFile(user.id!, apkFile, (percentage) => updateOverallProgress(apkFile, percentage))
+      const apk = uploadedApk
       setApkUploadComplete(true)
-
       setSubmitStage('در حال آپلود آیکون...')
       const iconUpload = await uploadPrivateFile(user.id!, iconFile, (percentage) => updateOverallProgress(iconFile, percentage))
 
@@ -209,7 +241,50 @@ export default function UploadPage() {
         {steps.map((title, i) => <button key={title} type="button" onClick={() => i + 1 < step && setStep(i + 1)} className={`flex items-center gap-2 rounded-xl px-3 py-2 text-sm ${step === i + 1 ? 'bg-primary text-primary-foreground' : step > i + 1 ? 'bg-accent/15 text-accent-foreground' : 'text-muted-foreground'}`}><span className="flex size-6 items-center justify-center rounded-full border border-current text-xs">{step > i + 1 ? <Check className="size-3" /> : toFa(i + 1)}</span>{title}</button>)}
       </div>
       <section className="mt-6 rounded-2xl border border-border bg-card p-6">
-        {step === 1 && <div><Header title="آپلود فایل APK" text="فایل نصب اپلیکیشن اندروید تی‌وی را بارگذاری کنید." /><FileDropzone accept=".apk,application/vnd.android.package-archive" label="فایل APK را انتخاب کنید" hint="فایل APK را اینجا بکشید و رها کنید یا برای انتخاب کلیک کنید" onFiles={(files) => onApk(files[0])} /><p className="mt-3 text-xs text-muted-foreground">{apkName ? `${apkName} — ${apkSize}` : 'فرمت مجاز: .apk'}</p></div>}
+        {step === 1 && <div>
+          <Header title="آپلود فایل APK" text="فایل نصب اپلیکیشن اندروید تی‌وی را بارگذاری کنید." />
+          <FileDropzone
+            accept=".apk,application/vnd.android.package-archive"
+            label="فایل APK را انتخاب کنید"
+            hint="فایل APK را اینجا بکشید و رها کنید یا برای انتخاب کلیک کنید"
+            onFiles={(files) => void onApk(files[0])}
+          />
+          <p className="mt-3 text-xs text-muted-foreground">{apkName ? `${apkName} — ${apkSize}` : 'فرمت مجاز: .apk'}</p>
+
+          {apkUploading && (
+            <div className="mt-4 rounded-xl border border-primary/20 bg-primary/5 p-4">
+              <div className="flex items-center justify-between gap-4 text-sm">
+                <span className="flex items-center gap-2 font-medium">
+                  <Loader2 className="size-4 animate-spin text-primary" />
+                  در حال آپلود فایل APK...
+                </span>
+                <span className="font-bold text-primary" dir="ltr">{toFa(apkUploadProgress)}٪</span>
+              </div>
+              <div
+                className="mt-3 h-2.5 overflow-hidden rounded-full bg-secondary"
+                role="progressbar"
+                aria-label="پیشرفت آپلود فایل APK"
+                aria-valuemin={0}
+                aria-valuemax={100}
+                aria-valuenow={apkUploadProgress}
+              >
+                <div
+                  className="h-full rounded-full bg-primary transition-[width] duration-200"
+                  style={{ width: `${apkUploadProgress}%` }}
+                />
+              </div>
+            </div>
+          )}
+
+          {uploadedApk && !apkUploading && (
+            <div className="mt-4 flex items-center gap-2 rounded-xl border border-primary/20 bg-primary/5 px-4 py-3 text-sm font-medium">
+              <span className="flex size-6 items-center justify-center rounded-full bg-primary text-primary-foreground">
+                <Check className="size-4" />
+              </span>
+              فایل APK با موفقیت آپلود شد
+            </div>
+          )}
+        </div>}
         {step === 2 && <div><Header title="اطلاعات پایه" text="اطلاعات اصلی و تصاویر اپلیکیشن را وارد کنید." /><div className="flex flex-col gap-4"><Field label="عنوان اپلیکیشن" required><Input value={name} onChange={(e) => setName(e.target.value)} /></Field><Field label="توضیح کوتاه" required><Input value={tagline} onChange={(e) => setTagline(e.target.value)} /></Field><Field label="توضیحات کامل" required><Textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={6} /></Field><Field label="Package Name" required><Input value={packageName} onChange={(e) => setPackageName(e.target.value.trim())} dir="ltr" placeholder="com.company.app" /><p className="text-xs leading-6 text-muted-foreground">این شناسه باید با Package Name داخل APK یکی باشد؛ استخراج خودکار را در مرحله بعد اضافه می‌کنیم.</p></Field><Field label="دسته‌بندی" required><Select value={category} onValueChange={(v) => setCategory(v as AppCategory)}><SelectTrigger><SelectValue placeholder="انتخاب دسته‌بندی" /></SelectTrigger><SelectContent>{CATEGORIES.map((item) => <SelectItem key={item} value={item}>{item}</SelectItem>)}</SelectContent></Select></Field><Field label="محدودیت سنی" required><Select value={ageRestriction} onValueChange={(v) => setAgeRestriction(v as typeof ageRestriction)}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{['همه سنین', '+۷', '+۱۲', '+۱۵', '+۱۸'].map((item) => <SelectItem key={item} value={item}>{item}</SelectItem>)}</SelectContent></Select></Field><div className="mt-6 border-t border-border pt-6"><h3 className="font-bold">تصاویر اپلیکیشن</h3><p className="mt-1 text-sm text-muted-foreground">آیکون، بنر و تصاویر محیط اپ را اضافه کنید.</p><div className="mt-5 grid gap-6 sm:grid-cols-2"><MediaField title="آیکون اپلیکیشن (نسبت ۱:۱)" required value={icon} onFile={(f) => { setIconFile(f); readImage(f, setIcon) }} onClear={() => { setIcon(''); setIconFile(null) }} square /><div><MediaField title="بنر معرفی (نسبت ۱۶:۹)" required value={banner} onFile={(f) => { setBannerFile(f); readImage(f, setBanner) }} onClear={() => { setBanner(''); setBannerFile(null) }} /><p className="mt-2 text-xs leading-6 text-muted-foreground">این بنر تصویری است که کاربر در نت‌استور در نگاه اول می‌بیند.</p></div><div className="sm:col-span-2"><Label>تصاویر محیط اپ <span className="text-muted-foreground">(اختیاری)</span></Label><div className="mt-2 text-xs leading-6 text-muted-foreground"><p>این عکس‌ها در صفحه جزئیات اپ شما در نت‌استور قابل مشاهده هستند.</p><p>نسبت تصویر باید ۱۶:۹ باشد، فرمت‌های مجاز PNG، JPG/JPEG و WEBP هستند، حجم هر تصویر حداکثر ۵ مگابایت است و حداکثر می‌توانید ۲۰ تصویر آپلود کنید.</p></div><FileDropzone accept="image/png,image/jpeg,image/webp" label="افزودن تصاویر" hint="تصاویر را اینجا بکشید و رها کنید یا برای انتخاب کلیک کنید" multiple onFiles={(files) => { const accepted = files.slice(0, Math.max(0, 20 - screenshotFiles.length)); setScreenshotFiles((old) => [...old, ...accepted].slice(0, 20)); accepted.forEach((file) => readImage(file, (url) => setScreenshots((old) => [...old, url].slice(0, 20)))) }} /><div className="mt-3 flex flex-wrap gap-3">{screenshots.map((src, i) => <div key={src} className="relative"><img src={src} alt={`تصویر ${i + 1}`} className="size-20 rounded-lg object-cover" /><button type="button" aria-label="حذف تصویر" onClick={() => { setScreenshots((old) => old.filter((_, n) => n !== i)); setScreenshotFiles((old) => old.filter((_, n) => n !== i)) }} className="absolute -right-2 -top-2 rounded-full bg-destructive p-1 text-destructive-foreground"><X className="size-3" /></button></div>)}</div></div></div></div></div></div>}
         {step === 3 && (
           <div>
@@ -314,7 +389,7 @@ export default function UploadPage() {
         </div>
       )}
       {errorMessage && <p role="alert" className="mt-3 rounded-lg bg-destructive/10 px-3 py-2 text-center text-sm text-destructive">{errorMessage}</p>}
-      {!valid && step < 5 && <p className="mt-3 text-center text-xs text-muted-foreground">فیلدهای الزامی را کامل کنید.</p>}
+      {!valid && step < 5 && !(step === 1 && apkUploading) && <p className="mt-3 text-center text-xs text-muted-foreground">فیلدهای الزامی را کامل کنید.</p>}
     </main>
   )
 }
