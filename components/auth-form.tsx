@@ -43,6 +43,7 @@ function AuthFormInner({ mode }: { mode: 'login' | 'signup' }) {
   const [lastName, setLastName] = useState('')
   const [organization, setOrganization] = useState('')
   const [nationalId, setNationalId] = useState('')
+  const [ceoIdCardFile, setCeoIdCardFile] = useState<File | null>(null)
   const [phone, setPhone] = useState('')
   const [email, setEmail] = useState(searchParams.get('email') || '')
   const [password, setPassword] = useState('')
@@ -69,11 +70,11 @@ function AuthFormInner({ mode }: { mode: 'login' | 'signup' }) {
     if (signupStep === 2) return Boolean(accountType)
     if (signupStep === 3) {
       if (accountType === 'individual') return Boolean(name.trim() && lastName.trim() && /^\d{10}$/.test(nationalId.trim()))
-      return Boolean(organization.trim() && name.trim() && lastName.trim() && /^\d{11}$/.test(nationalId.trim()))
+      return Boolean(organization.trim() && name.trim() && lastName.trim() && /^\d{11}$/.test(nationalId.trim()) && ceoIdCardFile)
     }
     if (signupStep === 4) return Boolean((!phone.trim() || normalizedPhone) && termsAccepted)
     return false
-  }, [isSignup, signupStep, accountType, name, lastName, organization, nationalId, normalizedEmail, password, normalizedPhone, phone, termsAccepted])
+  }, [isSignup, signupStep, accountType, name, lastName, organization, nationalId, ceoIdCardFile, normalizedEmail, password, normalizedPhone, phone, termsAccepted])
 
   function resetMessages() { setErrorMessage(''); setSuccessMessage('') }
   function goNext() {
@@ -183,6 +184,34 @@ function AuthFormInner({ mode }: { mode: 'login' | 'signup' }) {
               {accountType === 'legal' && <div className="mt-6"><Label htmlFor="organization">نام شرکت یا سازمان</Label><Input id="organization" value={organization} onChange={(e) => setOrganization(e.target.value)} className="mt-1.5 h-11" autoComplete="organization" /></div>}
               <div className="mt-5 grid gap-4 sm:grid-cols-2"><div><Label htmlFor="name">{accountType === 'legal' ? 'نام نماینده' : 'نام'}</Label><Input id="name" value={name} onChange={(e) => setName(e.target.value)} className="mt-1.5 h-11" /></div><div><Label htmlFor="lastName">{accountType === 'legal' ? 'نام خانوادگی نماینده' : 'نام خانوادگی'}</Label><Input id="lastName" value={lastName} onChange={(e) => setLastName(e.target.value)} className="mt-1.5 h-11" /></div></div>
               <div className="mt-5"><Label htmlFor="nationalId">{accountType === 'legal' ? 'شناسه ملی شرکت' : 'کد ملی'}</Label><Input id="nationalId" value={nationalId} onChange={(e) => setNationalId(e.target.value.replace(/\D/g, ''))} dir="ltr" inputMode="numeric" className="mt-1.5 h-11 text-left" maxLength={accountType === 'legal' ? 11 : 10} /></div>
+              {accountType === 'legal' && (
+                <div className="mt-5">
+                  <Label htmlFor="ceo-id-card">تصویر کارت ملی مدیرعامل <span className="text-destructive">*</span></Label>
+                  <p className="mt-1 text-xs leading-6 text-muted-foreground">تصویر واضح و خوانای کارت ملی مدیرعامل را بارگذاری کنید. فرمت‌های مجاز PNG، JPG/JPEG و WEBP و حداکثر حجم فایل ۵ مگابایت است.</p>
+                  <Input
+                    id="ceo-id-card"
+                    type="file"
+                    accept="image/png,image/jpeg,image/webp"
+                    className="mt-2 h-auto py-2"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0] || null
+                      if (!file) {
+                        setCeoIdCardFile(null)
+                        return
+                      }
+                      if (file.size > 5 * 1024 * 1024) {
+                        setErrorMessage('حجم تصویر کارت ملی مدیرعامل باید حداکثر ۵ مگابایت باشد.')
+                        e.currentTarget.value = ''
+                        setCeoIdCardFile(null)
+                        return
+                      }
+                      setErrorMessage('')
+                      setCeoIdCardFile(file)
+                    }}
+                  />
+                  {ceoIdCardFile && <p className="mt-2 text-xs text-muted-foreground">فایل انتخاب‌شده: <span dir="ltr">{ceoIdCardFile.name}</span></p>}
+                </div>
+              )}
             </div>}
 
             {signupStep === 4 && <div>
