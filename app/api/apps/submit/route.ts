@@ -9,8 +9,11 @@ const allowedAgeRestrictions = new Set(['همه سنین', '+۷', '+۱۲', '+۱�
 
 type SubmitBody = {
   name?: string
+  nameEn?: string
   tagline?: string
+  taglineEn?: string
   description?: string
+  descriptionEn?: string
   hasInAppPayment?: boolean
   netboxPaymentIntegrated?: boolean
   netboxPaymentGraceAccepted?: boolean
@@ -42,8 +45,11 @@ export async function POST(request: Request) {
   }
 
   const name = body.name?.trim()
+  const nameEn = body.nameEn?.trim() || null
   const tagline = body.tagline?.trim()
+  const taglineEn = body.taglineEn?.trim() || null
   let description = body.description?.trim()
+  const descriptionEn = body.descriptionEn?.trim() || null
   const category = body.category?.trim()
   const packageName = body.packageName?.trim()
   const website = body.website?.trim() || null
@@ -98,8 +104,11 @@ export async function POST(request: Request) {
     .insert({
       owner_id: identity.id,
       name,
+      name_en: nameEn,
       tagline,
+      tagline_en: taglineEn,
       description,
+      description_en: descriptionEn,
       category,
       age_restriction: ageRestriction,
       package_name: packageName,
