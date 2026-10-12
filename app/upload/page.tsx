@@ -296,7 +296,7 @@ export default function UploadPage() {
           )}
         </div>}
         {step === 2 && <div><Header title="اطلاعات پایه" text="اطلاعات اصلی و تصاویر اپلیکیشن را وارد کنید." /><div className="flex flex-col gap-4">
-          <Field label="عنوان اپلیکیشن (فارسی)" required><Input value={name} onChange={(e) => setName(e.target.value)} /></Field>
+          <Field label="عنوان اپلیکیشن (فارسی)" required><Input value={name} onChange={(e) => setName(e.target.value)} /><p className="text-xs leading-6 text-muted-foreground">این عنوان زیر بنر نمایش داده می‌شود و کاربر اپ شما را با این اسم خواهد شناخت.</p></Field>
           <Field label="عنوان اپلیکیشن (English) — اختیاری"><Input value={nameEn} onChange={(e) => setNameEn(e.target.value)} dir="ltr" /></Field>
           <Field label="توضیح کوتاه (فارسی)" required><Input value={tagline} onChange={(e) => setTagline(e.target.value)} /></Field>
           <Field label="Short description (English) — اختیاری"><Input value={taglineEn} onChange={(e) => setTaglineEn(e.target.value)} dir="ltr" /></Field>
