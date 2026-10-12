@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { Activity, AlertTriangle, FileText, HelpCircle, Megaphone, Package, Pencil, Plus, Search, Ticket, Wallet } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -28,7 +28,10 @@ type Tab = (typeof tabs)[number]['id']
 export default function DashboardPage() {
   const { user, authReady, myApps, removeApp, submitAppForReview, tickets, addTicket } = useStore()
   const router = useRouter()
-  const [tab, setTab] = useState<Tab>('apps')
+  const searchParams = useSearchParams()
+  const requestedTab = searchParams.get('tab')
+  const initialTab = tabs.some((item) => item.id === requestedTab) ? requestedTab as Tab : 'apps'
+  const [tab, setTab] = useState<Tab>(initialTab)
   const [subject, setSubject] = useState('')
   const [message, setMessage] = useState('')
   const [ticketSending, setTicketSending] = useState(false)
