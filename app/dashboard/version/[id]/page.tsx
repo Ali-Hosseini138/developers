@@ -11,6 +11,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { useStore } from '@/components/store-provider'
 import { uploadPrivateFile } from '@/lib/blob-upload-client'
 import { FileDropzone } from '@/components/upload/file-dropzone'
+import { toFa } from '@/lib/format'
 
 export default function NewVersionPage() {
   const { id } = useParams<{ id: string }>()
@@ -21,6 +22,8 @@ export default function NewVersionPage() {
   const [apkFile, setApkFile] = useState<File | null>(null)
   const [saved, setSaved] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [uploadProgress, setUploadProgress] = useState(0)
+  const [apkUploadComplete, setApkUploadComplete] = useState(false)
   const [errorMessage, setErrorMessage] = useState('')
 
   useEffect(() => {
@@ -37,10 +40,14 @@ export default function NewVersionPage() {
     if (!apkFile || !changes.trim() || saving) return
 
     setSaving(true)
+    setUploadProgress(0)
+    setApkUploadComplete(false)
     setErrorMessage('')
 
     try {
-      const uploadedApk = await uploadPrivateFile(user.id!, apkFile)
+      const uploadedApk = await uploadPrivateFile(user.id!, apkFile, (percentage) => setUploadProgress(Math.round(percentage)))
+      setUploadProgress(100)
+      setApkUploadComplete(true)
       await addVersion(
         app.id,
         { pathname: uploadedApk.pathname, name: uploadedApk.name, size: uploadedApk.size },
@@ -102,7 +109,7 @@ export default function NewVersionPage() {
         </div>
 
         <div>
-          <Label>پکیج‌نیم فعلی اپ</Label>
+          <Label>Package Name فعلی اپ</Label>
           <Input
             value={app.packageName || 'هنوز از APK استخراج نشده'}
             readOnly
@@ -110,7 +117,7 @@ export default function NewVersionPage() {
             className="mt-1.5 bg-secondary/50"
           />
           <p className="mt-2 text-xs leading-6 text-muted-foreground">
-            فعلاً پکیج‌نیم از نام فایل حدس زده نمی‌شود؛ چون حدس‌زدن می‌تواند مقدار اشتباه تولید کند. استخراج واقعی از APK را در مرحله بعد اضافه می‌کنیم.
+            فعلاً Package Name از نام فایل حدس زده نمی‌شود؛ چون حدس‌زدن می‌تواند مقدار اشتباه تولید کند. استخراج واقعی از APK را در مرحله بعد اضافه می‌کنیم.
           </p>
         </div>
 
@@ -130,6 +137,32 @@ export default function NewVersionPage() {
           <FileArchive className="mt-1 size-4 shrink-0 text-primary" />
           بعد از ارسال، خود فایل APK نگهداری می‌شود و نسخه برای بررسی تیم نت‌استور ثبت خواهد شد.
         </div>
+
+        {saving && (
+          <div className="rounded-xl border border-primary/20 bg-primary/5 p-4">
+            <div className="flex items-center justify-between gap-4 text-sm">
+              <span className="flex items-center gap-2 font-medium">
+                {apkUploadComplete ? <Check className="size-4 text-primary" /> : <Loader2 className="size-4 animate-spin text-primary" />}
+                {apkUploadComplete ? 'فایل APK با موفقیت آپلود شد' : 'در حال آپلود فایل APK...'}
+              </span>
+              <span className="font-bold text-primary" dir="ltr">{toFa(uploadProgress)}٪</span>
+            </div>
+            <div
+              className="mt-3 h-2.5 overflow-hidden rounded-full bg-secondary"
+              role="progressbar"
+              aria-label="پیشرفت آپلود نسخه جدید APK"
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-valuenow={uploadProgress}
+            >
+              <div
+                className="h-full rounded-full bg-primary transition-[width] duration-200"
+                style={{ width: `${uploadProgress}%` }}
+              />
+            </div>
+            <p className="mt-2 text-xs text-muted-foreground">تا پایان آپلود این صفحه را نبندید.</p>
+          </div>
+        )}
 
         {errorMessage && (
           <p role="alert" className="rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive">
