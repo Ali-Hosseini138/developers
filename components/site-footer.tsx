@@ -35,6 +35,7 @@ export function SiteFooter() {
               links={[
                 { label: 'راهنمای انتشار', href: '/guide' },
                 { label: 'راهنمای فنی', href: '/integrations' },
+                { label: 'سؤالات پرتکرار', href: '/faq' },
                 ...(!user
                   ? [
                       { label: 'ورود', href: '/login' },
