@@ -73,7 +73,12 @@ function DashboardPageInner() {
     <main className="mx-auto max-w-6xl px-4 py-10 sm:px-6 lg:pr-32">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div><h1 className="text-2xl font-bold tracking-tight">پنل توسعه‌دهنده</h1><p className="mt-1 text-sm text-muted-foreground">{user.name}، مدیریت اپ‌ها و ارتباط با نت‌استور</p></div>
-        <Button render={<Link href="/upload" />} className="gap-1.5"><Plus className="size-4" />انتشار اپ جدید</Button>
+        {tab === 'apps' && (
+          <Button render={<Link href="/upload" />} className="gap-1.5">
+            <Plus className="size-4" />
+            انتشار اپ جدید
+          </Button>
+        )}
       </div>
 
       <div className="mt-8">
