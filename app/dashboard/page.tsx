@@ -32,6 +32,17 @@ export default function DashboardPage() {
   const requestedTab = searchParams.get('tab')
   const initialTab = tabs.some((item) => item.id === requestedTab) ? requestedTab as Tab : 'apps'
   const [tab, setTab] = useState<Tab>(initialTab)
+
+  useEffect(() => {
+    const nextTab = tabs.some((item) => item.id === requestedTab) ? requestedTab as Tab : 'apps'
+    setTab(nextTab)
+  }, [requestedTab])
+
+  function changeTab(nextTab: Tab) {
+    setTab(nextTab)
+    const href = nextTab === 'apps' ? '/dashboard' : `/dashboard?tab=${nextTab}`
+    router.replace(href, { scroll: false })
+  }
   const [subject, setSubject] = useState('')
   const [message, setMessage] = useState('')
   const [ticketSending, setTicketSending] = useState(false)
@@ -68,7 +79,7 @@ export default function DashboardPage() {
       </div>
 
       <div className="mt-8">
-        <DeveloperSidebar activeTab={tab} onTabChange={setTab} />
+        <DeveloperSidebar activeTab={tab} onTabChange={changeTab} />
 
         <div className="min-w-0 lg:pr-24">
           {tab === 'apps' && <AppsTab myApps={myApps} removeApp={removeApp} submitAppForReview={submitAppForReview} />}
