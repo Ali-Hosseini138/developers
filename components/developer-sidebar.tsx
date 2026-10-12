@@ -26,6 +26,7 @@ const docs = [
   { href: '/integrations', label: 'راهنمای فنی' },
   { href: '/rules', label: 'قوانین انتشار' },
   { href: '/guide', label: 'مراحل انتشار' },
+  { href: '/faq', label: 'سؤالات پرتکرار' },
 ] as const
 
 export type DeveloperDashboardTab = (typeof dashboardItems)[number]['id']
@@ -38,7 +39,7 @@ export function DeveloperSidebar({
   onTabChange?: (tab: DeveloperDashboardTab) => void
 }) {
   const pathname = usePathname()
-  const onDocsPage = pathname.startsWith('/integrations') || pathname.startsWith('/rules') || pathname.startsWith('/guide')
+  const onDocsPage = pathname.startsWith('/integrations') || pathname.startsWith('/rules') || pathname.startsWith('/guide') || pathname.startsWith('/faq')
   const [docsOpen, setDocsOpen] = useState(onDocsPage)
 
   function dashboardHref(id: DeveloperDashboardTab) {
