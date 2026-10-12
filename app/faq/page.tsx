@@ -1,0 +1,108 @@
+'use client'
+
+import { useState } from 'react'
+import { ChevronDown, HelpCircle } from 'lucide-react'
+import { DeveloperSidebar } from '@/components/developer-sidebar'
+
+const faqs = [
+  {
+    question: 'Package Name چیست و چرا باید با APK یکسان باشد؟',
+    answer: 'Package Name شناسه یکتای اپلیکیشن اندروید است؛ مثل com.company.app. این مقدار مشخص می‌کند یک APK متعلق به کدام اپلیکیشن است. برای جلوگیری از تداخل نسخه‌ها، نصب اشتباه یا ثبت اپ متفاوت به‌عنوان نسخه جدید، Package Name ثبت‌شده در پنل باید با Package Name داخل APK یکسان باشد.',
+  },
+  {
+    question: 'حداکثر حجم فایل APK چقدر است؟',
+    answer: 'حداکثر حجم مجاز فایل APK در حال حاضر ۲۵۰ مگابایت است. اگر حجم فایل بیشتر باشد، باید حجم APK را کاهش دهید یا نسخه بهینه‌تری برای Android TV آماده کنید.',
+  },
+  {
+    question: 'اپلیکیشن برای انتشار حتماً باید مخصوص Android TV باشد؟',
+    answer: 'خیر، اما اولویت نت‌استور با اپلیکیشن‌هایی است که مشخصاً برای Android TV توسعه داده شده‌اند و با Remote Control و D-pad به‌طور کامل قابل استفاده هستند. اپلیکیشن‌هایی که مخصوص Android TV نیستند فقط در صورتی قابل بررسی‌اند که تجربه قابل استفاده‌ای روی تلویزیون داشته باشند.',
+  },
+  {
+    question: 'اگر اپ با Air Mouse کار کند ولی مخصوص Android TV نباشد، قابل انتشار است؟',
+    answer: 'بله، در صورتی که تمام بخش‌های اصلی اپ با Air Mouse یا Mouse به‌درستی قابل استفاده باشند. در این حالت هنگام ارسال اپ باید این موضوع را تأیید کنید و ممکن است در توضیحات اپ نیز مشخص شود که استفاده از Air Mouse یا Mouse نیاز است.',
+  },
+  {
+    question: 'چرا اپ من در وضعیت «در انتظار بررسی» است؟',
+    answer: 'این وضعیت یعنی اطلاعات اپ و فایل APK با موفقیت ثبت شده‌اند و درخواست شما در صف بررسی تیم نت‌استور قرار دارد. تا زمانی که بررسی تمام نشده باشد، وضعیت اپ «در انتظار بررسی» باقی می‌ماند. پس از بررسی، اپ یا منتشر می‌شود یا برای اصلاح به شما بازگردانده می‌شود.',
+  },
+  {
+    question: 'اگر اپ رد شود، چطور دلیل رد را ببینم و دوباره ارسال کنم؟',
+    answer: 'در صورت رد شدن اپ، وضعیت آن در داشبورد به «نیازمند اصلاح» تغییر می‌کند و دلیل رد نیز در همان بخش نمایش داده می‌شود. بعد از انجام اصلاحات می‌توانید اطلاعات اپ را ویرایش کرده و دوباره برای بررسی ارسال کنید.',
+  },
+  {
+    question: 'برای انتشار نسخه جدید باید اپ جدید ایجاد کنم؟',
+    answer: 'خیر. اگر نسخه جدید متعلق به همان اپلیکیشن است، نباید اپ جدید ایجاد کنید. از گزینه «نسخه جدید» در داشبورد همان اپ استفاده کنید و APK جدید را ارسال کنید.',
+  },
+  {
+    question: 'آیا APK نسخه جدید باید همان Package Name قبلی را داشته باشد؟',
+    answer: 'بله. نسخه جدید یک اپ باید همان Package Name نسخه قبلی را داشته باشد. اگر Package Name تغییر کند، سیستم آن را یک اپلیکیشن متفاوت در نظر می‌گیرد و ممکن است امکان انتشار آن به‌عنوان نسخه جدید وجود نداشته باشد.',
+  },
+  {
+    question: 'آیا استفاده از Netbox Payment برای پرداخت درون‌برنامه‌ای الزامی است؟',
+    answer: 'برای اپلیکیشن‌هایی که پرداخت یا خرید دیجیتال درون‌برنامه‌ای دارند، استفاده از Netbox Payment الزامی است. این موضوع شامل خرید اشتراک، محتوای دیجیتال و سایر پرداخت‌های داخل اپ می‌شود.',
+  },
+  {
+    question: 'اگر هنوز Netbox Payment را پیاده‌سازی نکرده باشم چه اتفاقی می‌افتد؟',
+    answer: 'در زمان ارسال اپ می‌توانید اعلام کنید که Netbox Payment هنوز پیاده‌سازی نشده و مهلت یک‌ماهه پیاده‌سازی را می‌پذیرید. در این صورت باید حداکثر تا یک ماه پس از انتشار، Netbox Payment را در اپ پیاده‌سازی کنید. در صورت عدم انجام این الزام، اپ می‌تواند از نت‌استور خارج شود.',
+  },
+  {
+    question: 'برای تست اپی که Login دارد چطور حساب تست در اختیار نت‌استور قرار دهم؟',
+    answer: 'اگر استفاده از اپ بدون ورود امکان‌پذیر نیست، یک حساب تست معتبر برای تیم بررسی آماده کنید. اطلاعات حساب تست را از طریق بخش «پشتیبانی و تیکت» در پنل توسعه‌دهندگان ارسال کنید تا تیم بررسی بتواند تمام بخش‌های اپ را تست کند.',
+  },
+  {
+    question: 'اگر آپلود APK قطع یا متوقف شود چه کار کنم؟',
+    answer: 'تا پایان آپلود، صفحه را نبندید و اتصال اینترنت را حفظ کنید. هنگام آپلود، درصد پیشرفت نمایش داده می‌شود و بعد از تکمیل فایل، علامت تأیید نمایش داده خواهد شد. اگر آپلود متوقف شد یا خطا دریافت کردید، اتصال اینترنت را بررسی کرده و فایل را دوباره ارسال کنید. در صورت تکرار مشکل، از بخش «پشتیبانی و تیکت» با تیم نت‌استور در ارتباط باشید.',
+  },
+  {
+    question: 'چرا ورود یکپارچه (SSO) را در اپلیکیشن پیاده‌سازی کنم؟',
+    answer: 'پیاده‌سازی SSO باعث می‌شود کاربر بدون طی‌کردن فرایند طولانی ثبت‌نام یا ورود، سریع‌تر وارد اپلیکیشن شود. این موضوع اصطکاک ورود را کاهش می‌دهد و باعث می‌شود تعداد بیشتری از افرادی که اپ را نصب می‌کنند، واقعاً وارد اپ شده و به کاربر فعال تبدیل شوند. در نتیجه نرخ تبدیل نصب به کاربر فعال افزایش پیدا می‌کند.',
+  },
+] as const
+
+export default function FaqPage() {
+  const [openIndex, setOpenIndex] = useState<number | null>(null)
+
+  return (
+    <>
+      <DeveloperSidebar />
+      <main className="mx-auto max-w-4xl px-4 py-12 sm:px-6 lg:pr-32">
+        <div className="flex items-start gap-4">
+          <span className="flex size-12 shrink-0 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+            <HelpCircle className="size-6" />
+          </span>
+          <div>
+            <p className="text-sm font-semibold text-primary">مستندات فنی</p>
+            <h1 className="mt-1 text-3xl font-bold tracking-tight">سؤالات پرتکرار</h1>
+            <p className="mt-3 max-w-2xl leading-8 text-muted-foreground">
+              پاسخ سریع به پرسش‌های رایج توسعه‌دهندگان درباره انتشار، بررسی، نسخه جدید، پرداخت و یکپارچه‌سازی با سرویس‌های نت‌باکس.
+            </p>
+          </div>
+        </div>
+
+        <div className="mt-10 flex flex-col gap-3">
+          {faqs.map((item, index) => {
+            const open = openIndex === index
+            return (
+              <section key={item.question} className="overflow-hidden rounded-2xl border border-border bg-card">
+                <button
+                  type="button"
+                  onClick={() => setOpenIndex(open ? null : index)}
+                  className="flex w-full items-center justify-between gap-4 p-5 text-right"
+                  aria-expanded={open}
+                >
+                  <span className="font-semibold leading-7">{item.question}</span>
+                  <ChevronDown className={`size-5 shrink-0 text-muted-foreground transition-transform duration-200 ${open ? 'rotate-180' : ''}`} />
+                </button>
+                {open && (
+                  <div className="border-t border-border px-5 py-4 text-sm leading-8 text-muted-foreground">
+                    {item.answer}
+                  </div>
+                )}
+              </section>
+            )
+          })}
+        </div>
+      </main>
+    </>
+  )
+}
