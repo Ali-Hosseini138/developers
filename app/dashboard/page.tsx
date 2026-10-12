@@ -3,7 +3,7 @@
 import { Suspense, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { Activity, AlertTriangle, FileText, HelpCircle, Megaphone, Package, Pencil, Plus, Search, Ticket, Wallet } from 'lucide-react'
+import { Activity, AlertTriangle, FileText, HelpCircle, Package, Pencil, Plus, Search, Ticket, Wallet } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
@@ -11,7 +11,6 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { useStore } from '@/components/store-provider'
 import { toFa } from '@/lib/format'
-import { BANNER_PLACEMENT } from '@/lib/monetization'
 import { createClient } from '@/lib/supabase/client'
 import { DeveloperSidebar } from '@/components/developer-sidebar'
 
@@ -19,7 +18,6 @@ const tabs = [
   { id: 'apps', label: 'داشبورد من', icon: Package },
   { id: 'analytics', label: 'آمار و عملکرد', icon: Activity },
   { id: 'finance', label: 'مالی', icon: Wallet },
-  { id: 'growth', label: 'تبلیغات و رشد', icon: Megaphone },
   { id: 'support', label: 'پشتیبانی و تیکت', icon: HelpCircle },
 ] as const
 
@@ -85,7 +83,6 @@ function DashboardPageInner() {
           {tab === 'apps' && <AppsTab myApps={myApps} removeApp={removeApp} submitAppForReview={submitAppForReview} />}
           {tab === 'analytics' && <AnalyticsTab myApps={myApps} />}
           {tab === 'finance' && <FinanceTab />}
-          {tab === 'growth' && <GrowthTab myApps={myApps} />}
           {tab === 'support' && <SupportTab subject={subject} message={message} setSubject={setSubject} setMessage={setMessage} submitTicket={submitTicket} tickets={myTickets} sending={ticketSending} errorMessage={ticketError} />}
         </div>
       </div>
@@ -806,32 +803,6 @@ function FinanceTab() {
 
 function formatToman(value: number) {
   return `${value.toLocaleString('fa-IR')} تومان`
-}
-
-function GrowthTab() {
-  return (
-    <section className="mt-8">
-      <div className="mx-auto flex min-h-[360px] max-w-2xl flex-col items-center justify-center rounded-2xl border border-border bg-card px-6 py-12 text-center">
-        <span className="flex size-14 items-center justify-center rounded-2xl bg-primary/10 text-primary">
-          <Megaphone className="size-7" />
-        </span>
-        <h2 className="mt-5 text-xl font-bold">تبلیغات و رشد به‌زودی</h2>
-        <p className="mt-3 max-w-lg text-sm leading-7 text-muted-foreground">
-          امکانات تبلیغات، کمپین‌های رشد و سرویس‌های افزایش نصب به‌زودی در پنل توسعه‌دهندگان نت‌استور فعال می‌شوند.
-        </p>
-        <div className="mt-7 rounded-xl bg-secondary/60 px-5 py-4">
-          <p className="text-sm text-muted-foreground">برای اطلاعات بیشتر تماس بگیرید</p>
-          <a
-            href={`tel:${BANNER_PLACEMENT.contactPhone}`}
-            dir="ltr"
-            className="mt-2 inline-block text-lg font-bold text-primary underline-offset-4 hover:underline"
-          >
-            {BANNER_PLACEMENT.contactPhone}
-          </a>
-        </div>
-      </div>
-    </section>
-  )
 }
 
 function SupportTab({ subject, message, setSubject, setMessage, submitTicket, tickets, sending, errorMessage }: { subject: string; message: string; setSubject: (v: string) => void; setMessage: (v: string) => void; submitTicket: (e: React.FormEvent) => void; tickets: ReturnType<typeof useStore>['tickets']; sending: boolean; errorMessage: string }) { return <section className="mt-8 grid gap-6 lg:grid-cols-[0.9fr_1.1fr]"><form onSubmit={submitTicket} className="rounded-2xl border border-border bg-card p-6"><div className="flex items-center gap-3"><FileText className="size-5 text-primary" /><div><h2 className="font-bold">ارسال تیکت جدید</h2><p className="text-sm text-muted-foreground">پیام شما به تیم نت‌استور ارسال می‌شود</p></div></div><div className="mt-6 flex flex-col gap-4"><div><Label htmlFor="ticket-subject">موضوع</Label><Input id="ticket-subject" value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="مثلاً مشکل در انتشار نسخه جدید" className="mt-1.5" /></div><div><Label htmlFor="ticket-message">توضیحات</Label><Textarea id="ticket-message" value={message} onChange={(e) => setMessage(e.target.value)} placeholder="مشکل یا درخواست خود را توضیح دهید..." className="mt-1.5 min-h-32" /></div>{errorMessage && <p role="alert" className="rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive">{errorMessage}</p>}<Button type="submit" className="gap-2" disabled={sending || !subject.trim() || !message.trim()}><Ticket className="size-4" />{sending ? 'در حال ارسال...' : 'ارسال به تیم پشتیبانی'}</Button></div></form><div className="rounded-2xl border border-border bg-card p-6"><h2 className="font-bold">تیکت‌های من</h2><div className="mt-4 flex flex-col gap-3">{tickets.length ? tickets.map((ticket) => <div key={ticket.id} className="rounded-xl border border-border p-4"><div className="flex items-center justify-between gap-3"><h3 className="font-medium">{ticket.subject}</h3><Badge variant={ticket.status === 'open' ? 'secondary' : 'outline'}>{ticket.status === 'open' ? 'در انتظار پاسخ' : ticket.status === 'answered' ? 'پاسخ داده شد' : 'بسته‌شده'}</Badge></div><p className="mt-2 text-sm leading-7 text-muted-foreground">{ticket.message}</p>{ticket.adminReply && <div className="mt-3 rounded-xl border border-primary/20 bg-primary/5 p-3"><p className="text-xs font-medium text-primary">پاسخ تیم نت‌استور</p><p className="mt-2 text-sm leading-7">{ticket.adminReply}</p>{ticket.repliedAt && <p className="mt-2 text-xs text-muted-foreground">{ticket.repliedAt}</p>}</div>}<p className="mt-2 text-xs text-muted-foreground">{ticket.createdAt}</p></div>) : <p className="py-12 text-center text-sm text-muted-foreground">هنوز تیکتی ثبت نکرده‌اید.</p>}</div></div></section> }
