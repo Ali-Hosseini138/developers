@@ -12,6 +12,7 @@ import {
   Send,
   ShieldCheck,
 } from 'lucide-react'
+import { DeveloperSidebar } from '@/components/developer-sidebar'
 
 const steps = [
   ['فایل APK', 'فایل APK مخصوص Android TV را بارگذاری کنید. فایل باید معتبر و حداکثر ۲۵۰ مگابایت باشد.', FileArchive],
@@ -235,7 +236,9 @@ const sections = [
 
 export default function GuidePage() {
   return (
-    <main className="mx-auto max-w-5xl px-4 py-12 sm:px-6">
+    <>
+      <DeveloperSidebar />
+      <main className="mx-auto max-w-5xl px-4 py-12 sm:px-6 lg:pr-32">
       <Link href="/" className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
         <ArrowRight className="size-4" />
         بازگشت
@@ -352,6 +355,7 @@ export default function GuidePage() {
           </Link>
         </div>
       </section>
-    </main>
+      </main>
+    </>
   )
 }
