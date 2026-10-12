@@ -20,9 +20,8 @@ import { cn } from '@/lib/utils'
 export function SiteHeader() {
   const { user, logout } = useStore()
   const navLinks = [
-    user ? { href: '/dashboard', label: 'داشبورد من' } : { href: '/', label: 'خانه' },
-    { href: '/integrations', label: 'راهنمای فنی' },
-    { href: '/guide', label: 'راهنمای انتشار' },
+    { href: '/', label: 'خانه' },
+    { href: '/dashboard', label: 'داشبورد من' },
   ]
   const pathname = usePathname()
   const router = useRouter()
