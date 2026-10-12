@@ -23,6 +23,7 @@ export default function UploadPage() {
   const [saving, setSaving] = useState(false)
   const [submitStage, setSubmitStage] = useState('')
   const [submitProgress, setSubmitProgress] = useState(0)
+  const [apkUploadComplete, setApkUploadComplete] = useState(false)
   const [errorMessage, setErrorMessage] = useState('')
   const [apkName, setApkName] = useState('')
   const [apkSize, setApkSize] = useState('')
@@ -102,6 +103,7 @@ export default function UploadPage() {
 
     setSaving(true)
     setSubmitProgress(0)
+    setApkUploadComplete(false)
     setErrorMessage('')
 
     const filesToUpload = [apkFile, iconFile, bannerFile, ...screenshotFiles]
@@ -117,6 +119,7 @@ export default function UploadPage() {
     try {
       setSubmitStage('در حال آپلود فایل APK...')
       const apk = await uploadPrivateFile(user.id!, apkFile, (percentage) => updateOverallProgress(apkFile, percentage))
+      setApkUploadComplete(true)
 
       setSubmitStage('در حال آپلود آیکون...')
       const iconUpload = await uploadPrivateFile(user.id!, iconFile, (percentage) => updateOverallProgress(iconFile, percentage))
@@ -284,6 +287,12 @@ export default function UploadPage() {
       <div className="mt-6 flex justify-between"><Button variant="ghost" onClick={() => setStep((s) => Math.max(1, s - 1))} disabled={step === 1 || saving} className="gap-2"><ArrowRight className="size-4" />قبلی</Button>{step < 5 ? <Button onClick={() => valid && setStep((s) => s + 1)} disabled={!valid} className="gap-2">گام بعدی<ArrowLeft className="size-4" /></Button> : <Button onClick={submitForReview} disabled={saving} className="gap-2">{saving ? <Loader2 className="size-4 animate-spin" /> : <Rocket className="size-4" />}{saving ? 'در حال ارسال...' : 'ارسال برای بررسی'}</Button>}</div>
       {saving && (
         <div className="mt-4 rounded-2xl border border-primary/20 bg-primary/5 p-4">
+          <div className="mb-3 flex items-center gap-2 rounded-xl bg-background/70 px-3 py-2.5 text-sm">
+            {apkUploadComplete ? <Check className="size-5 text-primary" /> : <Loader2 className="size-5 animate-spin text-primary" />}
+            <span className={apkUploadComplete ? 'font-medium text-foreground' : 'text-muted-foreground'}>
+              {apkUploadComplete ? 'فایل APK با موفقیت آپلود شد' : 'در حال آپلود فایل APK'}
+            </span>
+          </div>
           <div className="flex items-center justify-between gap-4 text-sm">
             <span className="font-medium">{submitStage || 'در حال آماده‌سازی ارسال...'}</span>
             <span className="font-bold text-primary" dir="ltr">{toFa(submitProgress)}٪</span>
