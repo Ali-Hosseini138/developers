@@ -130,6 +130,7 @@ function AuthFormInner({ mode }: { mode: 'login' | 'signup' }) {
         return
       }
       login({
+        id: payload.user?.id,
         name: payload.user?.name || normalizedEmail.split('@')[0] || 'توسعه‌دهنده',
         email: payload.user?.email || normalizedEmail,
         termsAcceptedAt: new Date().toISOString(),
