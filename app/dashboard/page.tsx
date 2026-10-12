@@ -170,7 +170,7 @@ function AppsTab({ myApps, removeApp, submitAppForReview }: { myApps: ReturnType
       const code = error instanceof Error ? error.message : 'submit_failed'
       const message =
         code === 'incomplete_app'
-          ? 'اطلاعات این پیش‌نویس کامل نیست. ابتدا وارد ویرایش شوید و پکیج‌نیم، APK، آیکون، بنر و اطلاعات اصلی را کامل کنید.'
+          ? 'اطلاعات این پیش‌نویس کامل نیست. ابتدا وارد ویرایش شوید و Package Name، APK، آیکون، بنر و اطلاعات اصلی را کامل کنید.'
           : code === 'unauthorized'
             ? 'نشست ورود شما منقضی شده است. دوباره وارد شوید.'
             : 'ارسال برای بررسی انجام نشد. دوباره تلاش کنید.'
@@ -198,7 +198,7 @@ function AppsTab({ myApps, removeApp, submitAppForReview }: { myApps: ReturnType
         <div className="flex flex-col gap-2 sm:flex-row">
           <div className="relative">
             <Search className="absolute right-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-            <Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="جستجو نام یا پکیج‌نیم" className="w-full pr-9 sm:w-64" />
+            <Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="جستجو نام یا Package Name" className="w-full pr-9 sm:w-64" />
           </div>
           <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as typeof statusFilter)} className="h-10 rounded-md border border-input bg-background px-3 text-sm">
             <option value="all">همه وضعیت‌ها</option>
