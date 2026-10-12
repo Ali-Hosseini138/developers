@@ -71,7 +71,20 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         }
 
         const payload = await response.json()
-        setUser(payload.user ?? null)
+        const nextUser = payload.user ?? null
+        setUser(nextUser)
+
+        if (nextUser?.id) {
+          const appsResponse = await fetch('/api/developer/apps', { cache: 'no-store' })
+          if (appsResponse.ok) {
+            const appsPayload = await appsResponse.json()
+            const rows = Array.isArray(appsPayload.apps) ? appsPayload.apps as Record<string, any>[] : []
+            setApps((current) => [
+              ...rows.map((row) => mapApp({ ...row, owner_name: nextUser.name })),
+              ...current.filter((app) => !rows.some((row) => row.id === app.id)),
+            ])
+          }
+        }
       } catch {
         setUser(null)
       } finally {
