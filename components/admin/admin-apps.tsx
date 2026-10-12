@@ -34,7 +34,7 @@ const snapshotLabels: Record<string, string> = {
   description: 'توضیحات',
   category: 'دسته‌بندی',
   age_restriction: 'رده سنی',
-  package_name: 'پکیج‌نیم',
+  package_name: 'Package Name',
   website: 'وب‌سایت',
   support_email: 'ایمیل پشتیبانی',
   apk_path: 'فایل APK',
@@ -131,7 +131,7 @@ export function AdminApps({ apps }: { apps: AdminApp[] }) {
             <Input
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="جستجو: نام اپ، پکیج‌نیم، توسعه‌دهنده..."
+              placeholder="جستجو: نام اپ، Package Name، توسعه‌دهنده..."
               className="pr-9"
             />
           </div>
@@ -272,7 +272,7 @@ function ReviewFacts({ app }: { app: AdminApp }) {
       <div className="mt-4 grid gap-3 sm:grid-cols-2">
         <Fact label="عنوان" value={app.name} />
         <Fact label="دسته‌بندی" value={app.category || '—'} />
-        <Fact label="پکیج‌نیم" value={app.package_name || '—'} ltr />
+        <Fact label="Package Name" value={app.package_name || '—'} ltr />
         <Fact label="رده سنی" value={app.age_restriction || '—'} />
         <Fact label="پرداخت درون‌برنامه‌ای" value={yesNo(app.has_in_app_payment)} />
         <Fact label="Netbox Payment" value={app.has_in_app_payment ? (app.netbox_payment_integrated ? 'پیاده‌سازی شده' : 'پیاده‌سازی نشده') : 'نیاز ندارد'} />
@@ -371,7 +371,7 @@ function VersionRow({ version, previous }: { version: Version; previous?: Versio
           {previous && (
             <div className="mt-3 flex flex-wrap gap-2 text-xs">
               {apkChanged && <span className="rounded-full bg-primary/10 px-2 py-1 text-primary">APK جدید</span>}
-              {packageChanged && <span className="rounded-full bg-amber-500/10 px-2 py-1 text-amber-700">پکیج‌نیم تغییر کرده</span>}
+              {packageChanged && <span className="rounded-full bg-amber-500/10 px-2 py-1 text-amber-700">Package Name تغییر کرده</span>}
               <span className="rounded-full bg-secondary px-2 py-1">توضیحات نسخه جدید</span>
             </div>
           )}
@@ -411,7 +411,7 @@ function DecisionPanel({ type, id, compact = false }: { type: 'app' | 'version';
 function QuickChecklist({ app }: { app: AdminApp }) {
   const checks = [
     ['APK موجود است', Boolean(app.apk_path)],
-    ['پکیج‌نیم ثبت شده', Boolean(app.package_name)],
+    ['Package Name ثبت شده', Boolean(app.package_name)],
     ['آیکون موجود است', Boolean(app.icon_path)],
     ['بنر موجود است', Boolean(app.banner_path)],
     ['حداقل یک اسکرین‌شات', app.screenshot_paths.length > 0],
