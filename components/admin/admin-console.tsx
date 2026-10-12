@@ -1,49 +1,16 @@
 'use client'
 
-import { useMemo, useState } from 'react'
-import { Activity, CalendarDays, Handshake, MessageSquare, PackageCheck, ShoppingCart, Store } from 'lucide-react'
+import { useState } from 'react'
+import { MessageSquare, PackageCheck } from 'lucide-react'
 import type { AdminApp, AdminSupportTicket } from '@/app/admin/page'
 import { AdminApps } from '@/components/admin/admin-apps'
 import { AdminTickets } from '@/components/admin/admin-tickets'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 
 type AdminStat = { label: string; value: number }
 
-const PARTNERS = [
-  { id: 'filimo', name: 'فیلیمو', netboxDaily: 182, publicDaily: 71, plans: [18, 9, 4, 3] },
-  { id: 'filmnet', name: 'فیلم‌نت', netboxDaily: 164, publicDaily: 64, plans: [15, 8, 4, 2] },
-  { id: 'shida', name: 'شیدا', netboxDaily: 92, publicDaily: 41, plans: [8, 4, 2, 1] },
-  { id: 'gymshow', name: 'جیم‌شو', netboxDaily: 54, publicDaily: 28, plans: [4, 2, 1, 1] },
-  { id: 'appetit', name: 'اپتیت', netboxDaily: 43, publicDaily: 25, plans: [3, 2, 1, 0.5] },
-  { id: 'namava', name: 'نماوا', netboxDaily: 151, publicDaily: 59, plans: [14, 7, 4, 2] },
-  { id: 'gapfilm', name: 'گپ‌فیلم', netboxDaily: 83, publicDaily: 38, plans: [7, 3, 2, 1] },
-  { id: 'tantan', name: 'تن‌تن', netboxDaily: 48, publicDaily: 24, plans: [4, 2, 1, 0.5] },
-  { id: 'dramaqueen', name: 'دراما کوئین', netboxDaily: 77, publicDaily: 36, plans: [6, 3, 2, 1] },
-  { id: 'popcorn', name: 'پاپ‌کورن', netboxDaily: 68, publicDaily: 31, plans: [5, 3, 1.5, 0.5] },
-] as const
-
-type RangePreset = 7 | 30 | 90 | 180 | 'custom'
-
-function demoMetric(base: number, days: number, seed: number) {
-  const season = 1 + ((seed % 5) - 2) * 0.035
-  const growth = 1 + Math.min(days, 180) / 1800
-  return Math.round(base * days * season * growth)
-}
-
-function formatNumber(value: number) {
-  return value.toLocaleString('fa-IR')
-}
-
-function daysBetween(from: string, to: string) {
-  const start = new Date(`${from}T00:00:00`).getTime()
-  const end = new Date(`${to}T00:00:00`).getTime()
-  if (!Number.isFinite(start) || !Number.isFinite(end) || end < start) return 30
-  return Math.max(1, Math.floor((end - start) / 86400000) + 1)
-}
-
 export function AdminConsole({ apps, stats, tickets }: { apps: AdminApp[]; stats: AdminStat[]; tickets: AdminSupportTicket[] }) {
-  const [tab, setTab] = useState<'reviews' | 'partners' | 'tickets'>('reviews')
+  const [tab, setTab] = useState<'reviews' | 'tickets'>('reviews')
 
   return (
     <>
@@ -51,10 +18,6 @@ export function AdminConsole({ apps, stats, tickets }: { apps: AdminApp[]; stats
         <Button type="button" variant={tab === 'reviews' ? 'default' : 'ghost'} onClick={() => setTab('reviews')} className="shrink-0 gap-2">
           <PackageCheck className="size-4" />
           بررسی و انتشار
-        </Button>
-        <Button type="button" variant={tab === 'partners' ? 'default' : 'ghost'} onClick={() => setTab('partners')} className="shrink-0 gap-2">
-          <Handshake className="size-4" />
-          پارتنرها
         </Button>
         <Button type="button" variant={tab === 'tickets' ? 'default' : 'ghost'} onClick={() => setTab('tickets')} className="shrink-0 gap-2">
           <MessageSquare className="size-4" />
@@ -80,184 +43,8 @@ export function AdminConsole({ apps, stats, tickets }: { apps: AdminApp[]; stats
           <AdminApps apps={apps} />
         </>
       )}
-      {tab === 'partners' && <PartnerAnalytics />}
+
       {tab === 'tickets' && <AdminTickets tickets={tickets} />}
     </>
-  )
-}
-
-function PartnerAnalytics() {
-  const [range, setRange] = useState<RangePreset>(30)
-  const today = new Date()
-  const thirtyDaysAgo = new Date(today)
-  thirtyDaysAgo.setDate(today.getDate() - 29)
-  const toIso = (date: Date) => date.toISOString().slice(0, 10)
-  const [fromDate, setFromDate] = useState(toIso(thirtyDaysAgo))
-  const [toDate, setToDate] = useState(toIso(today))
-
-  const days = range === 'custom' ? daysBetween(fromDate, toDate) : range
-
-  const rows = useMemo(() => PARTNERS.map((partner, index) => {
-    const netbox = demoMetric(partner.netboxDaily, days, index + 1)
-    const publicStore = demoMetric(partner.publicDaily, days, index + 7)
-    const oneMonth = demoMetric(partner.plans[0], days, index + 13)
-    const threeMonth = demoMetric(partner.plans[1], days, index + 17)
-    const sixMonth = demoMetric(partner.plans[2], days, index + 21)
-    const oneYear = demoMetric(partner.plans[3], days, index + 25)
-    const subscriptionSales = oneMonth + threeMonth + sixMonth + oneYear
-    return {
-      ...partner,
-      netbox,
-      publicStore,
-      totalInstalls: netbox + publicStore,
-      oneMonth,
-      threeMonth,
-      sixMonth,
-      oneYear,
-      subscriptionSales,
-    }
-  }), [days])
-
-  const totals = rows.reduce((acc, row) => ({
-    netbox: acc.netbox + row.netbox,
-    publicStore: acc.publicStore + row.publicStore,
-    totalInstalls: acc.totalInstalls + row.totalInstalls,
-    oneMonth: acc.oneMonth + row.oneMonth,
-    threeMonth: acc.threeMonth + row.threeMonth,
-    sixMonth: acc.sixMonth + row.sixMonth,
-    oneYear: acc.oneYear + row.oneYear,
-    subscriptionSales: acc.subscriptionSales + row.subscriptionSales,
-  }), { netbox: 0, publicStore: 0, totalInstalls: 0, oneMonth: 0, threeMonth: 0, sixMonth: 0, oneYear: 0, subscriptionSales: 0 })
-
-  return (
-    <section className="flex flex-col gap-6">
-      <div className="rounded-2xl border border-amber-500/30 bg-amber-500/5 p-4 text-sm">
-        <strong>داده نمایشی — Demo</strong>
-        <span className="mr-2 text-muted-foreground">
-          این اعداد برای ارائه پنل ساخته شده‌اند و بعداً منبع آن‌ها با API واقعی نصب و فروش جایگزین می‌شود.
-        </span>
-      </div>
-
-      <div className="rounded-2xl border border-border bg-card p-5">
-        <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
-          <div>
-            <div className="flex items-center gap-2">
-              <Handshake className="size-5 text-primary" />
-              <h2 className="text-xl font-bold">عملکرد پارتنرهای نت‌باکس</h2>
-            </div>
-            <p className="mt-2 text-sm text-muted-foreground">
-              مقایسه نصب در نت‌استور نت‌باکس، نت‌استور پابلیک و فروش اشتراک در بازه انتخابی.
-            </p>
-          </div>
-
-          <div className="flex flex-wrap gap-2">
-            {[7, 30, 90, 180].map((value) => (
-              <Button key={value} type="button" size="sm" variant={range === value ? 'default' : 'outline'} onClick={() => setRange(value as 7 | 30 | 90 | 180)}>
-                {value.toLocaleString('fa-IR')} روز
-              </Button>
-            ))}
-            <Button type="button" size="sm" variant={range === 'custom' ? 'default' : 'outline'} onClick={() => setRange('custom')}>
-              بازه سفارشی
-            </Button>
-          </div>
-        </div>
-
-        {range === 'custom' && (
-          <div className="mt-5 grid gap-3 rounded-xl bg-secondary/50 p-4 sm:grid-cols-2 lg:max-w-xl">
-            <label className="text-sm">
-              <span className="mb-1.5 block text-xs text-muted-foreground">از تاریخ</span>
-              <Input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} dir="ltr" />
-            </label>
-            <label className="text-sm">
-              <span className="mb-1.5 block text-xs text-muted-foreground">تا تاریخ</span>
-              <Input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} dir="ltr" />
-            </label>
-          </div>
-        )}
-
-        <p className="mt-4 flex items-center gap-2 text-xs text-muted-foreground">
-          <CalendarDays className="size-3.5" />
-          تجمیع عملکرد در بازه {days.toLocaleString('fa-IR')} روزه
-        </p>
-      </div>
-
-      <div className="grid grid-cols-2 gap-4 xl:grid-cols-4">
-        <PartnerKpi icon={<Store className="size-5" />} label="نصب نت‌استور نت‌باکس" value={totals.netbox} />
-        <PartnerKpi icon={<Activity className="size-5" />} label="نصب نت‌استور پابلیک" value={totals.publicStore} />
-        <PartnerKpi icon={<PackageCheck className="size-5" />} label="مجموع نصب" value={totals.totalInstalls} />
-        <PartnerKpi icon={<ShoppingCart className="size-5" />} label="کل فروش اشتراک" value={totals.subscriptionSales} />
-      </div>
-
-      <div className="grid grid-cols-2 gap-4 xl:grid-cols-4">
-        <PartnerKpi icon={<ShoppingCart className="size-5" />} label="اشتراک ۱ ماهه" value={totals.oneMonth} />
-        <PartnerKpi icon={<ShoppingCart className="size-5" />} label="اشتراک ۳ ماهه" value={totals.threeMonth} />
-        <PartnerKpi icon={<ShoppingCart className="size-5" />} label="اشتراک ۶ ماهه" value={totals.sixMonth} />
-        <PartnerKpi icon={<ShoppingCart className="size-5" />} label="اشتراک ۱ ساله" value={totals.oneYear} />
-      </div>
-
-      <div className="overflow-hidden rounded-2xl border border-border bg-card">
-        <div className="border-b border-border p-5">
-          <h3 className="font-bold">جزئیات عملکرد پارتنرها</h3>
-          <p className="mt-1 text-sm text-muted-foreground">اعداد جدول همگی برای همان بازه زمانی انتخاب‌شده تجمیع شده‌اند.</p>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[1220px] text-sm">
-            <thead className="bg-secondary/60 text-xs text-muted-foreground">
-              <tr>
-                <th className="px-5 py-3 text-right font-medium">پارتنر</th>
-                <th className="px-5 py-3 text-right font-medium">نصب نت‌استور نت‌باکس</th>
-                <th className="px-5 py-3 text-right font-medium">نصب نت‌استور پابلیک</th>
-                <th className="px-5 py-3 text-right font-medium">مجموع نصب</th>
-                <th className="px-5 py-3 text-right font-medium">۱ ماهه</th>
-                <th className="px-5 py-3 text-right font-medium">۳ ماهه</th>
-                <th className="px-5 py-3 text-right font-medium">۶ ماهه</th>
-                <th className="px-5 py-3 text-right font-medium">۱ ساله</th>
-                <th className="px-5 py-3 text-right font-medium">کل اشتراک</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border">
-              {rows.map((row) => {
-                return (
-                  <tr key={row.id} className="hover:bg-secondary/30">
-                    <td className="px-5 py-4 font-semibold">{row.name}</td>
-                    <td className="px-5 py-4">{formatNumber(row.netbox)}</td>
-                    <td className="px-5 py-4">{formatNumber(row.publicStore)}</td>
-                    <td className="px-5 py-4 font-medium">{formatNumber(row.totalInstalls)}</td>
-                    <td className="px-5 py-4">{formatNumber(row.oneMonth)}</td>
-                    <td className="px-5 py-4">{formatNumber(row.threeMonth)}</td>
-                    <td className="px-5 py-4">{formatNumber(row.sixMonth)}</td>
-                    <td className="px-5 py-4">{formatNumber(row.oneYear)}</td>
-                    <td className="px-5 py-4 font-medium">{formatNumber(row.subscriptionSales)}</td>
-                  </tr>
-                )
-              })}
-            </tbody>
-            <tfoot className="border-t-2 border-border bg-secondary/40 font-bold">
-              <tr>
-                <td className="px-5 py-4">مجموع</td>
-                <td className="px-5 py-4">{formatNumber(totals.netbox)}</td>
-                <td className="px-5 py-4">{formatNumber(totals.publicStore)}</td>
-                <td className="px-5 py-4">{formatNumber(totals.totalInstalls)}</td>
-                <td className="px-5 py-4">{formatNumber(totals.oneMonth)}</td>
-                <td className="px-5 py-4">{formatNumber(totals.threeMonth)}</td>
-                <td className="px-5 py-4">{formatNumber(totals.sixMonth)}</td>
-                <td className="px-5 py-4">{formatNumber(totals.oneYear)}</td>
-                <td className="px-5 py-4">{formatNumber(totals.subscriptionSales)}</td>
-              </tr>
-            </tfoot>
-          </table>
-        </div>
-      </div>
-    </section>
-  )
-}
-
-function PartnerKpi({ icon, label, value }: { icon: React.ReactNode; label: string; value: number }) {
-  return (
-    <div className="rounded-2xl border border-border bg-card p-5">
-      <span className="flex size-10 items-center justify-center rounded-xl bg-primary/10 text-primary">{icon}</span>
-      <p className="mt-4 text-2xl font-bold">{formatNumber(value)}</p>
-      <p className="mt-1 text-xs text-muted-foreground">{label}</p>
-    </div>
   )
 }
