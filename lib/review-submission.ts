@@ -1,8 +1,11 @@
 export function buildAppReviewSnapshot(row: Record<string, any>) {
   return {
     name: row.name ?? null,
+    name_en: row.name_en ?? null,
     tagline: row.tagline ?? null,
+    tagline_en: row.tagline_en ?? null,
     description: row.description ?? null,
+    description_en: row.description_en ?? null,
     category: row.category ?? null,
     age_restriction: row.age_restriction ?? null,
     package_name: row.package_name ?? null,
