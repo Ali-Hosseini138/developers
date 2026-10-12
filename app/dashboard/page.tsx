@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { Suspense, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Activity, AlertTriangle, FileText, HelpCircle, Megaphone, Package, Pencil, Plus, Search, Ticket, Wallet } from 'lucide-react'
@@ -25,7 +25,7 @@ const tabs = [
 
 type Tab = (typeof tabs)[number]['id']
 
-export default function DashboardPage() {
+function DashboardPageInner() {
   const { user, authReady, myApps, removeApp, submitAppForReview, tickets, addTicket } = useStore()
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -838,3 +838,12 @@ function SupportTab({ subject, message, setSubject, setMessage, submitTicket, ti
 function EmptyApps() { return <div className="mt-4 flex flex-col items-center gap-4 rounded-2xl border border-dashed border-border py-16 text-center"><Package className="size-8 text-muted-foreground" /><div><p className="font-medium">هنوز اپلیکیشنی ثبت نکرده‌اید</p><p className="mt-1 text-sm text-muted-foreground">اولین اپ را اضافه کنید تا وضعیت بررسی و انتشار آن را از همین داشبورد دنبال کنید.</p></div><Button render={<Link href="/upload" />} className="gap-1"><Plus className="size-4" />ثبت اولین اپ</Button></div> }
 function PageLoading() { return <main className="mx-auto flex min-h-[40vh] max-w-6xl items-center justify-center px-4 py-10"><span className="text-sm text-muted-foreground">در حال بارگذاری حساب...</span></main> }
 function StatCard({ icon, value, label }: { icon: React.ReactNode; value: string; label: string }) { return <div className="rounded-2xl border border-border bg-card p-5"><span className="flex size-10 items-center justify-center rounded-xl bg-primary/10 text-primary">{icon}</span><p className="mt-3 text-2xl font-bold">{value}</p><p className="mt-0.5 text-xs text-muted-foreground">{label}</p></div> }
+
+
+export default function DashboardPage() {
+  return (
+    <Suspense fallback={<PageLoading />}>
+      <DashboardPageInner />
+    </Suspense>
+  )
+}
