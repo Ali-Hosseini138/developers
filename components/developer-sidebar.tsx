@@ -9,7 +9,6 @@ import {
   ChevronDown,
   ChevronUp,
   HelpCircle,
-  Megaphone,
   Package,
   Wallet,
 } from 'lucide-react'
@@ -18,7 +17,6 @@ const dashboardItems = [
   { id: 'apps', label: 'داشبورد من', icon: Package },
   { id: 'analytics', label: 'آمار و عملکرد', icon: Activity },
   { id: 'finance', label: 'مالی', icon: Wallet },
-  { id: 'growth', label: 'تبلیغات و رشد', icon: Megaphone },
   { id: 'support', label: 'پشتیبانی و تیکت', icon: HelpCircle },
 ] as const
 
