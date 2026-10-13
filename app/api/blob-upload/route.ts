@@ -5,7 +5,7 @@ import { getDeveloperIdentity } from '@/lib/developer-identity'
 const imageTypes = ['image/png', 'image/jpeg', 'image/webp']
 const apkType = 'application/vnd.android.package-archive'
 const maxApkSize = 250 * 1024 * 1024
-const maxImageSize = 8 * 1024 * 1024
+const maxImageSize = 5 * 1024 * 1024
 
 export async function POST(request: Request) {
   let body: HandleUploadBody
