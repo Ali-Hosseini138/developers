@@ -90,10 +90,15 @@ export default function NewVersionPage() {
           <FileDropzone
             accept=".apk,application/vnd.android.package-archive"
             label="فایل APK نسخه جدید"
-            hint="فایل APK را اینجا بکشید و رها کنید یا برای انتخاب کلیک کنید"
+            hint="فایل APK را اینجا بکشید و رها کنید یا برای انتخاب کلیک کنید — حداکثر حجم ۲۵۰ مگابایت"
             onFiles={(files) => {
               const file = files[0]
               if (!file) return
+              if (!file.name.toLowerCase().endsWith('.apk')) {
+                setApkFile(null)
+                setErrorMessage('فایل انتخاب‌شده باید با فرمت APK باشد.')
+                return
+              }
               if (file.size > 250 * 1024 * 1024) {
                 setApkFile(null)
                 setErrorMessage('حجم فایل APK نباید بیشتر از ۲۵۰ مگابایت باشد.')
