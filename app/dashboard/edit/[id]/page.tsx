@@ -58,6 +58,19 @@ export default function EditAppPage() {
     reader.readAsDataURL(file)
   }
 
+  const validateImageFile = (file: File) => {
+    if (!['image/png', 'image/jpeg', 'image/webp'].includes(file.type)) {
+      setErrorMessage('فرمت تصویر پشتیبانی نمی‌شود. PNG، JPG/JPEG یا WEBP انتخاب کنید.')
+      return false
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setErrorMessage('حجم هر تصویر باید حداکثر ۵ مگابایت باشد.')
+      return false
+    }
+    setErrorMessage('')
+    return true
+  }
+
   async function save(e: React.FormEvent) {
     e.preventDefault()
     if (saving) return
@@ -105,7 +118,7 @@ export default function EditAppPage() {
       const code = error instanceof Error ? error.message : 'save_failed'
       setErrorMessage(
         code === 'image_too_large'
-          ? 'حجم هر تصویر باید حداکثر ۸ مگابایت باشد.'
+          ? 'حجم هر تصویر باید حداکثر ۵ مگابایت باشد.'
           : code === 'unsupported_image_type'
             ? 'فرمت تصویر پشتیبانی نمی‌شود. PNG، JPG یا WEBP انتخاب کنید.'
             : code === 'auth_required'
@@ -140,11 +153,11 @@ export default function EditAppPage() {
         <FileDropzone
           accept="image/png,image/jpeg,image/webp"
           label="انتخاب فایل جدید"
-          hint="تصویر را بکشید و رها کنید یا برای انتخاب کلیک کنید"
+          hint="PNG، JPG/JPEG یا WEBP — حداکثر حجم ۵ مگابایت"
           compact
           onFiles={(files) => {
             const file = files[0]
-            if (!file) return
+            if (!file || !validateImageFile(file)) return
             setFile(file)
             readImage(file, setPreview)
           }}
@@ -220,11 +233,20 @@ export default function EditAppPage() {
           <FileDropzone
             accept="image/png,image/jpeg,image/webp"
             label="افزودن تصویر جدید"
-            hint="تصاویر را بکشید و رها کنید یا برای انتخاب کلیک کنید"
+            hint="PNG، JPG/JPEG یا WEBP — حداکثر حجم هر تصویر ۵ مگابایت"
             multiple
             compact
             onFiles={(files) => {
               const accepted = files.slice(0, Math.max(0, 6 - newScreenshotFiles.length))
+              if (accepted.some((file) => file.size > 5 * 1024 * 1024)) {
+                setErrorMessage('حجم هر تصویر باید حداکثر ۵ مگابایت باشد.')
+                return
+              }
+              if (accepted.some((file) => !['image/png', 'image/jpeg', 'image/webp'].includes(file.type))) {
+                setErrorMessage('فرمت تصویر پشتیبانی نمی‌شود. PNG، JPG/JPEG یا WEBP انتخاب کنید.')
+                return
+              }
+              setErrorMessage('')
               setNewScreenshotFiles((old) => [...old, ...accepted].slice(0, 6))
               accepted.forEach((file) => readImage(file, (url) => setScreenshots((old) => [...old, url].slice(0, 6))))
             }}
