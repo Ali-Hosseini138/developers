@@ -80,6 +80,20 @@ export default function UploadPage() {
     reader.onload = () => callback(String(reader.result))
     reader.readAsDataURL(file)
   }
+
+  const validateImageFile = (file: File) => {
+    const allowedTypes = new Set(['image/png', 'image/jpeg', 'image/webp'])
+    if (!allowedTypes.has(file.type)) {
+      setErrorMessage('فرمت تصویر پشتیبانی نمی‌شود. PNG، JPG/JPEG یا WEBP انتخاب کنید.')
+      return false
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setErrorMessage('حجم هر تصویر باید حداکثر ۵ مگابایت باشد.')
+      return false
+    }
+    setErrorMessage('')
+    return true
+  }
   const onApk = async (file?: File) => {
     if (!file || apkUploading) return
     if (!user?.id) {
@@ -256,7 +270,7 @@ export default function UploadPage() {
           <FileDropzone
             accept=".apk,application/vnd.android.package-archive"
             label="فایل APK را انتخاب کنید"
-            hint="فایل APK را اینجا بکشید و رها کنید یا برای انتخاب کلیک کنید"
+            hint="فایل APK را اینجا بکشید و رها کنید یا برای انتخاب کلیک کنید — حداکثر حجم ۲۵۰ مگابایت"
             onFiles={(files) => void onApk(files[0])}
           />
           <p className="mt-3 text-xs text-muted-foreground">{apkName ? `${apkName} — ${apkSize}` : 'فرمت مجاز: .apk'}</p>
@@ -301,7 +315,23 @@ export default function UploadPage() {
           <Field label="توضیح کوتاه (فارسی)" required><Input value={tagline} onChange={(e) => setTagline(e.target.value)} /></Field>
           <Field label="Short description (English) — اختیاری"><Input value={taglineEn} onChange={(e) => setTaglineEn(e.target.value)} dir="ltr" /></Field>
           <Field label="توضیحات کامل (فارسی)" required><Textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={6} /></Field>
-          <Field label="Full description (English) — اختیاری"><Textarea value={descriptionEn} onChange={(e) => setDescriptionEn(e.target.value)} rows={6} dir="ltr" /></Field><Field label="Package Name" required><Input value={packageName} onChange={(e) => setPackageName(e.target.value.trim())} dir="ltr" placeholder="com.company.app" /><p className="text-xs leading-6 text-muted-foreground">این شناسه باید با Package Name داخل APK یکی باشد؛ استخراج خودکار را در مرحله بعد اضافه می‌کنیم.</p></Field><Field label="دسته‌بندی" required><Select value={category} onValueChange={(v) => setCategory(v as AppCategory)}><SelectTrigger><SelectValue placeholder="انتخاب دسته‌بندی" /></SelectTrigger><SelectContent>{CATEGORIES.map((item) => <SelectItem key={item} value={item}>{item}</SelectItem>)}</SelectContent></Select></Field><Field label="محدودیت سنی" required><Select value={ageRestriction} onValueChange={(v) => setAgeRestriction(v as typeof ageRestriction)}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{['همه سنین', '+۷', '+۱۲', '+۱۵', '+۱۸'].map((item) => <SelectItem key={item} value={item}>{item}</SelectItem>)}</SelectContent></Select></Field><div className="mt-6 border-t border-border pt-6"><h3 className="font-bold">تصاویر اپلیکیشن</h3><p className="mt-1 text-sm text-muted-foreground">آیکون، بنر و تصاویر محیط اپ را اضافه کنید.</p><div className="mt-5 grid gap-6 sm:grid-cols-2"><MediaField title="آیکون اپلیکیشن (نسبت ۱:۱)" required value={icon} onFile={(f) => { setIconFile(f); readImage(f, setIcon) }} onClear={() => { setIcon(''); setIconFile(null) }} square /><div><MediaField title="بنر معرفی (نسبت ۱۶:۹)" required value={banner} onFile={(f) => { setBannerFile(f); readImage(f, setBanner) }} onClear={() => { setBanner(''); setBannerFile(null) }} /><p className="mt-2 text-xs leading-6 text-muted-foreground">این بنر تصویری است که کاربر در نت‌استور در نگاه اول می‌بیند.</p></div><div className="sm:col-span-2"><Label>تصاویر محیط اپ <span className="text-muted-foreground">(اختیاری)</span></Label><div className="mt-2 text-xs leading-6 text-muted-foreground"><p>این عکس‌ها در صفحه جزئیات اپ شما در نت‌استور قابل مشاهده هستند.</p><p>نسبت تصویر باید ۱۶:۹ باشد، فرمت‌های مجاز PNG، JPG/JPEG و WEBP هستند، حجم هر تصویر حداکثر ۵ مگابایت است و حداکثر می‌توانید ۲۰ تصویر آپلود کنید.</p></div><FileDropzone accept="image/png,image/jpeg,image/webp" label="افزودن تصاویر" hint="تصاویر را اینجا بکشید و رها کنید یا برای انتخاب کلیک کنید" multiple onFiles={(files) => { const accepted = files.slice(0, Math.max(0, 20 - screenshotFiles.length)); setScreenshotFiles((old) => [...old, ...accepted].slice(0, 20)); accepted.forEach((file) => readImage(file, (url) => setScreenshots((old) => [...old, url].slice(0, 20)))) }} /><div className="mt-3 flex flex-wrap gap-3">{screenshots.map((src, i) => <div key={src} className="relative"><img src={src} alt={`تصویر ${i + 1}`} className="size-20 rounded-lg object-cover" /><button type="button" aria-label="حذف تصویر" onClick={() => { setScreenshots((old) => old.filter((_, n) => n !== i)); setScreenshotFiles((old) => old.filter((_, n) => n !== i)) }} className="absolute -right-2 -top-2 rounded-full bg-destructive p-1 text-destructive-foreground"><X className="size-3" /></button></div>)}</div></div></div></div></div></div>}
+          <Field label="Full description (English) — اختیاری"><Textarea value={descriptionEn} onChange={(e) => setDescriptionEn(e.target.value)} rows={6} dir="ltr" /></Field><Field label="Package Name" required><Input value={packageName} onChange={(e) => setPackageName(e.target.value.trim())} dir="ltr" placeholder="com.company.app" /><p className="text-xs leading-6 text-muted-foreground">این شناسه باید با Package Name داخل APK یکی باشد؛ استخراج خودکار را در مرحله بعد اضافه می‌کنیم.</p></Field><Field label="دسته‌بندی" required><Select value={category} onValueChange={(v) => setCategory(v as AppCategory)}><SelectTrigger><SelectValue placeholder="انتخاب دسته‌بندی" /></SelectTrigger><SelectContent>{CATEGORIES.map((item) => <SelectItem key={item} value={item}>{item}</SelectItem>)}</SelectContent></Select></Field><Field label="محدودیت سنی" required><Select value={ageRestriction} onValueChange={(v) => setAgeRestriction(v as typeof ageRestriction)}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{['همه سنین', '+۷', '+۱۲', '+۱۵', '+۱۸'].map((item) => <SelectItem key={item} value={item}>{item}</SelectItem>)}</SelectContent></Select></Field><div className="mt-6 border-t border-border pt-6"><h3 className="font-bold">تصاویر اپلیکیشن</h3><p className="mt-1 text-sm text-muted-foreground">آیکون، بنر و تصاویر محیط اپ را اضافه کنید.</p><div className="mt-5 grid gap-6 sm:grid-cols-2"><MediaField title="آیکون اپلیکیشن (نسبت ۱:۱)" required value={icon} onFile={(f) => { if (!validateImageFile(f)) return; setIconFile(f); readImage(f, setIcon) }} onClear={() => { setIcon(''); setIconFile(null) }} square /><div><MediaField title="بنر معرفی (نسبت ۱۶:۹)" required value={banner} onFile={(f) => { if (!validateImageFile(f)) return; setBannerFile(f); readImage(f, setBanner) }} onClear={() => { setBanner(''); setBannerFile(null) }} /><p className="mt-2 text-xs leading-6 text-muted-foreground">این بنر تصویری است که کاربر در نت‌استور در نگاه اول می‌بیند.</p></div><div className="sm:col-span-2"><Label>تصاویر محیط اپ <span className="text-muted-foreground">(اختیاری)</span></Label><div className="mt-2 text-xs leading-6 text-muted-foreground"><p>این عکس‌ها در صفحه جزئیات اپ شما در نت‌استور قابل مشاهده هستند.</p><p>نسبت تصویر باید ۱۶:۹ باشد، فرمت‌های مجاز PNG، JPG/JPEG و WEBP هستند، حجم هر تصویر حداکثر ۵ مگابایت است و حداکثر می‌توانید ۲۰ تصویر آپلود کنید.</p></div><FileDropzone accept="image/png,image/jpeg,image/webp" label="افزودن تصاویر" hint="تصاویر را اینجا بکشید و رها کنید یا برای انتخاب کلیک کنید" multiple onFiles={(files) => {
+                const slots = Math.max(0, 20 - screenshotFiles.length)
+                const candidates = files.slice(0, slots)
+                const oversized = candidates.some((file) => file.size > 5 * 1024 * 1024)
+                const invalidType = candidates.some((file) => !['image/png', 'image/jpeg', 'image/webp'].includes(file.type))
+                if (oversized) {
+                  setErrorMessage('حجم هر تصویر باید حداکثر ۵ مگابایت باشد.')
+                  return
+                }
+                if (invalidType) {
+                  setErrorMessage('فرمت تصویر پشتیبانی نمی‌شود. PNG، JPG/JPEG یا WEBP انتخاب کنید.')
+                  return
+                }
+                setErrorMessage('')
+                setScreenshotFiles((old) => [...old, ...candidates].slice(0, 20))
+                candidates.forEach((file) => readImage(file, (url) => setScreenshots((old) => [...old, url].slice(0, 20))))
+              }} /><div className="mt-3 flex flex-wrap gap-3">{screenshots.map((src, i) => <div key={src} className="relative"><img src={src} alt={`تصویر ${i + 1}`} className="size-20 rounded-lg object-cover" /><button type="button" aria-label="حذف تصویر" onClick={() => { setScreenshots((old) => old.filter((_, n) => n !== i)); setScreenshotFiles((old) => old.filter((_, n) => n !== i)) }} className="absolute -right-2 -top-2 rounded-full bg-destructive p-1 text-destructive-foreground"><X className="size-3" /></button></div>)}</div></div></div></div></div></div>}
         {step === 3 && (
           <div>
             <Header title="شرایط انتشار" text="دو سؤال زیر مشخص می‌کنند اپ شما با الزامات نت‌استور سازگار است یا نه." />
@@ -412,4 +442,4 @@ export default function UploadPage() {
 
 function Header({ title, text }: { title: string; text: string }) { return <div><h2 className="text-xl font-bold">{title}</h2><p className="mt-1 text-sm text-muted-foreground">{text}</p></div> }
 function Field({ label, required, children }: { label: string; required?: boolean; children: React.ReactNode }) { return <div className="mt-5 flex flex-col gap-2"><Label>{label} {required && <span className="text-destructive">*</span>}</Label>{children}</div> }
-function MediaField({ title, required, value, onFile, onClear, square }: { title: string; required?: boolean; value: string; onFile: (file: File) => void; onClear: () => void; square?: boolean }) { return <div><Label>{title} {required && <span className="text-destructive">*</span>}</Label>{value ? <div className="relative mt-3"><img src={value} alt={`پیش‌نمایش ${title}`} className={`w-full rounded-xl border object-cover ${square ? 'aspect-square max-w-40' : 'aspect-video'}`} /><button type="button" aria-label={`حذف ${title}`} onClick={onClear} className="absolute right-2 top-2 rounded-full bg-destructive p-1.5 text-destructive-foreground"><X className="size-3" /></button></div> : <div className="mt-3"><FileDropzone accept="image/png,image/jpeg,image/webp" label="افزودن تصویر" hint="تصویر را اینجا بکشید و رها کنید یا برای انتخاب کلیک کنید" onFiles={(files) => files[0] && onFile(files[0])} /></div>}</div> }
+function MediaField({ title, required, value, onFile, onClear, square }: { title: string; required?: boolean; value: string; onFile: (file: File) => void; onClear: () => void; square?: boolean }) { return <div><Label>{title} {required && <span className="text-destructive">*</span>}</Label>{value ? <div className="relative mt-3"><img src={value} alt={`پیش‌نمایش ${title}`} className={`w-full rounded-xl border object-cover ${square ? 'aspect-square max-w-40' : 'aspect-video'}`} /><button type="button" aria-label={`حذف ${title}`} onClick={onClear} className="absolute right-2 top-2 rounded-full bg-destructive p-1.5 text-destructive-foreground"><X className="size-3" /></button></div> : <div className="mt-3"><FileDropzone accept="image/png,image/jpeg,image/webp" label="افزودن تصویر" hint="PNG، JPG/JPEG یا WEBP — حداکثر حجم ۵ مگابایت" onFiles={(files) => files[0] && onFile(files[0])} /></div>}</div> }
