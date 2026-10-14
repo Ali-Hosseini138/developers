@@ -196,16 +196,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const removeApp = useCallback(async (id: string) => {
     if (!user?.id) throw new Error('unauthorized')
-    const { data, error } = await supabase
-      .from('apps')
-      .delete()
-      .eq('id', id)
-      .eq('owner_id', user.id)
-      .in('status', ['draft', 'rejected'])
-      .select('id')
-      .maybeSingle()
-    if (error) throw error
-    if (!data) throw new Error('forbidden_or_missing')
+    const response = await fetch(`/api/developer/apps/${encodeURIComponent(id)}`, {
+      method: 'DELETE',
+    })
+    const payload = await response.json().catch(() => null)
+    if (!response.ok) throw new Error(payload?.error || 'delete_failed')
     setApps((prev) => prev.filter((app) => app.id !== id))
   }, [user?.id])
   const submitAppForReview = useCallback(async (id: string) => {
@@ -229,10 +224,15 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   }, [])
   const getApp = useCallback((id: string) => apps.find((app) => app.id === id), [apps])
   const addTicket = useCallback(async (ticket: Omit<SupportTicket, 'id' | 'createdAt' | 'developer'>) => {
-    if (!user?.id) return
-    const { data, error } = await supabase.from('support_tickets').insert({ user_id: user.id, subject: ticket.subject, message: ticket.message, status: ticket.status }).select().single()
-    if (error) throw error
-    setTickets((prev) => [{ id: data.id, subject: data.subject, message: data.message, status: data.status, createdAt: new Date(data.created_at).toLocaleDateString('fa-IR'), developer: user.name }, ...prev])
+    if (!user?.id) throw new Error('unauthorized')
+    const response = await fetch('/api/developer/tickets', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ subject: ticket.subject, message: ticket.message }),
+    })
+    const payload = await response.json().catch(() => null)
+    if (!response.ok) throw new Error(payload?.error || 'ticket_create_failed')
+    setTickets((prev) => [mapTicket(payload.ticket, user.name), ...prev])
   }, [user])
   const login = useCallback((u: User) => setUser(u), [])
   const logout = useCallback(async () => {
