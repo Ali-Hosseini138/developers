@@ -307,7 +307,7 @@ function buildDemoMetrics(days: number) {
 
 function AnalyticsTab({ myApps }: { myApps: ReturnType<typeof useStore>['myApps'] }) {
   const supabase = useMemo(() => createClient(), [])
-  const publishedApps = myApps.filter((app) => app.status === 'published')
+  const publishedApps = useMemo(() => myApps.filter((app) => app.status === 'published'), [myApps])
   const hasMultipleApps = publishedApps.length > 1
   const [selectedAppId, setSelectedAppId] = useState(hasMultipleApps ? 'all' : publishedApps[0]?.id || '')
   const [range, setRange] = useState<1 | 7 | 30 | 90 | 365 | 'custom'>(30)
