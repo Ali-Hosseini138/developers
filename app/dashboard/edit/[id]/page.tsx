@@ -127,6 +127,10 @@ export default function EditAppPage() {
           ? 'حجم هر تصویر باید حداکثر ۵ مگابایت باشد.'
           : code === 'unsupported_image_type'
             ? 'فرمت تصویر پشتیبانی نمی‌شود. PNG، JPG یا WEBP انتخاب کنید.'
+            : code === 'duplicate_package_name'
+              ? 'این Package Name قبلاً برای یک اپلیکیشن ثبت شده است.'
+            : code === 'package_name_locked'
+              ? 'Package Name اپ منتشرشده قابل تغییر نیست.'
             : code === 'auth_required'
               ? 'نشست ورود شما منقضی شده است. دوباره وارد شوید.'
               : 'ذخیره تغییرات انجام نشد. فایل‌ها یا اطلاعات را بررسی کنید و دوباره تلاش کنید.',
