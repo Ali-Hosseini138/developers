@@ -68,6 +68,20 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'invalid_package_name' }, { status: 400 })
   }
 
+  const { data: duplicatePackage, error: duplicatePackageError } = await supabase
+    .from('apps')
+    .select('id')
+    .eq('package_name', packageName)
+    .limit(1)
+    .maybeSingle()
+
+  if (duplicatePackageError) {
+    return NextResponse.json({ error: 'package_check_failed' }, { status: 500 })
+  }
+  if (duplicatePackage) {
+    return NextResponse.json({ error: 'duplicate_package_name' }, { status: 409 })
+  }
+
   if (!allowedAgeRestrictions.has(ageRestriction)) {
     return NextResponse.json({ error: 'invalid_age_restriction' }, { status: 400 })
   }
