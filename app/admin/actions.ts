@@ -34,15 +34,35 @@ export async function updateAppStatusAction(formData: FormData) {
 
   const reviewedAt = new Date().toISOString()
   const supabase = createAdminClient()
+  const { data: currentApp, error: readError } = await supabase
+    .from('apps')
+    .select('netbox_payment_integrated, netbox_payment_grace_accepted, netbox_payment_grace_deadline')
+    .eq('id', appId)
+    .single()
+
+  if (readError) throw readError
+
+  const patch: Record<string, unknown> = {
+    status,
+    review_reason: status === 'rejected' ? reason : null,
+    reviewed_at: reviewedAt,
+    updated_at: reviewedAt,
+  }
+
+  if (
+    status === 'published' &&
+    currentApp.netbox_payment_grace_accepted &&
+    !currentApp.netbox_payment_integrated &&
+    !currentApp.netbox_payment_grace_deadline
+  ) {
+    const deadline = new Date(reviewedAt)
+    deadline.setMonth(deadline.getMonth() + 1)
+    patch.netbox_payment_grace_deadline = deadline.toISOString()
+  }
 
   const { error } = await supabase
     .from('apps')
-    .update({
-      status,
-      review_reason: status === 'rejected' ? reason : null,
-      reviewed_at: reviewedAt,
-      updated_at: reviewedAt,
-    })
+    .update(patch)
     .eq('id', appId)
 
   if (error) throw error
