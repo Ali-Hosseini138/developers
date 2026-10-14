@@ -201,10 +201,35 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     }
   }, [])
   useEffect(() => {
-    if (!user || !developerApps.some((app) => app.latestSubmissionStatus === 'processing')) return
+    if (!user) return
+    const processingApps = developerApps.filter(
+      (app) => app.latestSubmissionStatus === 'processing' && app.latestSubmissionId,
+    )
+    if (processingApps.length === 0) return
+
+    const poll = async () => {
+      const results = await Promise.all(processingApps.map(async (app) => {
+        try {
+          const response = await fetch(
+            '/api/developer-hub/submissions/' + encodeURIComponent(app.latestSubmissionId!),
+            { cache: 'no-store' },
+          )
+          if (!response.ok) return null
+          return await response.json()
+        } catch {
+          return null
+        }
+      }))
+
+      if (results.some((submission) => submission && submission.status !== 'processing')) {
+        await loadDeveloperAppsFor(user.name)
+      }
+    }
+
     const timer = window.setInterval(() => {
-      void loadDeveloperAppsFor(user.name)
+      void poll()
     }, 12000)
+
     return () => window.clearInterval(timer)
   }, [developerApps, loadDeveloperAppsFor, user])
 
