@@ -108,10 +108,11 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'missing_uploaded_files' }, { status: 400 })
   }
 
-  const screenshotPaths = (body.screenshots || [])
-    .map((item) => item.pathname)
-    .filter((value): value is string => Boolean(value))
-    .slice(0, 20)
+  const screenshotPaths = [...new Set(
+    (body.screenshots || [])
+      .map((item) => item.pathname)
+      .filter((value): value is string => Boolean(value)),
+  )].slice(0, 20)
 
   if (!body.apk.name.toLowerCase().endsWith('.apk')) {
     return NextResponse.json({ error: 'invalid_apk_file' }, { status: 400 })
