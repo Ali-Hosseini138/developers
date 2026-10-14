@@ -23,7 +23,7 @@ const tabs = [
 type Tab = (typeof tabs)[number]['id']
 
 function DashboardPageInner() {
-  const { user, authReady, myApps, removeApp, submitAppForReview, tickets, addTicket } = useStore()
+  const { user, authReady, myApps, cancelSubmission, tickets, addTicket } = useStore()
   const router = useRouter()
   const searchParams = useSearchParams()
   const requestedTab = searchParams.get('tab')
@@ -84,7 +84,7 @@ function DashboardPageInner() {
         <DeveloperSidebar activeTab={tab} onTabChange={changeTab} />
 
         <div className="min-w-0 lg:pr-24">
-          {tab === 'apps' && <AppsTab myApps={myApps} removeApp={removeApp} submitAppForReview={submitAppForReview} />}
+          {tab === 'apps' && <AppsTab myApps={myApps} cancelSubmission={cancelSubmission} />}
           {tab === 'analytics' && <AnalyticsTab myApps={myApps} />}
           {tab === 'finance' && <FinanceTab />}
           {tab === 'support' && <SupportTab subject={subject} message={message} setSubject={setSubject} setMessage={setMessage} submitTicket={submitTicket} tickets={myTickets} sending={ticketSending} errorMessage={ticketError} />}
@@ -94,94 +94,87 @@ function DashboardPageInner() {
   )
 }
 
-function AppsTab({ myApps, removeApp, submitAppForReview }: { myApps: ReturnType<typeof useStore>['myApps']; removeApp: (id: string) => Promise<void>; submitAppForReview: (id: string) => Promise<void> }) {
+function AppsTab({ myApps, cancelSubmission }: { myApps: ReturnType<typeof useStore>['myApps']; cancelSubmission: (id: string) => Promise<void> }) {
   const [query, setQuery] = useState('')
-  const [statusFilter, setStatusFilter] = useState<'all' | 'draft' | 'pending' | 'published' | 'rejected'>('all')
-  const [deleteTarget, setDeleteTarget] = useState<string | null>(null)
-  const [deleting, setDeleting] = useState(false)
-  const [submittingId, setSubmittingId] = useState<string | null>(null)
-  const [submitError, setSubmitError] = useState<{ id: string; message: string } | null>(null)
+  const [statusFilter, setStatusFilter] = useState<'all' | 'processing' | 'pending' | 'published' | 'rejected'>('all')
+  const [cancellingId, setCancellingId] = useState<string | null>(null)
+  const [actionError, setActionError] = useState<{ id: string; message: string } | null>(null)
 
-  const draftCount = myApps.filter((app) => !app.status || app.status === 'draft').length
+  const processingCount = myApps.filter((app) => app.status === 'processing').length
   const pendingCount = myApps.filter((app) => app.status === 'pending').length
   const publishedCount = myApps.filter((app) => app.status === 'published').length
-  const rejectedCount = myApps.filter((app) => app.status === 'rejected').length
+  const rejectedCount = myApps.filter((app) => app.status === 'rejected' || app.status === 'parse_failed').length
 
   const filteredApps = useMemo(() => {
     const q = query.trim().toLowerCase()
     return myApps.filter((app) => {
-      const matchesStatus = statusFilter === 'all' || (app.status || 'draft') === statusFilter
+      const normalizedStatus = app.status === 'parse_failed' ? 'rejected' : app.status
+      const matchesStatus = statusFilter === 'all' || normalizedStatus === statusFilter
       const matchesQuery = !q || app.name.toLowerCase().includes(q) || app.packageName?.toLowerCase().includes(q)
       return matchesStatus && matchesQuery
     })
   }, [myApps, query, statusFilter])
 
-  const statusLabel = (status?: string) => {
-    if (status === 'published') return 'منتشر شده'
-    if (status === 'pending') return 'در انتظار بررسی'
-    if (status === 'rejected') return 'نیازمند اصلاح'
-    return 'پیش‌نویس'
+  const statusLabel = (app: (typeof myApps)[number]) => {
+    if (app.latestSubmissionDisplay) return app.latestSubmissionDisplay
+    if (app.status === 'published') return 'منتشر شده'
+    if (app.status === 'processing') return 'در حال پردازش'
+    if (app.status === 'pending') return 'در انتظار بررسی'
+    if (app.status === 'parse_failed') return 'خطای فایل'
+    if (app.status === 'rejected') return 'رد شده'
+    if (app.status === 'cancelled') return 'لغو شده'
+    return 'ثبت شده'
   }
 
-  const statusHelp = (status?: string) => {
-    if (status === 'published') return 'این اپ در فروشگاه منتشر شده است.'
-    if (status === 'pending') return 'اپ برای تیم نت‌استور ارسال شده و منتظر بررسی است.'
-    if (status === 'rejected') return 'برای ادامه انتشار باید اطلاعات اپ را اصلاح و دوباره ارسال کنید.'
-    return 'این اپ هنوز برای بررسی ارسال نشده است.'
+  const statusHelp = (app: (typeof myApps)[number]) => {
+    if (app.status === 'published') return 'این اپ در فروشگاه منتشر شده است.'
+    if (app.status === 'processing') return 'APK در بک‌اند در حال پردازش و بررسی فنی است.'
+    if (app.status === 'pending') return 'پردازش فایل تمام شده و درخواست در صف بررسی نت‌استور است.'
+    if (app.status === 'parse_failed') return 'پردازش APK ناموفق بوده است. خطاها را بررسی و فایل جدید ارسال کنید.'
+    if (app.status === 'rejected') return 'درخواست توسط تیم بررسی رد شده است؛ اطلاعات را اصلاح یا APK جدید ارسال کنید.'
+    if (app.status === 'cancelled') return 'آخرین درخواست توسط شما لغو شده است.'
+    return 'وضعیت اپ از بک‌اند دریافت شده است.'
   }
 
   const statusVariant = (status?: string): 'default' | 'secondary' | 'outline' => {
     if (status === 'published') return 'default'
-    if (status === 'pending') return 'secondary'
+    if (status === 'processing' || status === 'pending') return 'secondary'
     return 'outline'
   }
 
-  async function confirmDelete() {
-    if (!deleteTarget || deleting) return
-    setDeleting(true)
+  async function cancel(appId: string, submissionId: string) {
+    if (cancellingId) return
+    setCancellingId(appId)
+    setActionError(null)
     try {
-      await removeApp(deleteTarget)
-      setDeleteTarget(null)
-    } finally {
-      setDeleting(false)
-    }
-  }
-
-  async function sendForReview(id: string) {
-    if (submittingId) return
-    setSubmittingId(id)
-    setSubmitError(null)
-
-    try {
-      await submitAppForReview(id)
+      await cancelSubmission(submissionId)
     } catch (error) {
-      const code = error instanceof Error ? error.message : 'submit_failed'
-      const message =
-        code === 'incomplete_app'
-          ? 'اطلاعات این پیش‌نویس کامل نیست. ابتدا وارد ویرایش شوید و Package Name، APK، آیکون، بنر و اطلاعات اصلی را کامل کنید.'
-          : code === 'unauthorized'
-            ? 'نشست ورود شما منقضی شده است. دوباره وارد شوید.'
-            : 'ارسال برای بررسی انجام نشد. دوباره تلاش کنید.'
-      setSubmitError({ id, message })
+      const code = error instanceof Error ? error.message : 'cancel_failed'
+      setActionError({
+        id: appId,
+        message: code === 'state_changed'
+          ? 'وضعیت درخواست تغییر کرده است. صفحه را تازه کنید.'
+          : 'لغو درخواست انجام نشد. دوباره تلاش کنید.',
+      })
     } finally {
-      setSubmittingId(null)
+      setCancellingId(null)
     }
   }
 
   return <>
     <div className="mt-8 grid grid-cols-2 gap-4 lg:grid-cols-5">
       <StatCard icon={<Package className="size-5" />} value={toFa(myApps.length)} label="کل اپ‌ها" />
-      <StatCard icon={<FileText className="size-5" />} value={toFa(draftCount)} label="پیش‌نویس" />
+      <StatCard icon={<Activity className="size-5" />} value={toFa(processingCount)} label="در حال پردازش" />
       <StatCard icon={<Ticket className="size-5" />} value={toFa(pendingCount)} label="در انتظار بررسی" />
       <StatCard icon={<Package className="size-5" />} value={toFa(publishedCount)} label="منتشر شده" />
-      <StatCard icon={<AlertTriangle className="size-5" />} value={toFa(rejectedCount)} label="نیازمند اصلاح" />
+      <StatCard icon={<AlertTriangle className="size-5" />} value={toFa(rejectedCount)} label="نیازمند اقدام" />
     </div>
 
     <section className="mt-10">
       <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         <div>
           <h2 className="text-lg font-bold">اپ‌های من</h2>
-          <p className="mt-1 text-sm text-muted-foreground">وضعیت انتشار و آخرین تغییر هر اپ را از اینجا مدیریت کنید.</p>
+          <p className="mt-1 text-sm text-muted-foreground">وضعیت پردازش، بررسی و انتشار مستقیماً از بک‌اند نمایش داده می‌شود.</p>
         </div>
         <div className="flex flex-col gap-2 sm:flex-row">
           <div className="relative">
@@ -190,86 +183,78 @@ function AppsTab({ myApps, removeApp, submitAppForReview }: { myApps: ReturnType
           </div>
           <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as typeof statusFilter)} className="h-10 rounded-md border border-input bg-background px-3 text-sm">
             <option value="all">همه وضعیت‌ها</option>
-            <option value="draft">پیش‌نویس</option>
+            <option value="processing">در حال پردازش</option>
             <option value="pending">در انتظار بررسی</option>
             <option value="published">منتشر شده</option>
-            <option value="rejected">نیازمند اصلاح</option>
+            <option value="rejected">نیازمند اقدام</option>
           </select>
         </div>
       </div>
 
       {myApps.length === 0 ? <EmptyApps /> : filteredApps.length ? (
         <div className="mt-4 flex flex-col gap-3">
-          {filteredApps.map((app) => {
-            const canDelete = !app.status || app.status === 'draft' || app.status === 'rejected'
-            return (
-              <div key={app.id} className="rounded-2xl border border-border bg-card p-4">
-                <div className="flex flex-col gap-4 lg:flex-row lg:items-center">
-                  <img src={app.icon || '/placeholder.svg'} alt={`آیکون ${app.name}`} className="size-14 rounded-xl border border-border object-cover" />
-                  <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <h3 className="truncate font-semibold">{app.name}</h3>
-                      <Badge variant={statusVariant(app.status)}>{statusLabel(app.status)}</Badge>
-                    </div>
-                    <p className="mt-1 line-clamp-1 text-xs text-muted-foreground">{app.tagline}</p>
-                    <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
-                      {app.packageName && <span dir="ltr">{app.packageName}</span>}
-                      <span>آخرین تغییر: {app.updatedAt}</span>
-                    </div>
-                    <p className="mt-2 text-xs">{statusHelp(app.status)}</p>
-                    {app.status === 'rejected' && app.reviewReason && (
-                      <div className="mt-3 rounded-lg border border-destructive/25 bg-destructive/5 px-3 py-2 text-sm">
-                        <span className="font-medium text-destructive">دلیل رد: </span>
-                        <span>{app.reviewReason}</span>
-                      </div>
-                    )}
-                  </div>
+          {filteredApps.map((app) => (
+            <div key={app.id} className="rounded-2xl border border-border bg-card p-4">
+              <div className="flex flex-col gap-4 lg:flex-row lg:items-center">
+                <img src={app.icon || '/placeholder.svg'} alt={`آیکون ${app.name}`} className="size-14 rounded-xl border border-border object-cover" />
+                <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
-                    {app.status !== 'pending' && (
-                      <Button render={<Link href={`/dashboard/edit/${app.id}`} />} size="sm" variant="outline" className="gap-1"><Pencil className="size-4" />ویرایش اطلاعات</Button>
-                    )}
-                    {(!app.status || app.status === 'draft') && (
-                      <Button
-                        size="sm"
-                        onClick={() => void sendForReview(app.id)}
-                        disabled={submittingId === app.id}
-                      >
-                        {submittingId === app.id ? 'در حال ارسال...' : 'ارسال برای بررسی'}
-                      </Button>
-                    )}
-                    {app.status === 'published' && <Button render={<Link href={`/dashboard/version/${app.id}`} />} size="sm" className="gap-1"><Plus className="size-4" />نسخه جدید</Button>}
-                    {app.status === 'rejected' && <Button render={<Link href={`/dashboard/edit/${app.id}`} />} size="sm" className="gap-1">اصلاح و ارسال مجدد</Button>}
-                    {canDelete && <Button size="sm" variant="ghost" onClick={() => setDeleteTarget(app.id)} className="text-destructive">حذف</Button>}
+                    <h3 className="truncate font-semibold">{app.name}</h3>
+                    <Badge variant={statusVariant(app.status)}>{statusLabel(app)}</Badge>
                   </div>
+                  <p className="mt-1 line-clamp-1 text-xs text-muted-foreground">{app.tagline}</p>
+                  <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                    {app.packageName && <span dir="ltr">{app.packageName}</span>}
+                    <span>آخرین تغییر: {app.updatedAt}</span>
+                  </div>
+                  <p className="mt-2 text-xs">{statusHelp(app)}</p>
+
+                  {(app.status === 'rejected' || app.status === 'parse_failed') && (app.rejectionReason || app.latestSubmissionErrors?.length) ? (
+                    <div className="mt-3 rounded-lg border border-destructive/25 bg-destructive/5 px-3 py-2 text-sm">
+                      {app.rejectionReason && <p><span className="font-medium text-destructive">دلیل رد: </span>{app.rejectionReason}</p>}
+                      {app.latestSubmissionErrors?.map((item) => <p key={item.code} className="mt-1"><span className="font-medium text-destructive">{item.code}: </span>{item.message}</p>)}
+                    </div>
+                  ) : null}
                 </div>
 
-                {submitError?.id === app.id && (
-                  <p role="alert" className="mt-3 rounded-xl bg-destructive/10 px-3 py-2 text-sm text-destructive">
-                    {submitError.message}
-                  </p>
-                )}
-
-                {deleteTarget === app.id && (
-                  <div className="mt-4 flex flex-col gap-3 rounded-xl border border-destructive/30 bg-destructive/5 p-4 sm:flex-row sm:items-center sm:justify-between">
-                    <div>
-                      <p className="text-sm font-medium">این اپ حذف شود؟</p>
-                      <p className="mt-1 text-xs text-muted-foreground">این کار قابل بازگشت نیست. اپ‌های منتشرشده یا در حال بررسی از اینجا قابل حذف نیستند.</p>
-                    </div>
-                    <div className="flex gap-2">
-                      <Button size="sm" variant="outline" onClick={() => setDeleteTarget(null)} disabled={deleting}>انصراف</Button>
-                      <Button size="sm" onClick={() => void confirmDelete()} disabled={deleting} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">{deleting ? 'در حال حذف...' : 'حذف قطعی'}</Button>
-                    </div>
-                  </div>
-                )}
+                <div className="flex flex-wrap items-center gap-2">
+                  {app.canEdit && (
+                    <Button render={<Link href={`/dashboard/edit/${app.id}`} />} size="sm" variant="outline" className="gap-1">
+                      <Pencil className="size-4" />
+                      ویرایش اطلاعات
+                    </Button>
+                  )}
+                  {app.canSubmit && (
+                    <Button render={<Link href={`/dashboard/version/${app.id}`} />} size="sm" className="gap-1">
+                      <Plus className="size-4" />
+                      {app.isPublished ? 'نسخه جدید' : 'ارسال APK جدید'}
+                    </Button>
+                  )}
+                  {app.latestSubmissionCanCancel && app.latestSubmissionId && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => void cancel(app.id, app.latestSubmissionId!)}
+                      disabled={cancellingId === app.id}
+                    >
+                      {cancellingId === app.id ? 'در حال لغو...' : 'لغو درخواست'}
+                    </Button>
+                  )}
+                </div>
               </div>
-            )
-          })}
+
+              {actionError?.id === app.id && (
+                <p role="alert" className="mt-3 rounded-xl bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                  {actionError.message}
+                </p>
+              )}
+            </div>
+          ))}
         </div>
       ) : <div className="mt-4 rounded-2xl border border-dashed border-border py-12 text-center text-sm text-muted-foreground">اپی با این فیلتر پیدا نشد.</div>}
     </section>
   </>
 }
-
 
 type InstallMetric = { metric_date: string; installs: number }
 type SalesMetric = { metric_date: string; orders: number; total_sales_rial: number }
