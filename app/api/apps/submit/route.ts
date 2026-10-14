@@ -97,7 +97,7 @@ export async function POST(request: Request) {
   const screenshotPaths = (body.screenshots || [])
     .map((item) => item.pathname)
     .filter((value): value is string => Boolean(value))
-    .slice(0, 6)
+    .slice(0, 20)
 
   const { data, error } = await supabase
     .from('apps')
