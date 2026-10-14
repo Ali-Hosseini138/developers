@@ -21,6 +21,9 @@ function statusVariant(status: AdminSubmissionListItem['status']): 'default' | '
 }
 
 function errorMessage(payload: any, fallback: string) {
+  if (payload?.message && Array.isArray(payload?.problems) && payload.problems.length) {
+    return String(payload.message) + ' ' + payload.problems.join(' — ')
+  }
   if (payload?.message) return String(payload.message)
   if (payload?.detail) return String(payload.detail)
   if (Array.isArray(payload?.problems) && payload.problems.length) return payload.problems.join(' — ')
