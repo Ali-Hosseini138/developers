@@ -81,6 +81,13 @@ export default function UploadPage() {
     reader.readAsDataURL(file)
   }
 
+  const readImageUrl = (file: File) => new Promise<string>((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(String(reader.result))
+    reader.onerror = () => reject(new Error('image_read_failed'))
+    reader.readAsDataURL(file)
+  })
+
   const validateImageFile = (file: File) => {
     const allowedTypes = new Set(['image/png', 'image/jpeg', 'image/webp'])
     if (!allowedTypes.has(file.type)) {
@@ -330,7 +337,6 @@ export default function UploadPage() {
                   setErrorMessage('فرمت تصویر پشتیبانی نمی‌شود. PNG، JPG/JPEG یا WEBP انتخاب کنید.')
                   return
                 }
-                setErrorMessage('')
                 const existingKeys = new Set(
                   screenshotFiles.map((file) => `${file.name}:${file.size}:${file.lastModified}`),
                 )
@@ -340,8 +346,15 @@ export default function UploadPage() {
                   existingKeys.add(key)
                   return true
                 })
-                setScreenshotFiles((old) => [...old, ...uniqueCandidates].slice(0, 20))
-                uniqueCandidates.forEach((file) => readImage(file, (url) => setScreenshots((old) => [...old, url].slice(0, 20))))
+                if (!uniqueCandidates.length) return
+
+                void Promise.all(uniqueCandidates.map(readImageUrl))
+                  .then((previews) => {
+                    setErrorMessage('')
+                    setScreenshotFiles((old) => [...old, ...uniqueCandidates].slice(0, 20))
+                    setScreenshots((old) => [...old, ...previews].slice(0, 20))
+                  })
+                  .catch(() => setErrorMessage('خواندن یکی از تصاویر انجام نشد. دوباره تلاش کنید.'))
               }} /><div className="mt-3 flex flex-wrap gap-3">{screenshots.map((src, i) => <div key={src} className="relative"><img src={src} alt={`تصویر ${i + 1}`} className="size-20 rounded-lg object-cover" /><button type="button" aria-label="حذف تصویر" onClick={() => { setScreenshots((old) => old.filter((_, n) => n !== i)); setScreenshotFiles((old) => old.filter((_, n) => n !== i)) }} className="absolute -right-2 -top-2 rounded-full bg-destructive p-1 text-destructive-foreground"><X className="size-3" /></button></div>)}</div></div></div></div></div></div>}
         {step === 3 && (
           <div>
