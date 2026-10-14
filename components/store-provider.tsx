@@ -175,35 +175,26 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const updateProfile = useCallback(async (patch: Pick<User, 'name' | 'phone' | 'nationalId' | 'organization'>) => {
     if (!user?.id) throw new Error('unauthorized')
-    const [{ error: profileError }, { error: authError }] = await Promise.all([
-      supabase.from('profiles').update({
-        full_name: patch.name,
-        phone: patch.phone || null,
-        national_id: patch.nationalId || null,
-      }).eq('id', user.id),
-      supabase.auth.updateUser({
-        data: {
-          full_name: patch.name,
-          phone: patch.phone || null,
-          national_id: patch.nationalId || null,
-          organization: patch.organization || null,
-        },
-      }),
-    ])
-    if (profileError) throw profileError
-    if (authError) throw authError
-    setUser((current) => current ? { ...current, ...patch } : current)
+    const response = await fetch('/api/developer/profile', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(patch),
+    })
+    const payload = await response.json().catch(() => null)
+    if (!response.ok) throw new Error(payload?.error || 'profile_update_failed')
+    setUser(payload.profile)
   }, [user?.id])
+
   const acceptTerms = useCallback(async () => {
     if (!user?.id) throw new Error('unauthorized')
-    const acceptedAt = new Date().toISOString()
-    const { error } = await supabase
-      .from('profiles')
-      .update({ terms_accepted_at: acceptedAt })
-      .eq('id', user.id)
-
-    if (error) throw error
-    setUser((current) => current ? { ...current, termsAcceptedAt: acceptedAt } : current)
+    const response = await fetch('/api/developer/profile', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ acceptTerms: true }),
+    })
+    const payload = await response.json().catch(() => null)
+    if (!response.ok) throw new Error(payload?.error || 'terms_update_failed')
+    setUser(payload.profile)
   }, [user?.id])
 
   const addVersion = useCallback(async (appId: string, apk: { pathname: string; name: string; size: number }, packageName: string | undefined, changelog: string) => {
