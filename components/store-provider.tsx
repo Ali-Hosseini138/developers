@@ -185,48 +185,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const addVersion = useCallback(async (appId: string, apk: { pathname: string; name: string; size: number }, packageName: string | undefined, changelog: string) => {
     if (!user?.id) throw new Error('unauthorized')
-    const { data: ownedApp, error: ownershipError } = await supabase
-      .from('apps')
-      .select('id')
-      .eq('id', appId)
-      .eq('owner_id', user.id)
-      .maybeSingle()
-    if (ownershipError) throw ownershipError
-    if (!ownedApp) throw new Error('forbidden_or_missing')
-
-    const { data: version, error } = await supabase.from('app_versions').insert({
-      app_id: appId,
-      apk_path: apk.pathname,
-      apk_name: apk.name,
-      apk_size: apk.size,
-      package_name: packageName || null,
-      changelog,
-      status: 'pending',
-    }).select('*').single()
-    if (error) throw error
-
-    const { error: submissionError } = await supabase.from('review_submissions').insert({
-      app_id: appId,
-      version_id: version.id,
-      request_type: 'version',
-      submitted_by: user.id,
-      snapshot: {
-        package_name: version.package_name,
-        apk_path: version.apk_path,
-        apk_name: version.apk_name,
-        apk_size: version.apk_size,
-        changelog: version.changelog,
-      },
-      status: 'pending',
+    const response = await fetch(`/api/developer/apps/${encodeURIComponent(appId)}/versions`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ apk, packageName, changelog }),
     })
-    if (submissionError) {
-      await supabase
-        .from('app_versions')
-        .delete()
-        .eq('id', version.id)
-        .eq('app_id', appId)
-      throw submissionError
-    }
+    const payload = await response.json().catch(() => null)
+    if (!response.ok) throw new Error(payload?.error || 'version_create_failed')
   }, [user?.id])
 
   const removeApp = useCallback(async (id: string) => {
