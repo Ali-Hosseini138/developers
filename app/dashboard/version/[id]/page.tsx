@@ -61,6 +61,10 @@ export default function NewVersionPage() {
       setErrorMessage(
         code === 'apk_too_large'
           ? 'حجم فایل APK نباید بیشتر از ۲۵۰ مگابایت باشد.'
+          : code === 'version_under_review'
+            ? 'یک نسخه از این اپ در حال بررسی است. بعد از تعیین وضعیت آن می‌توانید نسخه جدید دیگری ارسال کنید.'
+          : code === 'package_name_mismatch'
+            ? 'Package Name این APK با اپلیکیشن منتشرشده یکسان نیست.'
           : code === 'auth_required'
             ? 'نشست ورود شما منقضی شده است. دوباره وارد شوید.'
             : 'ثبت نسخه انجام نشد. فایل را بررسی کنید و دوباره تلاش کنید.',
