@@ -23,8 +23,11 @@ export default function EditAppPage() {
   const app = getApp(id)
 
   const [name, setName] = useState(app?.name || '')
+  const [nameEn, setNameEn] = useState(app?.nameEn || '')
   const [tagline, setTagline] = useState(app?.tagline || '')
+  const [taglineEn, setTaglineEn] = useState(app?.taglineEn || '')
   const [description, setDescription] = useState(app?.description || '')
+  const [descriptionEn, setDescriptionEn] = useState(app?.descriptionEn || '')
   const [category, setCategory] = useState(app?.category || '')
   const [ageRestriction, setAgeRestriction] = useState(app?.ageRestriction || 'همه سنین')
   const [packageName, setPackageName] = useState(app?.packageName || '')
@@ -78,7 +81,7 @@ export default function EditAppPage() {
     setErrorMessage('')
 
     if (canEditPackageName && !packageNamePattern.test(packageName.trim())) {
-      setErrorMessage('پکیج‌نیم معتبر نیست. نمونه صحیح: com.company.app')
+      setErrorMessage('Package Name معتبر نیست. نمونه صحیح: com.company.app')
       return
     }
 
@@ -93,8 +96,11 @@ export default function EditAppPage() {
 
       await updateApp(app.id, {
         name,
+        nameEn,
         tagline,
+        taglineEn,
         description,
+        descriptionEn,
         category: category as typeof app.category,
         ageRestriction: ageRestriction as typeof app.ageRestriction,
         packageName: packageName.trim(),
@@ -180,9 +186,12 @@ export default function EditAppPage() {
       </div>
 
       <form onSubmit={save} className="mt-8 flex flex-col gap-5 rounded-2xl border border-border bg-card p-6">
-        <Field label="عنوان اپ"><Input value={name} onChange={(e) => setName(e.target.value)} required /></Field>
-        <Field label="معرفی کوتاه"><Input value={tagline} onChange={(e) => setTagline(e.target.value)} required /></Field>
-        <Field label="توضیحات کامل"><Textarea value={description} onChange={(e) => setDescription(e.target.value)} className="min-h-40" required /></Field>
+        <Field label="عنوان اپلیکیشن (فارسی)"><Input value={name} onChange={(e) => setName(e.target.value)} required /></Field>
+        <Field label="عنوان اپلیکیشن (English) — اختیاری"><Input value={nameEn} onChange={(e) => setNameEn(e.target.value)} dir="ltr" /></Field>
+        <Field label="توضیح کوتاه (فارسی)"><Input value={tagline} onChange={(e) => setTagline(e.target.value)} required /></Field>
+        <Field label="Short description (English) — اختیاری"><Input value={taglineEn} onChange={(e) => setTaglineEn(e.target.value)} dir="ltr" /></Field>
+        <Field label="توضیحات کامل (فارسی)"><Textarea value={description} onChange={(e) => setDescription(e.target.value)} className="min-h-40" required /></Field>
+        <Field label="Full description (English) — اختیاری"><Textarea value={descriptionEn} onChange={(e) => setDescriptionEn(e.target.value)} className="min-h-40" dir="ltr" /></Field>
 
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label="دسته‌بندی">
@@ -191,7 +200,7 @@ export default function EditAppPage() {
               <SelectContent>{CATEGORIES.map((item) => <SelectItem key={item} value={item}>{item}</SelectItem>)}</SelectContent>
             </Select>
           </Field>
-          <Field label="پکیج‌نیم">
+          <Field label="Package Name">
             <Input
               value={packageName}
               onChange={(e) => setPackageName(e.target.value.trim())}
@@ -203,8 +212,8 @@ export default function EditAppPage() {
             />
             <p className="text-xs leading-6 text-muted-foreground">
               {canEditPackageName
-                ? 'تا قبل از انتشار می‌توانید پکیج‌نیم را اصلاح کنید. این مقدار باید دقیقاً با شناسه داخل APK یکی باشد.'
-                : 'بعد از انتشار، پکیج‌نیم قابل تغییر نیست؛ چون شناسه اصلی اپ در Android است.'}
+                ? 'تا قبل از انتشار می‌توانید Package Name را اصلاح کنید. این مقدار باید دقیقاً با شناسه داخل APK یکی باشد.'
+                : 'بعد از انتشار، Package Name قابل تغییر نیست؛ چون شناسه اصلی اپ در Android است.'}
             </p>
           </Field>
           <Field label="محدودیت سنی">
@@ -237,7 +246,7 @@ export default function EditAppPage() {
             multiple
             compact
             onFiles={(files) => {
-              const accepted = files.slice(0, Math.max(0, 6 - newScreenshotFiles.length))
+              const accepted = files.slice(0, Math.max(0, 20 - newScreenshotFiles.length))
               if (accepted.some((file) => file.size > 5 * 1024 * 1024)) {
                 setErrorMessage('حجم هر تصویر باید حداکثر ۵ مگابایت باشد.')
                 return
