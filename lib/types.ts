@@ -39,7 +39,7 @@ export interface StoreApp {
   videoUrl?: string
   developer: string
   ownerId?: string
-  status?: 'draft' | 'pending' | 'published' | 'rejected'
+  status?: 'draft' | 'processing' | 'parse_failed' | 'pending' | 'published' | 'rejected' | 'cancelled'
   version: string
   price: number // 0 = رایگان
   rating: number
@@ -69,6 +69,20 @@ export interface StoreApp {
   airMouseCompatible?: boolean
   reviewReason?: string
   reviewedAt?: string
+  canEdit?: boolean
+  canSubmit?: boolean
+  isPublished?: boolean
+  latestSubmissionId?: string
+  latestSubmissionStatus?: string
+  latestSubmissionDisplay?: string
+  latestSubmissionCanCancel?: boolean
+  latestSubmissionErrors?: Array<{ code: string; message: string }>
+  rejectionReason?: string
+  backgroundImage?: string
+  categoryId?: number
+  applicationType?: number
+  ageLimit?: number
+  supportsNetboxPayment?: boolean
 }
 
 export interface User {
