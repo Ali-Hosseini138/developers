@@ -19,6 +19,8 @@ export function buildAppReviewSnapshot(row: Record<string, any>) {
     screenshot_paths: row.screenshot_paths ?? [],
     has_in_app_payment: Boolean(row.has_in_app_payment),
     netbox_payment_integrated: Boolean(row.netbox_payment_integrated),
+    netbox_payment_grace_accepted: Boolean(row.netbox_payment_grace_accepted),
+    netbox_payment_grace_deadline: row.netbox_payment_grace_deadline ?? null,
     developed_for_android_tv: row.developed_for_android_tv !== false,
     air_mouse_compatible: Boolean(row.air_mouse_compatible),
   }
