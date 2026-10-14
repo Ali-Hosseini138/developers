@@ -4,20 +4,18 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState, t
 import { MOCK_APPS } from '@/lib/mock-data'
 import { createClient } from '@/lib/supabase/client'
 import type { StoreApp, SupportTicket, User } from '@/lib/types'
+import { mapDeveloperHubApp } from '@/lib/developer-hub-model'
 
 interface StoreContextValue {
   apps: StoreApp[]
   user: User | null
   authReady: boolean
-  addApp: (app: StoreApp) => Promise<void>
-  updateApp: (id: string, patch: Partial<StoreApp>) => Promise<void>
   updateProfile: (patch: Pick<User, 'name' | 'phone' | 'nationalId' | 'organization'>) => Promise<void>
   acceptTerms: () => Promise<void>
-  addVersion: (appId: string, apk: { pathname: string; name: string; size: number }, packageName: string | undefined, changelog: string) => Promise<void>
-  removeApp: (id: string) => Promise<void>
-  submitAppForReview: (id: string) => Promise<void>
   getApp: (id: string) => StoreApp | undefined
   myApps: StoreApp[]
+  reloadDeveloperApps: () => Promise<void>
+  cancelSubmission: (submissionId: string) => Promise<void>
   tickets: SupportTicket[]
   addTicket: (ticket: Omit<SupportTicket, 'id' | 'createdAt' | 'developer'>) => Promise<void>
   login: (user: User) => void
@@ -46,6 +44,7 @@ function mapTicket(row: Record<string, any>, developer: string): SupportTicket {
 
 export function StoreProvider({ children }: { children: ReactNode }) {
   const [apps, setApps] = useState<StoreApp[]>(MOCK_APPS)
+  const [developerApps, setDeveloperApps] = useState<StoreApp[]>([])
   const [user, setUser] = useState<User | null>(null)
   const [authReady, setAuthReady] = useState(false)
   const [tickets, setTickets] = useState<SupportTicket[]>([])
@@ -65,6 +64,21 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     ])
   }, [])
 
+  const loadDeveloperAppsFor = useCallback(async (developerName: string) => {
+    const response = await fetch('/api/developer-hub/apps?page=1&page_size=200', { cache: 'no-store' })
+    if (!response.ok) {
+      if (response.status === 401) setDeveloperApps([])
+      return
+    }
+    const payload = await response.json().catch(() => null)
+    const rows = Array.isArray(payload?.results) ? payload.results : []
+    setDeveloperApps(rows.map((row: any) => mapDeveloperHubApp(row, developerName)))
+  }, [])
+
+  const reloadDeveloperApps = useCallback(async () => {
+    await loadDeveloperAppsFor(user?.name || 'توسعه‌دهنده')
+  }, [loadDeveloperAppsFor, user?.name])
+
   useEffect(() => {
     void loadPublishedApps()
 
@@ -79,6 +93,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
         if (!response.ok) {
           setUser(null)
+          setDeveloperApps([])
           setTickets([])
           return
         }
@@ -89,7 +104,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         if (sessionUser?.id) {
           const [profileResponse, appsResponse, ticketsResponse] = await Promise.all([
             fetch('/api/developer/profile', { cache: 'no-store' }),
-            fetch('/api/developer/apps', { cache: 'no-store' }),
+            fetch('/api/developer-hub/apps?page=1&page_size=200', { cache: 'no-store' }),
             fetch('/api/developer/tickets', { cache: 'no-store' }),
           ])
 
@@ -98,12 +113,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           setUser(nextUser)
 
           if (appsResponse.ok) {
-            const appsPayload = await appsResponse.json()
-            const rows = Array.isArray(appsPayload.apps) ? appsPayload.apps as Record<string, any>[] : []
-            setApps((current) => [
-              ...rows.map((row) => mapApp({ ...row, owner_name: nextUser.name })),
-              ...current.filter((app) => !rows.some((row) => row.id === app.id)),
-            ])
+            const appsPayload = await appsResponse.json().catch(() => null)
+            const rows = Array.isArray(appsPayload?.results) ? appsPayload.results : []
+            setDeveloperApps(rows.map((row: any) => mapDeveloperHubApp(row, nextUser.name)))
+          } else {
+            setDeveloperApps([])
           }
 
           if (ticketsResponse.ok) {
@@ -113,6 +127,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           }
         } else {
           setUser(null)
+          setDeveloperApps([])
           setTickets([])
         }
       } catch {
@@ -125,104 +140,16 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     void loadBackendSession()
   }, [loadPublishedApps])
 
-  const addApp = useCallback(async (app: StoreApp) => {
-    if (!user?.id) return
-    const { data, error } = await supabase.from('apps').insert({ owner_id: user.id, name: app.name, tagline: app.tagline, description: app.description, category: app.category, age_restriction: app.ageRestriction, package_name: app.packageName, icon_url: app.iconPath ? null : app.icon, banner_url: app.bannerPath ? null : app.banner, website: app.website, support_email: app.supportEmail, status: app.status || 'draft', apk_path: app.apkPath, apk_name: app.apkName, apk_size: app.apkSize ? Number.parseInt(app.apkSize.replace(/[^0-9]/g, ''), 10) : null, icon_path: app.iconPath, banner_path: app.bannerPath, screenshot_paths: app.screenshotPaths || [] }).select().single()
-    if (error) throw error
-    setApps((prev) => [mapApp({ ...data, owner_name: user.name }), ...prev])
-  }, [user])
+  const getApp = useCallback((id: string) => developerApps.find((app) => app.id === id) || apps.find((app) => app.id === id), [developerApps, apps])
 
-  const updateApp = useCallback(async (id: string, patch: Partial<StoreApp>) => {
-    if (!user?.id) throw new Error('unauthorized')
-    const response = await fetch(`/api/developer/apps/${encodeURIComponent(id)}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        name: patch.name,
-        nameEn: patch.nameEn,
-        tagline: patch.tagline,
-        taglineEn: patch.taglineEn,
-        description: patch.description,
-        descriptionEn: patch.descriptionEn,
-        category: patch.category,
-        ageRestriction: patch.ageRestriction,
-        packageName: patch.packageName,
-        website: patch.website,
-        supportEmail: patch.supportEmail,
-        iconPath: patch.iconPath,
-        bannerPath: patch.bannerPath,
-        screenshotPaths: patch.screenshotPaths,
-      }),
-    })
-    const payload = await response.json().catch(() => null)
-    if (!response.ok) throw new Error(payload?.error || 'app_update_failed')
-    setApps((prev) => prev.map((app) => app.id === id ? mapApp({ ...payload.app, owner_name: user.name }) : app))
-  }, [user?.id, user?.name])
-
-  const updateProfile = useCallback(async (patch: Pick<User, 'name' | 'phone' | 'nationalId' | 'organization'>) => {
-    if (!user?.id) throw new Error('unauthorized')
-    const response = await fetch('/api/developer/profile', {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(patch),
-    })
-    const payload = await response.json().catch(() => null)
-    if (!response.ok) throw new Error(payload?.error || 'profile_update_failed')
-    setUser(payload.profile)
-  }, [user?.id])
-
-  const acceptTerms = useCallback(async () => {
-    if (!user?.id) throw new Error('unauthorized')
-    const response = await fetch('/api/developer/profile', {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ acceptTerms: true }),
-    })
-    const payload = await response.json().catch(() => null)
-    if (!response.ok) throw new Error(payload?.error || 'terms_update_failed')
-    setUser(payload.profile)
-  }, [user?.id])
-
-  const addVersion = useCallback(async (appId: string, apk: { pathname: string; name: string; size: number }, packageName: string | undefined, changelog: string) => {
-    if (!user?.id) throw new Error('unauthorized')
-    const response = await fetch(`/api/developer/apps/${encodeURIComponent(appId)}/versions`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ apk, packageName, changelog }),
-    })
-    const payload = await response.json().catch(() => null)
-    if (!response.ok) throw new Error(payload?.error || 'version_create_failed')
-  }, [user?.id])
-
-  const removeApp = useCallback(async (id: string) => {
-    if (!user?.id) throw new Error('unauthorized')
-    const response = await fetch(`/api/developer/apps/${encodeURIComponent(id)}`, {
-      method: 'DELETE',
-    })
-    const payload = await response.json().catch(() => null)
-    if (!response.ok) throw new Error(payload?.error || 'delete_failed')
-    setApps((prev) => prev.filter((app) => app.id !== id))
-  }, [user?.id])
-  const submitAppForReview = useCallback(async (id: string) => {
-    const response = await fetch(`/api/apps/${encodeURIComponent(id)}/submit`, {
+  const cancelSubmission = useCallback(async (submissionId: string) => {
+    const response = await fetch(`/api/developer-hub/submissions/${encodeURIComponent(submissionId)}/cancel`, {
       method: 'POST',
     })
-
-    const result = await response.json().catch(() => null)
-
-    if (!response.ok) {
-      const error = new Error(result?.error || 'submit_failed') as Error & { missing?: string[] }
-      error.missing = result?.missing
-      throw error
-    }
-
-    setApps((prev) => prev.map((app) => (
-      app.id === id
-        ? { ...app, status: 'pending', updatedAt: 'امروز' }
-        : app
-    )))
-  }, [])
-  const getApp = useCallback((id: string) => apps.find((app) => app.id === id), [apps])
+    const payload = await response.json().catch(() => null)
+    if (!response.ok) throw new Error(payload?.code || payload?.message || payload?.detail || 'cancel_failed')
+    await reloadDeveloperApps()
+  }, [reloadDeveloperApps])
   const addTicket = useCallback(async (ticket: Omit<SupportTicket, 'id' | 'createdAt' | 'developer'>) => {
     if (!user?.id) throw new Error('unauthorized')
     const response = await fetch('/api/developer/tickets', {
@@ -240,11 +167,20 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       await fetch('/api/auth/logout', { method: 'POST' })
     } finally {
       setUser(null)
+      setDeveloperApps([])
       setTickets([])
     }
   }, [])
-  const myApps = useMemo(() => user?.id ? apps.filter((app) => app.ownerId === user.id) : [], [apps, user?.id])
-  const value = useMemo(() => ({ apps, user, authReady, addApp, updateApp, updateProfile, acceptTerms, addVersion, removeApp, submitAppForReview, getApp, myApps, tickets, addTicket, login, logout }), [apps, user, authReady, addApp, updateApp, updateProfile, acceptTerms, addVersion, removeApp, submitAppForReview, getApp, myApps, tickets, addTicket, login, logout])
+  useEffect(() => {
+    if (!user || !developerApps.some((app) => app.latestSubmissionStatus === 'processing')) return
+    const timer = window.setInterval(() => {
+      void loadDeveloperAppsFor(user.name)
+    }, 12000)
+    return () => window.clearInterval(timer)
+  }, [developerApps, loadDeveloperAppsFor, user])
+
+  const myApps = developerApps
+  const value = useMemo(() => ({ apps, user, authReady, updateProfile, acceptTerms, getApp, myApps, reloadDeveloperApps, cancelSubmission, tickets, addTicket, login, logout }), [apps, user, authReady, updateProfile, acceptTerms, getApp, myApps, reloadDeveloperApps, cancelSubmission, tickets, addTicket, login, logout])
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>
 }
 
