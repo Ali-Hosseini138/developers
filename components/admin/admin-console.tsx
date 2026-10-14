@@ -2,14 +2,25 @@
 
 import { useState } from 'react'
 import { MessageSquare, PackageCheck } from 'lucide-react'
-import type { AdminApp, AdminSupportTicket } from '@/app/admin/page'
-import { AdminApps } from '@/components/admin/admin-apps'
+import type { AdminSupportTicket } from '@/app/admin/page'
+import type { AdminSubmissionListItem } from '@/lib/admin-hub-model'
+import { AdminSubmissions } from '@/components/admin/admin-submissions'
 import { AdminTickets } from '@/components/admin/admin-tickets'
 import { Button } from '@/components/ui/button'
 
 type AdminStat = { label: string; value: number }
 
-export function AdminConsole({ apps, stats, tickets }: { apps: AdminApp[]; stats: AdminStat[]; tickets: AdminSupportTicket[] }) {
+export function AdminConsole({
+  submissions,
+  stats,
+  tickets,
+  canReviewSubmission,
+}: {
+  submissions: AdminSubmissionListItem[]
+  stats: AdminStat[]
+  tickets: AdminSupportTicket[]
+  canReviewSubmission: boolean
+}) {
   const [tab, setTab] = useState<'reviews' | 'tickets'>('reviews')
 
   return (
@@ -40,7 +51,7 @@ export function AdminConsole({ apps, stats, tickets }: { apps: AdminApp[]; stats
               </div>
             ))}
           </section>
-          <AdminApps apps={apps} />
+          <AdminSubmissions submissions={submissions} canReviewSubmission={canReviewSubmission} />
         </>
       )}
 
