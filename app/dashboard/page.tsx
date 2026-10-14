@@ -16,8 +16,8 @@ import { DeveloperSidebar } from '@/components/developer-sidebar'
 
 const tabs = [
   { id: 'apps', label: 'داشبورد من', icon: Package },
-  { id: 'analytics', label: 'آمار و عملکرد', icon: Activity },
-  { id: 'finance', label: 'مالی', icon: Wallet },
+  { id: 'analytics', label: 'آمار و نصب', icon: Activity },
+  { id: 'finance', label: 'آمار فروش', icon: Wallet },
   { id: 'support', label: 'پشتیبانی و تیکت', icon: HelpCircle },
 ] as const
 
@@ -597,20 +597,9 @@ function AnalyticsTab({ myApps }: { myApps: ReturnType<typeof useStore>['myApps'
         <p role="alert" className="rounded-xl bg-destructive/10 px-4 py-3 text-sm text-destructive">{errorMessage}</p>
       )}
 
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <MetricCard label={selectedAppId === 'all' ? 'مجموع نصب اپ‌ها' : 'نصب در بازه'} value={toFa(totalInstalls)} />
         <MetricCard label="میانگین نصب روزانه" value={toFa(averageDailyInstalls)} />
-        {visiblePaymentEnabled ? (
-          <>
-            <MetricCard label={selectedAppId === 'all' ? 'مجموع فروش اپ‌ها' : 'فروش کل'} value={formatRial(totalSales)} />
-            <MetricCard label="تعداد سفارش" value={toFa(totalOrders)} />
-          </>
-        ) : (
-          <>
-            <MetricCard label="فروش اشتراک" value="غیرفعال" />
-            <MetricCard label="Netbox Payment" value="متصل نیست" />
-          </>
-        )}
       </div>
 
       {selectedAppId === 'all' && publishedApps.length > 1 && (
@@ -666,28 +655,7 @@ function AnalyticsTab({ myApps }: { myApps: ReturnType<typeof useStore>['myApps'
         valueFormatter={(value) => toFa(value)}
       />
 
-      {visiblePaymentEnabled && (
-        <>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <MetricCard label="میانگین مبلغ سفارش" value={totalOrders ? formatRial(averageOrder) : '—'} />
-            <MetricCard label="وضعیت پرداخت" value={usingDemo ? 'Demo' : selectedAppId === 'all' ? 'تجمیع Netbox Payment' : 'Netbox Payment فعال'} />
-          </div>
-          <TrendCard
-            title={selectedAppId === 'all' ? 'ترند روزانه فروش همه اپ‌ها' : 'ترند روزانه فروش اشتراک'}
-            description={selectedAppId === 'all' ? 'مجموع فروش روزانه اپ‌های دارای Netbox Payment' : 'مجموع فروش روزانه ثبت‌شده از Netbox Payment'}
-            loading={loading}
-            points={visibleSales.map((item) => ({ date: item.metric_date, value: Number(item.total_sales_rial || 0) }))}
-            valueFormatter={formatRial}
-          />
-          <TrendCard
-            title={selectedAppId === 'all' ? 'ترند روزانه سفارش همه اپ‌ها' : 'ترند روزانه سفارش‌ها'}
-            description={selectedAppId === 'all' ? 'مجموع خریدهای موفق تمام اپ‌های دارای پرداخت' : 'تعداد خریدهای موفق ثبت‌شده در هر روز'}
-            loading={loading}
-            points={visibleSales.map((item) => ({ date: item.metric_date, value: item.orders }))}
-            valueFormatter={(value) => toFa(value)}
-          />
-        </>
-      )}
+
     </section>
   )
 }
