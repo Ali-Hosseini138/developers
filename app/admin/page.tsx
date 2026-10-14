@@ -61,6 +61,8 @@ export type AdminApp = {
   screenshot_paths: string[]
   has_in_app_payment: boolean
   netbox_payment_integrated: boolean
+  netbox_payment_grace_accepted: boolean
+  netbox_payment_grace_deadline: string | null
   developed_for_android_tv: boolean
   air_mouse_compatible: boolean
   versions: Version[]
@@ -170,6 +172,8 @@ export default async function AdminPage() {
     screenshot_paths: row.screenshot_paths || [],
     has_in_app_payment: Boolean(row.has_in_app_payment),
     netbox_payment_integrated: Boolean(row.netbox_payment_integrated),
+    netbox_payment_grace_accepted: Boolean(row.netbox_payment_grace_accepted),
+    netbox_payment_grace_deadline: row.netbox_payment_grace_deadline || null,
     developed_for_android_tv: row.developed_for_android_tv !== false,
     air_mouse_compatible: Boolean(row.air_mouse_compatible),
     versions: versionsByApp.get(row.id) || [],
