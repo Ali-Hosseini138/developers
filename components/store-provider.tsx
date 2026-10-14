@@ -134,44 +134,30 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const updateApp = useCallback(async (id: string, patch: Partial<StoreApp>) => {
     if (!user?.id) throw new Error('unauthorized')
-    const updates: Record<string, unknown> = {
-      name: patch.name,
-      tagline: patch.tagline,
-      description: patch.description,
-      category: patch.category,
-      age_restriction: patch.ageRestriction,
-      website: patch.website,
-      support_email: patch.supportEmail,
-      updated_at: new Date().toISOString(),
-    }
-
-    if (patch.packageName !== undefined) {
-      updates.package_name = patch.packageName
-    }
-
-    if (patch.iconPath !== undefined) {
-      updates.icon_path = patch.iconPath
-      updates.icon_url = null
-    }
-    if (patch.bannerPath !== undefined) {
-      updates.banner_path = patch.bannerPath
-      updates.banner_url = null
-    }
-    if (patch.screenshotPaths !== undefined) {
-      updates.screenshot_paths = patch.screenshotPaths
-    }
-
-    const { data, error } = await supabase
-      .from('apps')
-      .update(updates)
-      .eq('id', id)
-      .eq('owner_id', user.id)
-      .select()
-      .maybeSingle()
-    if (error) throw error
-    if (!data) throw new Error('forbidden_or_missing')
-    setApps((prev) => prev.map((app) => app.id === id ? { ...app, ...patch, ...mapApp(data) } : app))
-  }, [user?.id])
+    const response = await fetch(`/api/developer/apps/${encodeURIComponent(id)}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name: patch.name,
+        nameEn: patch.nameEn,
+        tagline: patch.tagline,
+        taglineEn: patch.taglineEn,
+        description: patch.description,
+        descriptionEn: patch.descriptionEn,
+        category: patch.category,
+        ageRestriction: patch.ageRestriction,
+        packageName: patch.packageName,
+        website: patch.website,
+        supportEmail: patch.supportEmail,
+        iconPath: patch.iconPath,
+        bannerPath: patch.bannerPath,
+        screenshotPaths: patch.screenshotPaths,
+      }),
+    })
+    const payload = await response.json().catch(() => null)
+    if (!response.ok) throw new Error(payload?.error || 'app_update_failed')
+    setApps((prev) => prev.map((app) => app.id === id ? mapApp({ ...payload.app, owner_name: user.name }) : app))
+  }, [user?.id, user?.name])
 
   const updateProfile = useCallback(async (patch: Pick<User, 'name' | 'phone' | 'nationalId' | 'organization'>) => {
     if (!user?.id) throw new Error('unauthorized')
