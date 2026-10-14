@@ -114,9 +114,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         const sessionUser = payload.user ?? null
 
         if (sessionUser?.id) {
-          const [profileResponse, appsResponse, ticketsResponse] = await Promise.all([
+          const [profileResponse, ticketsResponse] = await Promise.all([
             fetch('/api/developer/profile', { cache: 'no-store' }),
-            fetch('/api/developer-hub/apps?page=1&page_size=200', { cache: 'no-store' }),
             fetch('/api/developer/tickets', { cache: 'no-store' }),
           ])
 
@@ -124,13 +123,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           const nextUser = profilePayload?.profile || sessionUser
           setUser(nextUser)
 
-          if (appsResponse.ok) {
-            const appsPayload = await appsResponse.json().catch(() => null)
-            const rows = Array.isArray(appsPayload?.results) ? appsPayload.results : []
-            setDeveloperApps(rows.map((row: any) => mapDeveloperHubApp(row, nextUser.name)))
-          } else {
-            setDeveloperApps([])
-          }
+          await loadDeveloperAppsFor(nextUser.name)
 
           if (ticketsResponse.ok) {
             const ticketsPayload = await ticketsResponse.json()
@@ -150,7 +143,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     }
 
     void loadBackendSession()
-  }, [loadPublishedApps])
+  }, [loadPublishedApps, loadDeveloperAppsFor])
 
   const getApp = useCallback((id: string) => developerApps.find((app) => app.id === id) || apps.find((app) => app.id === id), [developerApps, apps])
 
