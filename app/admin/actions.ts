@@ -2,17 +2,49 @@
 
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
-import { createAdminSession, destroyAdminSession, isAdmin, verifyAdminPassword } from '@/lib/admin-auth'
+import { developerApi } from '@/lib/developer-api'
+import { destroyAdminSession, getAdminUser, setAdminSession } from '@/lib/admin-auth'
 import { createAdminClient } from '@/lib/supabase/admin'
 
-const allowedReviewStatuses = new Set(['published', 'rejected'])
+function backendMessage(payload: any, fallback: string) {
+  if (payload?.message) return String(payload.message)
+  if (payload?.detail) return String(payload.detail)
+  if (payload && typeof payload === 'object') {
+    for (const value of Object.values(payload)) {
+      if (Array.isArray(value) && value.length) return String(value[0])
+    }
+  }
+  return fallback
+}
 
 export async function loginAction(_prev: { error?: string } | undefined, formData: FormData) {
+  const username = String(formData.get('username') || '').trim()
   const password = String(formData.get('password') || '')
-  if (!verifyAdminPassword(password)) {
-    return { error: 'رمز عبور مدیر نادرست است.' }
+
+  if (!username || !password) {
+    return { error: 'نام کاربری و گذرواژه را وارد کنید.' }
   }
-  await createAdminSession()
+
+  try {
+    const response = await developerApi('/api/v1/developer-hub/admin/auth/login/', {
+      method: 'POST',
+      body: JSON.stringify({ username, password }),
+    })
+    const payload = await response.json().catch(() => ({}))
+
+    if (!response.ok) {
+      return { error: backendMessage(payload, 'ورود مدیر انجام نشد.') }
+    }
+
+    if (typeof payload.access !== 'string' || typeof payload.refresh !== 'string') {
+      return { error: 'توکن ورود مدیر از بک‌اند دریافت نشد.' }
+    }
+
+    await setAdminSession(payload.access, payload.refresh, Number(payload.expiresIn || 1800))
+  } catch {
+    return { error: 'ارتباط با سرویس ادمین برقرار نشد.' }
+  }
+
   redirect('/admin')
 }
 
@@ -21,137 +53,9 @@ export async function logoutAction() {
   redirect('/admin/login')
 }
 
-export async function updateAppStatusAction(formData: FormData) {
-  if (!(await isAdmin())) redirect('/admin/login')
-
-  const appId = String(formData.get('appId') || '')
-  const status = String(formData.get('status') || '')
-  const reason = String(formData.get('reason') || '').trim()
-  if (!appId || !allowedReviewStatuses.has(status)) return
-  if (status === 'rejected' && reason.length < 5) {
-    throw new Error('برای رد اپ، دلیل بررسی الزامی است.')
-  }
-
-  const reviewedAt = new Date().toISOString()
-  const supabase = createAdminClient()
-  const { data: currentApp, error: readError } = await supabase
-    .from('apps')
-    .select('netbox_payment_integrated, netbox_payment_grace_accepted, netbox_payment_grace_deadline')
-    .eq('id', appId)
-    .single()
-
-  if (readError) throw readError
-
-  const patch: Record<string, unknown> = {
-    status,
-    review_reason: status === 'rejected' ? reason : null,
-    reviewed_at: reviewedAt,
-    updated_at: reviewedAt,
-  }
-
-  if (
-    status === 'published' &&
-    currentApp.netbox_payment_grace_accepted &&
-    !currentApp.netbox_payment_integrated &&
-    !currentApp.netbox_payment_grace_deadline
-  ) {
-    const deadline = new Date(reviewedAt)
-    deadline.setMonth(deadline.getMonth() + 1)
-    patch.netbox_payment_grace_deadline = deadline.toISOString()
-  }
-
-  const { error } = await supabase
-    .from('apps')
-    .update(patch)
-    .eq('id', appId)
-
-  if (error) throw error
-
-  await supabase
-    .from('review_submissions')
-    .update({
-      status,
-      rejection_reason: status === 'rejected' ? reason : null,
-      reviewed_at: reviewedAt,
-    })
-    .eq('app_id', appId)
-    .eq('request_type', 'app')
-    .eq('status', 'pending')
-
-  revalidatePath('/admin')
-  revalidatePath('/dashboard')
-}
-
-export async function updateVersionStatusAction(formData: FormData) {
-  if (!(await isAdmin())) redirect('/admin/login')
-
-  const versionId = String(formData.get('versionId') || '')
-  const status = String(formData.get('status') || '')
-  const reason = String(formData.get('reason') || '').trim()
-  if (!versionId || !allowedReviewStatuses.has(status)) return
-  if (status === 'rejected' && reason.length < 5) {
-    throw new Error('برای رد نسخه، دلیل بررسی الزامی است.')
-  }
-
-  const reviewedAt = new Date().toISOString()
-  const supabase = createAdminClient()
-  const { data: version, error: versionError } = await supabase
-    .from('app_versions')
-    .select('id, app_id, apk_path, apk_name, apk_size, package_name')
-    .eq('id', versionId)
-    .single()
-
-  if (versionError) throw versionError
-
-  const { error: updateError } = await supabase
-    .from('app_versions')
-    .update({
-      status,
-      review_reason: status === 'rejected' ? reason : null,
-      reviewed_at: reviewedAt,
-    })
-    .eq('id', versionId)
-
-  if (updateError) throw updateError
-
-  await supabase
-    .from('review_submissions')
-    .update({
-      status,
-      rejection_reason: status === 'rejected' ? reason : null,
-      reviewed_at: reviewedAt,
-    })
-    .eq('version_id', versionId)
-    .eq('status', 'pending')
-
-  if (status === 'published') {
-    const appPatch: Record<string, unknown> = {
-      apk_path: version.apk_path,
-      apk_name: version.apk_name,
-      apk_size: version.apk_size,
-      updated_at: reviewedAt,
-      status: 'published',
-      review_reason: null,
-      reviewed_at: reviewedAt,
-    }
-
-    if (version.package_name) appPatch.package_name = version.package_name
-
-    const { error: appError } = await supabase
-      .from('apps')
-      .update(appPatch)
-      .eq('id', version.app_id)
-
-    if (appError) throw appError
-  }
-
-  revalidatePath('/admin')
-  revalidatePath('/dashboard')
-}
-
-
 export async function updateSupportTicketAction(formData: FormData) {
-  if (!(await isAdmin())) redirect('/admin/login')
+  const admin = await getAdminUser()
+  if (!admin) redirect('/admin/login')
 
   const ticketId = String(formData.get('ticketId') || '')
   const action = String(formData.get('action') || '')
@@ -178,7 +82,5 @@ export async function updateSupportTicketAction(formData: FormData) {
     .eq('id', ticketId)
 
   if (error) throw error
-
   revalidatePath('/admin')
-  revalidatePath('/dashboard')
 }
