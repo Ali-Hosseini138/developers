@@ -260,7 +260,16 @@ function SubmissionDetailView({
             <Fact label="توسعه‌دهنده" value={detail.developer.name} />
             <Fact label="ایمیل توسعه‌دهنده" value={detail.developer.email} ltr />
             <Fact label="نوع حساب" value={detail.developer.accountType === 'legal' ? 'حقوقی' : 'حقیقی'} />
+            <Fact label="شرکت" value={detail.developer.companyName || '—'} />
+            <Fact label="عضویت توسعه‌دهنده" value={faDate(detail.developer.dateJoined)} />
+            <Fact label="وضعیت حساب" value={detail.developer.isActive ? 'فعال' : 'غیرفعال'} />
+            {detail.publishedApplication && <Fact label="اپ فعلی استور" value={detail.publishedApplication.name + ' · ' + detail.publishedApplication.packageName} />}
           </div>
+          {!detail.app.category.isValid && (
+            <p className="mt-4 rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 text-sm text-amber-800">
+              دسته‌بندی این درخواست دیگر معتبر نیست؛ تأیید ممکن است در Recheck شکست بخورد.
+            </p>
+          )}
           <div className="mt-4 rounded-lg bg-secondary/50 p-3">
             <p className="text-xs text-muted-foreground">توضیح کوتاه</p>
             <p className="mt-2 whitespace-pre-wrap text-sm leading-7">{detail.app.shortDescription || '—'}</p>
@@ -311,9 +320,18 @@ function SubmissionDetailView({
               <Fact label="targetSdk" value={String(detail.parseReport.targetSdkVersion ?? '—')} />
               <Fact label="معماری‌ها" value={detail.parseReport.architectures.join(', ') || '—'} ltr />
               <Fact label="آخرین versionCode استور" value={detail.currentStoreMaxVersionCode == null ? '—' : String(detail.currentStoreMaxVersionCode)} />
+              <Fact label="MD5" value={detail.parseReport.md5Hash || '—'} ltr />
+              <Fact label="SHA-256" value={detail.parseReport.sha256Hash || '—'} ltr />
+              <Fact label="زمان پردازش" value={faDate(detail.parseReport.parsedAt)} />
             </div>
           ) : (
             <p className="mt-3 text-sm text-muted-foreground">گزارش پردازش هنوز آماده نشده است.</p>
+          )}
+          {detail.parseReport?.publicKey && (
+            <div className="mt-3 rounded-lg bg-secondary/50 p-3">
+              <p className="text-xs text-muted-foreground">Public Key امضا</p>
+              <p className="mt-2 break-all font-mono text-xs" dir="ltr">{detail.parseReport.publicKey}</p>
+            </div>
           )}
         </section>
 
@@ -421,7 +439,10 @@ function SubmissionDetailView({
               {detail.hasUnknownPermissions && (
                 <label className="flex items-start gap-2 text-sm leading-6">
                   <input type="checkbox" checked={createUnknownPermissions} onChange={(event) => setCreateUnknownPermissions(event.target.checked)} className="mt-1" />
-                  Permissionهای ناشناخته در استور ساخته و به اپ متصل شوند.
+                  Permissionهای ناشناخته در استور ساخته و به اپ متصل شوند:
+                  <span className="block text-xs text-muted-foreground" dir="ltr">
+                    {detail.permissions.filter((permission) => permission.isUnknown).map((permission) => permission.name).join(', ')}
+                  </span>
                 </label>
               )}
 
