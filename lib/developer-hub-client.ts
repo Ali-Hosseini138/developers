@@ -119,6 +119,14 @@ export function developerHubErrorMessage(error: unknown, fallback: string) {
   if (e?.message === 'auth_required') return 'نشست ورود شما منقضی شده است. دوباره وارد شوید.'
   if (e?.message === 'network_error') return 'ارتباط با سرویس بک‌اند برقرار نشد. اتصال شبکه و CORS بک‌اند را بررسی کنید.'
   if (e?.message === 'file_too_large' || e?.status === 413) return 'حجم فایل از سقف مجاز سرور بیشتر است.'
+  if (e?.status === 429) {
+    const seconds = Number(e.retryAfter || 0)
+    if (Number.isFinite(seconds) && seconds > 0) {
+      const minutes = Math.max(1, Math.ceil(seconds / 60))
+      return 'سقف ارسال فایل در این ساعت پر شده است. حدود ' + minutes.toLocaleString('fa-IR') + ' دقیقه دیگر دوباره تلاش کنید.'
+    }
+    return 'سقف ارسال فایل در این ساعت پر شده است. کمی بعد دوباره تلاش کنید.'
+  }
 
   if (payload?.message) return String(payload.message)
   if (payload?.detail) return String(payload.detail)
