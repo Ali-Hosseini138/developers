@@ -74,6 +74,17 @@ export async function PATCH(
     if (current.status === 'published' && value !== current.package_name) {
       return NextResponse.json({ error: 'package_name_locked' }, { status: 409 })
     }
+    if (value !== current.package_name) {
+      const { data: duplicate, error: duplicateError } = await supabase
+        .from('apps')
+        .select('id')
+        .eq('package_name', value)
+        .neq('id', id)
+        .limit(1)
+        .maybeSingle()
+      if (duplicateError) return NextResponse.json({ error: 'package_check_failed' }, { status: 500 })
+      if (duplicate) return NextResponse.json({ error: 'duplicate_package_name' }, { status: 409 })
+    }
     patch.package_name = value
   }
 
