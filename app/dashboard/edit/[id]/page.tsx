@@ -256,8 +256,8 @@ export default function EditAppPage() {
                 return
               }
               setErrorMessage('')
-              setNewScreenshotFiles((old) => [...old, ...accepted].slice(0, 6))
-              accepted.forEach((file) => readImage(file, (url) => setScreenshots((old) => [...old, url].slice(0, 6))))
+              setNewScreenshotFiles((old) => [...old, ...accepted].slice(0, 20))
+              accepted.forEach((file) => readImage(file, (url) => setScreenshots((old) => [...old, url].slice(0, 20))))
             }}
           />
           <div className="mt-3 flex flex-wrap gap-3">
