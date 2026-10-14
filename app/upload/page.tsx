@@ -243,6 +243,8 @@ export default function UploadPage() {
             ? 'این اپ پرداخت درون‌برنامه‌ای دارد و باید Netbox Payment را پیاده‌سازی کند.'
             : code === 'tv_compatibility_required'
               ? 'اپی که مخصوص Android TV توسعه داده نشده فقط در صورتی قابل بررسی است که با ایرماوس یا ماوس به‌راحتی قابل استفاده باشد.'
+              : code === 'duplicate_package_name'
+                ? 'این Package Name قبلاً برای یک اپلیکیشن ثبت شده است.'
               : code === 'database_insert_failed'
                 ? 'فایل‌ها آپلود شدند، اما ثبت اپ در دیتابیس انجام نشد. دوباره تلاش کنید.'
                 : code === 'submission_snapshot_failed'
