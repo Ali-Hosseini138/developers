@@ -5,6 +5,8 @@ import { useFormStatus } from 'react-dom'
 import { Loader2 } from 'lucide-react'
 import { loginAction } from '@/app/admin/actions'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 
 function SubmitButton() {
   const { pending } = useFormStatus()
@@ -21,21 +23,32 @@ export function AdminLoginForm() {
 
   return (
     <form action={formAction} className="flex flex-col gap-4">
-      <div className="flex flex-col gap-2">
-        <label htmlFor="password" className="text-sm font-medium text-card-foreground">
-          رمز عبور مدیر
-        </label>
-        <input
+      <div>
+        <Label htmlFor="username">نام کاربری مدیر</Label>
+        <Input
+          id="username"
+          name="username"
+          type="text"
+          required
+          dir="ltr"
+          autoComplete="username"
+          className="mt-1.5 text-left"
+        />
+      </div>
+
+      <div>
+        <Label htmlFor="password">گذرواژه</Label>
+        <Input
           id="password"
           name="password"
           type="password"
           required
           dir="ltr"
           autoComplete="current-password"
-          placeholder="••••••••"
-          className="h-11 rounded-lg border border-input bg-background px-3 text-start text-sm outline-none focus:border-ring focus:ring-2 focus:ring-ring/30"
+          className="mt-1.5 text-left"
         />
       </div>
+
       {state?.error && (
         <p role="alert" className="rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive">
           {state.error}
