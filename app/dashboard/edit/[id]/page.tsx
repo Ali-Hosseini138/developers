@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useParams, useRouter } from 'next/navigation'
-import { ArrowRight, Loader2, Save } from 'lucide-react'
+import { ArrowRight, Loader2, Save, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -36,6 +36,7 @@ export default function EditAppPage() {
   const [icon, setIcon] = useState(app?.icon || '')
   const [banner, setBanner] = useState(app?.banner || '')
   const [screenshots, setScreenshots] = useState(app?.screenshots || [])
+  const [existingScreenshotPaths, setExistingScreenshotPaths] = useState(app?.screenshotPaths || [])
 
   const [iconFile, setIconFile] = useState<File | null>(null)
   const [bannerFile, setBannerFile] = useState<File | null>(null)
@@ -60,6 +61,13 @@ export default function EditAppPage() {
     reader.onload = () => setter(String(reader.result))
     reader.readAsDataURL(file)
   }
+
+  const readImageUrl = (file: File) => new Promise<string>((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(String(reader.result))
+    reader.onerror = () => reject(new Error('image_read_failed'))
+    reader.readAsDataURL(file)
+  })
 
   const validateImageFile = (file: File) => {
     if (!['image/png', 'image/jpeg', 'image/webp'].includes(file.type)) {
@@ -111,7 +119,7 @@ export default function EditAppPage() {
         screenshots,
         iconPath: iconUpload?.pathname ?? app.iconPath,
         bannerPath: bannerUpload?.pathname ?? app.bannerPath,
-        screenshotPaths: [...(app.screenshotPaths || []), ...newScreenshots.filter(Boolean).map((item) => item!.pathname)],
+        screenshotPaths: [...existingScreenshotPaths, ...newScreenshots.filter(Boolean).map((item) => item!.pathname)].slice(0, 20),
         updatedAt: 'امروز',
       })
 
@@ -249,24 +257,59 @@ export default function EditAppPage() {
             hint="PNG، JPG/JPEG یا WEBP — حداکثر حجم هر تصویر ۵ مگابایت"
             multiple
             compact
-            onFiles={(files) => {
-              const accepted = files.slice(0, Math.max(0, 20 - newScreenshotFiles.length))
-              if (accepted.some((file) => file.size > 5 * 1024 * 1024)) {
+            onFiles={async (files) => {
+              const remaining = Math.max(0, 20 - screenshots.length)
+              const candidates = files.slice(0, remaining)
+              if (candidates.some((file) => file.size > 5 * 1024 * 1024)) {
                 setErrorMessage('حجم هر تصویر باید حداکثر ۵ مگابایت باشد.')
                 return
               }
-              if (accepted.some((file) => !['image/png', 'image/jpeg', 'image/webp'].includes(file.type))) {
+              if (candidates.some((file) => !['image/png', 'image/jpeg', 'image/webp'].includes(file.type))) {
                 setErrorMessage('فرمت تصویر پشتیبانی نمی‌شود. PNG، JPG/JPEG یا WEBP انتخاب کنید.')
                 return
               }
-              setErrorMessage('')
-              setNewScreenshotFiles((old) => [...old, ...accepted].slice(0, 20))
-              accepted.forEach((file) => readImage(file, (url) => setScreenshots((old) => [...old, url].slice(0, 20))))
+
+              const existingKeys = new Set(newScreenshotFiles.map((file) => `${file.name}:${file.size}:${file.lastModified}`))
+              const unique = candidates.filter((file) => {
+                const key = `${file.name}:${file.size}:${file.lastModified}`
+                if (existingKeys.has(key)) return false
+                existingKeys.add(key)
+                return true
+              })
+              if (!unique.length) return
+
+              try {
+                const previews = await Promise.all(unique.map(readImageUrl))
+                setErrorMessage('')
+                setNewScreenshotFiles((old) => [...old, ...unique])
+                setScreenshots((old) => [...old, ...previews].slice(0, 20))
+              } catch {
+                setErrorMessage('خواندن یکی از تصاویر انجام نشد. دوباره تلاش کنید.')
+              }
             }}
           />
           <div className="mt-3 flex flex-wrap gap-3">
             {screenshots.map((src, index) => (
-              <img key={`${src}-${index}`} src={src} alt={`تصویر محیط ${index + 1}`} className="size-20 rounded-lg object-cover" />
+              <div key={`${src}-${index}`} className="relative">
+                <img src={src} alt={`تصویر محیط ${index + 1}`} className="size-20 rounded-lg object-cover" />
+                <button
+                  type="button"
+                  aria-label={`حذف تصویر ${index + 1}`}
+                  onClick={() => {
+                    const existingCount = existingScreenshotPaths.length
+                    setScreenshots((old) => old.filter((_, i) => i !== index))
+                    if (index < existingCount) {
+                      setExistingScreenshotPaths((old) => old.filter((_, i) => i !== index))
+                    } else {
+                      const newIndex = index - existingCount
+                      setNewScreenshotFiles((old) => old.filter((_, i) => i !== newIndex))
+                    }
+                  }}
+                  className="absolute -right-2 -top-2 rounded-full bg-destructive p-1 text-destructive-foreground"
+                >
+                  <X className="size-3" />
+                </button>
+              </div>
             ))}
           </div>
         </Field>
