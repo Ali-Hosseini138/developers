@@ -329,8 +329,17 @@ export default function UploadPage() {
                   return
                 }
                 setErrorMessage('')
-                setScreenshotFiles((old) => [...old, ...candidates].slice(0, 20))
-                candidates.forEach((file) => readImage(file, (url) => setScreenshots((old) => [...old, url].slice(0, 20))))
+                const existingKeys = new Set(
+                  screenshotFiles.map((file) => `${file.name}:${file.size}:${file.lastModified}`),
+                )
+                const uniqueCandidates = candidates.filter((file) => {
+                  const key = `${file.name}:${file.size}:${file.lastModified}`
+                  if (existingKeys.has(key)) return false
+                  existingKeys.add(key)
+                  return true
+                })
+                setScreenshotFiles((old) => [...old, ...uniqueCandidates].slice(0, 20))
+                uniqueCandidates.forEach((file) => readImage(file, (url) => setScreenshots((old) => [...old, url].slice(0, 20))))
               }} /><div className="mt-3 flex flex-wrap gap-3">{screenshots.map((src, i) => <div key={src} className="relative"><img src={src} alt={`تصویر ${i + 1}`} className="size-20 rounded-lg object-cover" /><button type="button" aria-label="حذف تصویر" onClick={() => { setScreenshots((old) => old.filter((_, n) => n !== i)); setScreenshotFiles((old) => old.filter((_, n) => n !== i)) }} className="absolute -right-2 -top-2 rounded-full bg-destructive p-1 text-destructive-foreground"><X className="size-3" /></button></div>)}</div></div></div></div></div></div>}
         {step === 3 && (
           <div>
