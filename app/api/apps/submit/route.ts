@@ -99,6 +99,19 @@ export async function POST(request: Request) {
     .filter((value): value is string => Boolean(value))
     .slice(0, 20)
 
+  if (!body.apk.name.toLowerCase().endsWith('.apk')) {
+    return NextResponse.json({ error: 'invalid_apk_file' }, { status: 400 })
+  }
+  if (body.apk.size > 250 * 1024 * 1024) {
+    return NextResponse.json({ error: 'apk_too_large' }, { status: 400 })
+  }
+
+  const ownerPrefix = `users/${identity.id}/`
+  const uploadPaths = [body.apk.pathname, body.icon.pathname, body.banner.pathname, ...screenshotPaths]
+  if (uploadPaths.some((pathname) => !pathname.startsWith(ownerPrefix))) {
+    return NextResponse.json({ error: 'invalid_upload_path' }, { status: 400 })
+  }
+
   const { data, error } = await supabase
     .from('apps')
     .insert({
