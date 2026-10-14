@@ -31,6 +31,19 @@ function mapApp(row: Record<string, any>): StoreApp {
   return { id: row.id, name: row.name, tagline: row.tagline || '', description: row.description || '', category: row.category || 'تکنولوژی و اینترنت', icon: row.icon_path ? `/api/blob-file?pathname=${encodeURIComponent(row.icon_path)}` : row.icon_url || '/placeholder.svg', banner: row.banner_path ? `/api/blob-file?pathname=${encodeURIComponent(row.banner_path)}` : row.banner_url || undefined, screenshots: (row.screenshot_paths || []).map((path: string) => `/api/blob-file?pathname=${encodeURIComponent(path)}`), developer: row.owner_name || 'توسعه‌دهنده', ownerId: row.owner_id || undefined, status: row.status || 'draft', version: '', price: 0, rating: 0, downloads: 0, platforms: [], tags: [], updatedAt: new Date(row.updated_at).toLocaleDateString('fa-IR'), reviews: [], website: row.website || undefined, supportEmail: row.support_email || undefined, packageName: row.package_name || undefined, ageRestriction: row.age_restriction || undefined, hasInAppPayment: Boolean(row.has_in_app_payment), netboxPaymentIntegrated: Boolean(row.netbox_payment_integrated), developedForAndroidTv: row.developed_for_android_tv !== false, airMouseCompatible: Boolean(row.air_mouse_compatible), reviewReason: row.review_reason || undefined, reviewedAt: row.reviewed_at || undefined, apkName: row.apk_name || undefined, apkSize: row.apk_size ? `${(Number(row.apk_size) / 1024 / 1024).toFixed(1)} مگابایت` : undefined, apkPath: row.apk_path || undefined, iconPath: row.icon_path || undefined, bannerPath: row.banner_path || undefined, screenshotPaths: row.screenshot_paths || [] }
 }
 
+function mapTicket(row: Record<string, any>, developer: string): SupportTicket {
+  return {
+    id: row.id,
+    subject: row.subject,
+    message: row.message,
+    status: row.status,
+    createdAt: new Date(row.created_at).toLocaleString('fa-IR'),
+    developer,
+    adminReply: row.admin_reply || undefined,
+    repliedAt: row.replied_at ? new Date(row.replied_at).toLocaleString('fa-IR') : undefined,
+  }
+}
+
 export function StoreProvider({ children }: { children: ReactNode }) {
   const [apps, setApps] = useState<StoreApp[]>(MOCK_APPS)
   const [user, setUser] = useState<User | null>(null)
@@ -71,11 +84,19 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         }
 
         const payload = await response.json()
-        const nextUser = payload.user ?? null
-        setUser(nextUser)
+        const sessionUser = payload.user ?? null
 
-        if (nextUser?.id) {
-          const appsResponse = await fetch('/api/developer/apps', { cache: 'no-store' })
+        if (sessionUser?.id) {
+          const [profileResponse, appsResponse, ticketsResponse] = await Promise.all([
+            fetch('/api/developer/profile', { cache: 'no-store' }),
+            fetch('/api/developer/apps', { cache: 'no-store' }),
+            fetch('/api/developer/tickets', { cache: 'no-store' }),
+          ])
+
+          const profilePayload = profileResponse.ok ? await profileResponse.json() : null
+          const nextUser = profilePayload?.profile || sessionUser
+          setUser(nextUser)
+
           if (appsResponse.ok) {
             const appsPayload = await appsResponse.json()
             const rows = Array.isArray(appsPayload.apps) ? appsPayload.apps as Record<string, any>[] : []
@@ -84,6 +105,15 @@ export function StoreProvider({ children }: { children: ReactNode }) {
               ...current.filter((app) => !rows.some((row) => row.id === app.id)),
             ])
           }
+
+          if (ticketsResponse.ok) {
+            const ticketsPayload = await ticketsResponse.json()
+            const rows = Array.isArray(ticketsPayload.tickets) ? ticketsPayload.tickets as Record<string, any>[] : []
+            setTickets(rows.map((row) => mapTicket(row, nextUser.name)))
+          }
+        } else {
+          setUser(null)
+          setTickets([])
         }
       } catch {
         setUser(null)
