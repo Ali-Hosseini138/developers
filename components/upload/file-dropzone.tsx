@@ -94,6 +94,7 @@ export function FileDropzone({
         multiple={multiple}
         disabled={disabled}
         className="sr-only"
+        onClick={(event) => event.stopPropagation()}
         onChange={(event) => {
           if (event.target.files) submitFiles(event.target.files)
           event.currentTarget.value = ''
