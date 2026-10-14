@@ -4,7 +4,7 @@ import { NextResponse } from 'next/server'
 export const DEVELOPER_API_BASE_URL = (
   process.env.DEVELOPER_API_BASE_URL ||
   process.env.HOST_BASE_URL ||
-  'https://macil-dev.net-box.ir'
+  'https://macil.dev.netboxteam.com'
 ).replace(/\/$/, '')
 
 export const ACCESS_COOKIE = 'developer_access'
