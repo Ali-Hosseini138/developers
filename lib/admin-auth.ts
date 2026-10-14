@@ -26,7 +26,11 @@ async function refreshAdminAccess() {
   const payload = await response.json().catch(() => ({}))
   if (!response.ok || typeof payload.access !== 'string') return null
 
-  store.set(ADMIN_ACCESS_COOKIE, payload.access, authCookieOptions(Number(payload.expiresIn || 1800)))
+  try {
+    store.set(ADMIN_ACCESS_COOKIE, payload.access, authCookieOptions(Number(payload.expiresIn || 1800)))
+  } catch {
+    // Server Components cannot mutate cookies; the refreshed token is still valid for this request.
+  }
   return payload.access as string
 }
 
