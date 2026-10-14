@@ -743,9 +743,9 @@ function FinanceTab() {
         <span className="flex size-14 items-center justify-center rounded-2xl bg-primary/10 text-primary">
           <Wallet className="size-7" />
         </span>
-        <h2 className="mt-5 text-xl font-bold">بخش مالی به‌زودی اضافه می‌شود</h2>
+        <h2 className="mt-5 text-xl font-bold">آمار فروش به‌زودی اضافه می‌شود</h2>
         <p className="mt-3 max-w-lg text-sm leading-7 text-muted-foreground">
-          اطلاعات فروش، تراکنش‌ها، تسویه‌حساب و گزارش‌های مالی به‌زودی در پنل توسعه‌دهندگان نت‌استور در دسترس قرار می‌گیرند.
+          آمار فروش، تعداد سفارش‌ها، روند فروش و گزارش‌های مرتبط به‌زودی در این بخش در دسترس قرار می‌گیرند.
         </p>
       </div>
     </section>
