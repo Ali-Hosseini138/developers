@@ -56,6 +56,7 @@ function AuthFormInner({ mode }: { mode: 'login' | 'signup' }) {
 
   const isSignup = mode === 'signup'
   const registered = searchParams.get('registered') === '1'
+  const passwordReset = searchParams.get('password_reset') === '1'
   const verificationResult = searchParams.get('result')
 
   const normalizedEmail = email.trim().toLowerCase()
@@ -229,6 +230,7 @@ function AuthFormInner({ mode }: { mode: 'login' | 'signup' }) {
       ) : (
         <form onSubmit={handleLogin} className="mt-8 flex flex-col gap-4 rounded-2xl border border-border bg-card p-6">
           {verificationResult === 'success' && <p role="status" className="rounded-lg bg-primary/5 px-3 py-2 text-sm text-primary">ایمیل شما با موفقیت تأیید شد. اکنون می‌توانید وارد شوید.</p>}
+          {passwordReset && <p role="status" className="rounded-lg bg-primary/5 px-3 py-2 text-sm text-primary">رمز عبور با موفقیت تغییر کرد. اکنون با رمز جدید وارد شوید.</p>}
           {verificationResult === 'failed' && <p role="alert" className="rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive">لینک تأیید ایمیل نامعتبر یا منقضی شده است.</p>}
           {registered && <div className="rounded-lg bg-primary/5 px-3 py-3 text-sm leading-7"><p>ثبت‌نام انجام شد. برای ورود ابتدا ایمیل خود را تأیید کنید.</p><Button type="button" variant="link" className="h-auto px-0" onClick={() => void resendVerification()} disabled={resending}>{resending ? 'در حال ارسال...' : 'ارسال دوباره ایمیل تأیید'}</Button></div>}
           <div className="flex flex-col gap-1.5"><Label htmlFor="email">ایمیل</Label><Input id="email" type="email" dir="ltr" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" autoComplete="email" className="h-11 text-left" required /></div>
