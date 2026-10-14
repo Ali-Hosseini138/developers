@@ -15,8 +15,8 @@ import {
 
 const dashboardItems = [
   { id: 'apps', label: 'داشبورد من', icon: Package },
-  { id: 'analytics', label: 'آمار و عملکرد', icon: Activity },
-  { id: 'finance', label: 'مالی', icon: Wallet },
+  { id: 'analytics', label: 'آمار و نصب', icon: Activity },
+  { id: 'finance', label: 'آمار فروش', icon: Wallet },
   { id: 'support', label: 'پشتیبانی و تیکت', icon: HelpCircle },
 ] as const
 
