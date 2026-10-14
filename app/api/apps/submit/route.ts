@@ -114,6 +114,8 @@ export async function POST(request: Request) {
       package_name: packageName,
       has_in_app_payment: body.hasInAppPayment,
       netbox_payment_integrated: body.hasInAppPayment ? body.netboxPaymentIntegrated === true : false,
+      netbox_payment_grace_accepted: body.hasInAppPayment ? body.netboxPaymentGraceAccepted === true : false,
+      netbox_payment_grace_deadline: null,
       developed_for_android_tv: body.developedForAndroidTv,
       air_mouse_compatible: body.developedForAndroidTv ? false : body.airMouseCompatible === true,
       website,
