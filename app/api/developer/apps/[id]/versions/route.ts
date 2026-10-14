@@ -56,6 +56,19 @@ export async function POST(
     return NextResponse.json({ error: 'package_name_mismatch' }, { status: 400 })
   }
 
+  const { data: pendingVersion, error: pendingError } = await supabase
+    .from('app_versions')
+    .select('id')
+    .eq('app_id', id)
+    .eq('status', 'pending')
+    .limit(1)
+    .maybeSingle()
+
+  if (pendingError) return NextResponse.json({ error: 'version_check_failed' }, { status: 500 })
+  if (pendingVersion) {
+    return NextResponse.json({ error: 'version_under_review' }, { status: 409 })
+  }
+
   const { data: version, error } = await supabase
     .from('app_versions')
     .insert({
