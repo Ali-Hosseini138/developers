@@ -136,8 +136,7 @@ function AuthFormInner({ mode }: { mode: 'login' | 'signup' }) {
         email: payload.user?.email || normalizedEmail,
         termsAcceptedAt: new Date().toISOString(),
       })
-      router.push(next)
-      router.refresh()
+      window.location.assign(next)
     } catch {
       setErrorMessage('ارتباط با سرویس احراز هویت برقرار نشد. دوباره تلاش کنید.')
     } finally { setLoading(false) }
