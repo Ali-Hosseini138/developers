@@ -417,7 +417,7 @@ function QuickChecklist({ app }: { app: AdminApp }) {
     ['حداقل یک اسکرین‌شات', app.screenshot_paths.length > 0],
     ['ایمیل پشتیبانی', Boolean(app.support_email)],
     ['شرط TV / ایرماوس', app.developed_for_android_tv || app.air_mouse_compatible],
-    ['شرط Payment', !app.has_in_app_payment || app.netbox_payment_integrated],
+    ['شرط Payment', !app.has_in_app_payment || app.netbox_payment_integrated || app.netbox_payment_grace_accepted],
   ] as const
 
   return (
