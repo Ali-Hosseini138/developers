@@ -14,7 +14,7 @@ import { developerHubErrorMessage, postDeveloperHubMultipart } from '@/lib/devel
 import { toFa } from '@/lib/format'
 
 const steps = ['فایل APK', 'اطلاعات پایه', 'رسانه‌ها', 'شرایط انتشار', 'بازبینی']
-const MAX_APK_SIZE = 250 * 1024 * 1024
+const MAX_APK_SIZE = 300 * 1024 * 1024
 const MAX_IMAGE_SIZE = 5 * 1024 * 1024
 const MAX_ICON_SIZE = 2 * 1024 * 1024
 const MAX_SCREENSHOTS = 10
@@ -39,9 +39,7 @@ export default function UploadPage() {
   const [name, setName] = useState('')
   const [nameEn, setNameEn] = useState('')
   const [tagline, setTagline] = useState('')
-  const [taglineEn, setTaglineEn] = useState('')
   const [description, setDescription] = useState('')
-  const [descriptionEn, setDescriptionEn] = useState('')
   const [packageName, setPackageName] = useState('')
   const [categoryId, setCategoryId] = useState('')
   const [categories, setCategories] = useState<CategoryOption[]>([])
@@ -176,7 +174,7 @@ export default function UploadPage() {
       setApkFile(null)
       setApkName('')
       setApkSize('')
-      setErrorMessage('حجم فایل APK نباید بیشتر از ۲۵۰ مگابایت باشد.')
+      setErrorMessage('حجم فایل APK نباید بیشتر از ۳۰۰ مگابایت باشد.')
       return
     }
 
@@ -316,7 +314,7 @@ export default function UploadPage() {
               <FileDropzone
                 accept=".apk,application/vnd.android.package-archive"
                 label="انتخاب فایل APK"
-                hint="حداکثر حجم قابل قبول ۲۵۰ مگابایت است."
+                hint="حداکثر حجم قابل قبول ۳۰۰ مگابایت است."
                 onFiles={(files) => selectApk(files[0])}
               />
             </div>
@@ -346,16 +344,8 @@ export default function UploadPage() {
             <Field label="توضیح کوتاه (فارسی)" required>
               <Input value={tagline} onChange={(event) => setTagline(event.target.value)} maxLength={1000} />
             </Field>
-            <Field label="Short description (English) — اختیاری">
-              <Input value={taglineEn} onChange={(event) => setTaglineEn(event.target.value)} maxLength={1000} dir="ltr" />
-              <p className="text-xs text-muted-foreground">این فیلد فعلاً در API جدید فیلد جداگانه ندارد و فقط در فرانت نگه داشته می‌شود.</p>
-            </Field>
             <Field label="توضیحات کامل (فارسی)" required>
               <Textarea value={description} onChange={(event) => setDescription(event.target.value)} rows={6} maxLength={20000} />
-            </Field>
-            <Field label="Full description (English) — اختیاری">
-              <Textarea value={descriptionEn} onChange={(event) => setDescriptionEn(event.target.value)} rows={6} maxLength={20000} dir="ltr" />
-              <p className="text-xs text-muted-foreground">این فیلد فعلاً در API جدید فیلد جداگانه ندارد و فقط در فرانت نگه داشته می‌شود.</p>
             </Field>
             <Field label="Package Name" required>
               <Input value={packageName} onChange={(event) => setPackageName(event.target.value.trim())} dir="ltr" maxLength={100} placeholder="com.company.app" />
