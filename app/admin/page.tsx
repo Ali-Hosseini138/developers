@@ -28,7 +28,7 @@ export default async function AdminPage() {
   if (!adminUser) redirect('/admin/login')
 
   const submissionsResponse = await adminHubApi(
-    '/api/v1/developer-hub/admin/submissions/?page=1&page_size=200&ordering=-submitted_at',
+    '/api/v1/developer-hub/admin/submissions/?page=1&page_size=200&ordering=submitted_at',
   )
   const submissionsPayload = await submissionsResponse.json().catch(() => ({}))
   const submissions: AdminSubmissionListItem[] = Array.isArray(submissionsPayload?.results)
