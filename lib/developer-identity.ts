@@ -77,10 +77,27 @@ export async function ensureDeveloperOwner(emailInput: string): Promise<Develope
     existingId = data.user.id
   }
 
-  await admin.from('profiles').upsert({
-    id: existingId,
-    full_name: email.split('@')[0] || 'توسعه‌دهنده',
-  }, { onConflict: 'id' })
+  const { data: profile, error: profileReadError } = await admin
+    .from('profiles')
+    .select('id, full_name')
+    .eq('id', existingId)
+    .maybeSingle()
+
+  if (profileReadError) throw profileReadError
+
+  if (!profile) {
+    const { error: profileInsertError } = await admin.from('profiles').insert({
+      id: existingId,
+      full_name: email.split('@')[0] || 'توسعه‌دهنده',
+    })
+    if (profileInsertError) throw profileInsertError
+  } else if (!profile.full_name) {
+    const { error: profileUpdateError } = await admin
+      .from('profiles')
+      .update({ full_name: email.split('@')[0] || 'توسعه‌دهنده' })
+      .eq('id', existingId)
+    if (profileUpdateError) throw profileUpdateError
+  }
 
   return { id: existingId, email }
 }
