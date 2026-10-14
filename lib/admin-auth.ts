@@ -1,45 +1,85 @@
-import { createHmac, timingSafeEqual } from 'crypto'
 import { cookies } from 'next/headers'
+import { developerApi, authCookieOptions } from '@/lib/developer-api'
 
-const COOKIE_NAME = 'ns_admin_session'
+export const ADMIN_ACCESS_COOKIE = 'developer_hub_admin_access'
+export const ADMIN_REFRESH_COOKIE = 'developer_hub_admin_refresh'
 
-// Derive a deterministic session token from the admin password so we never
-// store the raw password in a cookie.
-function adminToken() {
-  const secret = process.env.SUPABASE_JWT_SECRET || 'ns-admin'
-  return createHmac('sha256', secret).update(process.env.ADMIN_PASSWORD || '').digest('hex')
+type AdminUser = {
+  id: number
+  username: string
+  firstName: string
+  lastName: string
+  isStaff: boolean
+  isSuperuser: boolean
+  canReviewSubmission: boolean
 }
 
-export function verifyAdminPassword(input: string) {
-  const expected = process.env.ADMIN_PASSWORD || ''
-  if (!expected) return false
-  const a = Buffer.from(input)
-  const b = Buffer.from(expected)
-  return a.length === b.length && timingSafeEqual(a, b)
-}
-
-export async function createAdminSession() {
+async function refreshAdminAccess() {
   const store = await cookies()
-  store.set(COOKIE_NAME, adminToken(), {
-    httpOnly: true,
-    secure: true,
-    sameSite: 'lax',
-    path: '/',
-    maxAge: 60 * 60 * 8,
+  const refresh = store.get(ADMIN_REFRESH_COOKIE)?.value
+  if (!refresh) return null
+
+  const response = await developerApi('/api/v1/developer-hub/admin/auth/token/refresh/', {
+    method: 'POST',
+    body: JSON.stringify({ refresh }),
   })
+  const payload = await response.json().catch(() => ({}))
+  if (!response.ok || typeof payload.access !== 'string') return null
+
+  store.set(ADMIN_ACCESS_COOKIE, payload.access, authCookieOptions(Number(payload.expiresIn || 1800)))
+  return payload.access as string
+}
+
+export async function setAdminSession(access: string, refresh: string, expiresIn = 1800) {
+  const store = await cookies()
+  store.set(ADMIN_ACCESS_COOKIE, access, authCookieOptions(expiresIn))
+  store.set(ADMIN_REFRESH_COOKIE, refresh, authCookieOptions(12 * 60 * 60))
 }
 
 export async function destroyAdminSession() {
   const store = await cookies()
-  store.delete(COOKIE_NAME)
+  store.set(ADMIN_ACCESS_COOKIE, '', { path: '/', maxAge: 0 })
+  store.set(ADMIN_REFRESH_COOKIE, '', { path: '/', maxAge: 0 })
+}
+
+export async function getAdminAccessToken() {
+  const store = await cookies()
+  return store.get(ADMIN_ACCESS_COOKIE)?.value || await refreshAdminAccess()
+}
+
+export async function adminHubApi(path: string, init: RequestInit = {}) {
+  let access = await getAdminAccessToken()
+  if (!access) {
+    return new Response(JSON.stringify({ detail: 'نشست مدیر معتبر نیست.' }), {
+      status: 401,
+      headers: { 'Content-Type': 'application/json' },
+    })
+  }
+
+  const makeRequest = (token: string) => developerApi(path, {
+    ...init,
+    headers: {
+      ...(init.headers || {}),
+      Authorization: `Bearer ${token}`,
+    },
+  })
+
+  let response = await makeRequest(access)
+  if (response.status !== 401) return response
+
+  access = await refreshAdminAccess()
+  if (!access) return response
+  return makeRequest(access)
+}
+
+export async function getAdminUser(): Promise<AdminUser | null> {
+  const response = await adminHubApi('/api/v1/developer-hub/admin/auth/me/')
+  if (!response.ok) return null
+  const payload = await response.json().catch(() => null)
+  if (!payload?.isStaff) return null
+  return payload as AdminUser
 }
 
 export async function isAdmin() {
-  const store = await cookies()
-  const token = store.get(COOKIE_NAME)?.value
-  if (!token) return false
-  const expected = adminToken()
-  const a = Buffer.from(token)
-  const b = Buffer.from(expected)
-  return a.length === b.length && timingSafeEqual(a, b)
+  return Boolean(await getAdminUser())
 }
