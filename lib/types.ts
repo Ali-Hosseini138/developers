@@ -27,8 +27,11 @@ export interface AppReview {
 export interface StoreApp {
   id: string
   name: string
+  nameEn?: string
   tagline: string
+  taglineEn?: string
   description: string
+  descriptionEn?: string
   category: AppCategory
   icon: string
   banner?: string
@@ -60,6 +63,8 @@ export interface StoreApp {
   ageRestriction?: 'همه سنین' | '+۷' | '+۱۲' | '+۱۵' | '+۱۸'
   hasInAppPayment?: boolean
   netboxPaymentIntegrated?: boolean
+  netboxPaymentGraceAccepted?: boolean
+  netboxPaymentGraceDeadline?: string
   developedForAndroidTv?: boolean
   airMouseCompatible?: boolean
   reviewReason?: string
