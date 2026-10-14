@@ -11,7 +11,6 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { useStore } from '@/components/store-provider'
 import { toFa } from '@/lib/format'
-import { createClient } from '@/lib/supabase/client'
 import { DeveloperSidebar } from '@/components/developer-sidebar'
 
 const tabs = [
@@ -306,7 +305,6 @@ function buildDemoMetrics(days: number) {
 }
 
 function AnalyticsTab({ myApps }: { myApps: ReturnType<typeof useStore>['myApps'] }) {
-  const supabase = useMemo(() => createClient(), [])
   const publishedApps = useMemo(() => myApps.filter((app) => app.status === 'published'), [myApps])
   const hasMultipleApps = publishedApps.length > 1
   const [selectedAppId, setSelectedAppId] = useState(hasMultipleApps ? 'all' : publishedApps[0]?.id || '')
@@ -363,67 +361,47 @@ function AnalyticsTab({ myApps }: { myApps: ReturnType<typeof useStore>['myApps'
       return
     }
 
-    const load = async () => {
-      setLoading(true)
-      setErrorMessage('')
+    const controller = new AbortController()
 
+    const load = async () => {
       if (!dateWindow) {
         setInstallRows([])
         setSalesRows([])
-        setLoading(false)
         return
       }
 
-      let installQuery = supabase
-        .from('app_daily_installs')
-        .select('app_id, metric_date, installs')
-        .gte('metric_date', dateWindow.start)
-        .lte('metric_date', dateWindow.end)
-        .order('metric_date', { ascending: true })
+      setLoading(true)
+      setErrorMessage('')
 
-      installQuery = selectedIds.length === 1
-        ? installQuery.eq('app_id', selectedIds[0])
-        : installQuery.in('app_id', selectedIds)
+      try {
+        const params = new URLSearchParams({
+          appId: selectedAppId || 'all',
+          start: dateWindow.start,
+          end: dateWindow.end,
+        })
+        const response = await fetch(`/api/developer/analytics?${params.toString()}`, {
+          cache: 'no-store',
+          signal: controller.signal,
+        })
+        const payload = await response.json().catch(() => null)
 
-      const paymentAppIds = selectedAppId === 'all'
-        ? publishedApps.filter((app) => app.netboxPaymentIntegrated).map((app) => app.id)
-        : paymentEnabled && selectedAppId
-          ? [selectedAppId]
-          : []
+        if (!response.ok) throw new Error(payload?.error || 'analytics_load_failed')
 
-      const salesPromise = paymentAppIds.length
-        ? (() => {
-            let query = supabase
-              .from('app_daily_sales')
-              .select('app_id, metric_date, orders, total_sales_rial')
-              .gte('metric_date', dateWindow.start)
-              .lte('metric_date', dateWindow.end)
-              .order('metric_date', { ascending: true })
-
-            query = paymentAppIds.length === 1
-              ? query.eq('app_id', paymentAppIds[0])
-              : query.in('app_id', paymentAppIds)
-
-            return query
-          })()
-        : Promise.resolve({ data: [], error: null })
-
-      const [installResult, salesResult] = await Promise.all([installQuery, salesPromise])
-
-      if (installResult.error || salesResult.error) {
+        setInstallRows(Array.isArray(payload?.installs) ? payload.installs as Array<InstallMetric & { app_id?: string }> : [])
+        setSalesRows(Array.isArray(payload?.sales) ? payload.sales as Array<SalesMetric & { app_id?: string }> : [])
+      } catch (error) {
+        if (error instanceof DOMException && error.name === 'AbortError') return
         setErrorMessage('دریافت آمار انجام نشد. دوباره تلاش کنید.')
         setInstallRows([])
         setSalesRows([])
-      } else {
-        setInstallRows((installResult.data || []) as Array<InstallMetric & { app_id?: string }>)
-        setSalesRows((salesResult.data || []) as Array<SalesMetric & { app_id?: string }>)
+      } finally {
+        if (!controller.signal.aborted) setLoading(false)
       }
-
-      setLoading(false)
     }
 
     void load()
-  }, [selectedAppId, dateWindow, paymentEnabled, publishedApps, supabase])
+    return () => controller.abort()
+  }, [selectedAppId, dateWindow, selectedIds.length])
 
   const aggregatedInstalls = useMemo(() => {
     if (selectedAppId !== 'all') {
