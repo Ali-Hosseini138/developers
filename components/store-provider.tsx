@@ -70,9 +70,21 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       if (response.status === 401) setDeveloperApps([])
       return
     }
+
     const payload = await response.json().catch(() => null)
     const rows = Array.isArray(payload?.results) ? payload.results : []
-    setDeveloperApps(rows.map((row: any) => mapDeveloperHubApp(row, developerName)))
+
+    const detailedRows = await Promise.all(rows.map(async (row: any) => {
+      try {
+        const detailResponse = await fetch(`/api/developer-hub/apps/${encodeURIComponent(String(row.id))}`, { cache: 'no-store' })
+        if (!detailResponse.ok) return row
+        return await detailResponse.json()
+      } catch {
+        return row
+      }
+    }))
+
+    setDeveloperApps(detailedRows.map((row: any) => mapDeveloperHubApp(row, developerName)))
   }, [])
 
   const reloadDeveloperApps = useCallback(async () => {
@@ -150,6 +162,30 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     if (!response.ok) throw new Error(payload?.code || payload?.message || payload?.detail || 'cancel_failed')
     await reloadDeveloperApps()
   }, [reloadDeveloperApps])
+
+  const updateProfile = useCallback(async (patch: Pick<User, 'name' | 'phone' | 'nationalId' | 'organization'>) => {
+    if (!user?.id) throw new Error('unauthorized')
+    const response = await fetch('/api/developer/profile', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(patch),
+    })
+    const payload = await response.json().catch(() => null)
+    if (!response.ok) throw new Error(payload?.error || 'profile_update_failed')
+    setUser(payload.profile)
+  }, [user?.id])
+
+  const acceptTerms = useCallback(async () => {
+    if (!user?.id) throw new Error('unauthorized')
+    const response = await fetch('/api/developer/profile', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ acceptTerms: true }),
+    })
+    const payload = await response.json().catch(() => null)
+    if (!response.ok) throw new Error(payload?.error || 'terms_update_failed')
+    setUser(payload.profile)
+  }, [user?.id])
   const addTicket = useCallback(async (ticket: Omit<SupportTicket, 'id' | 'createdAt' | 'developer'>) => {
     if (!user?.id) throw new Error('unauthorized')
     const response = await fetch('/api/developer/tickets', {
