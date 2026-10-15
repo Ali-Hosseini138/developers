@@ -13,12 +13,14 @@ async function getAccess(forceRefresh = false): Promise<AccessPayload> {
   if (!forceRefresh && cachedAccess) return cachedAccess
 
   if (forceRefresh) {
-    await fetch('/api/auth/refresh', { method: 'POST' }).catch(() => null)
+    const response = await fetch('/api/auth/refresh', { method: 'POST' })
+    if (!response.ok) throw backendError(await response.json().catch(() => null), response.status)
   }
 
   const response = await fetch('/api/auth/access-token', { cache: 'no-store' })
   const payload = await response.json().catch(() => null)
   if (!response.ok || !payload?.access || !payload?.baseUrl) {
+    if (response.status === 401 && typeof window !== 'undefined') window.location.assign('/login?next=' + encodeURIComponent(window.location.pathname + window.location.search))
     throw new Error('auth_required')
   }
 
@@ -100,7 +102,14 @@ async function multipartWithRefresh(
   } catch (error) {
     if ((error as any)?.status !== 401) throw error
     cachedAccess = null
-    return sendMultipart(method, path, formData, onProgress, true)
+    try {
+      return await sendMultipart(method, path, formData, onProgress, true)
+    } catch (retryError) {
+      if ((retryError as any)?.status === 401 || (retryError as Error)?.message === 'auth_required') {
+        if (typeof window !== 'undefined') window.location.assign('/login?next=' + encodeURIComponent(window.location.pathname + window.location.search))
+      }
+      throw retryError
+    }
   }
 }
 
@@ -116,8 +125,8 @@ export function developerHubErrorMessage(error: unknown, fallback: string) {
   const e = error as Error & { payload?: any; status?: number; retryAfter?: string | null }
   const payload = e?.payload
 
-  if (e?.message === 'auth_required') return 'نشست ورود شما منقضی شده است. دوباره وارد شوید.'
-  if (e?.message === 'network_error') return 'ارتباط با سرویس بک‌اند برقرار نشد. اتصال شبکه و CORS بک‌اند را بررسی کنید.'
+  if (e?.message === 'auth_required' || e?.status === 401) return 'نشست ورود شما منقضی شده است. دوباره وارد شوید.'
+  if (e?.message === 'network_error') return 'ارتباط با سرویس برقرار نشد. دوباره تلاش کنید.'
   if (e?.message === 'file_too_large' || e?.status === 413) return 'حجم فایل از سقف مجاز سرور بیشتر است.'
   if (e?.status === 429) {
     const seconds = Number(e.retryAfter || 0)
@@ -152,7 +161,7 @@ export function developerHubFieldErrors(error: unknown): Record<string, string> 
   const messages = (value: unknown): string[] => {
     if (typeof value === 'string') return [value]
     if (Array.isArray(value)) return value.flatMap(messages)
-    if (value && typeof value === 'object') return Object.values(value).flatMap(messages)
+    if (value && typeof value === 'object') return Object.entries(value).flatMap(([key, item]) => messages(item).map(text => /^\d+$/.test(key) ? `تصویر ${Number(key) + 1}: ${text}` : text))
     return []
   }
   return Object.fromEntries(Object.entries(payload)

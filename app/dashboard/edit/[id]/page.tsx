@@ -70,6 +70,9 @@ function EditAppForm({ app, reloadDeveloperApps }: { app: StoreApp; reloadDevelo
   const [airMouseCompatible, setAirMouseCompatible] = useState(Boolean(app?.airMouseCompatible))
   const [supportsNetboxPayment, setSupportsNetboxPayment] = useState(Boolean(app?.supportsNetboxPayment))
 
+  const [hasInAppPayment, setHasInAppPayment] = useState(Boolean(app.hasInAppPayment))
+  const [paymentCommitmentAccepted, setPaymentCommitmentAccepted] = useState(false)
+  const [removeIcon, setRemoveIcon] = useState(false)
   const [iconFile, setIconFile] = useState<File | null>(null)
   const [bannerFile, setBannerFile] = useState<File | null>(null)
   const [backgroundFile, setBackgroundFile] = useState<File | null>(null)
@@ -130,8 +133,12 @@ function EditAppForm({ app, reloadDeveloperApps }: { app: StoreApp; reloadDevelo
         setErrorMessage('نسبت تصویر آیکون باید ۱:۱ باشد.')
         return false
       }
-      if ((kind === 'banner' || kind === 'screenshot') && Math.abs(width / height - 16 / 9) > 0.01) {
-        setErrorMessage('نسبت تصویر بنر و تصویر محیط اپلیکیشن باید ۱۶:۹ باشد.')
+      if (kind === 'icon' && (width < 128 || height < 128)) {
+        setErrorMessage('ابعاد آیکون باید حداقل ۱۲۸×۱۲۸ باشد.')
+        return false
+      }
+      if ((kind === 'banner' || kind === 'screenshot') && width / height < 1.5) {
+        setErrorMessage('بنر و تصاویر محیط اپلیکیشن باید افقی و نسبت عرض به ارتفاع حداقل ۱٫۵ داشته باشند.')
         return false
       }
     } catch {
@@ -153,6 +160,7 @@ function EditAppForm({ app, reloadDeveloperApps }: { app: StoreApp; reloadDevelo
     if (!(await validateImage(file, kind))) return
 
     if (kind === 'icon') {
+      setRemoveIcon(false)
       setIconFile(file)
       preview(file, setIconPreview)
     } else if (kind === 'banner') {
@@ -212,6 +220,16 @@ function EditAppForm({ app, reloadDeveloperApps }: { app: StoreApp; reloadDevelo
       isAndroidTv: developedForAndroidTv, isAirMouseCompatible: airMouseCompatible,
     })
 
+    if (hasInAppPayment !== Boolean(baseline.hasInAppPayment)) {
+      if (hasInAppPayment && !paymentCommitmentAccepted) {
+        setErrorMessage('برای فعال‌کردن پرداخت درون‌برنامه‌ای، تعهد پرداخت را بپذیرید.')
+        return
+      }
+      patch.hasInAppPayment = String(hasInAppPayment)
+      patch.paymentCommitmentAccepted = String(hasInAppPayment && paymentCommitmentAccepted)
+    } else if (hasInAppPayment && paymentCommitmentAccepted) {
+      patch.paymentCommitmentAccepted = 'true'
+    }
     if (patch.longDescription?.length > 20000) {
       setErrorMessage('با احتساب متن ایرماوس، توضیحات باید حداکثر ۲۰۰۰۰ نویسه باشد.')
       return
@@ -232,7 +250,7 @@ function EditAppForm({ app, reloadDeveloperApps }: { app: StoreApp; reloadDevelo
       setErrorMessage('محدودیت سنی باید عددی بین ۰ تا ۹۹ باشد.')
       return
     }
-    if (!Object.keys(patch).length && !iconFile && !bannerFile && !backgroundFile && !replacementScreenshots.length) {
+    if (!Object.keys(patch).length && !removeIcon && !iconFile && !bannerFile && !backgroundFile && !replacementScreenshots.length) {
       setSaveNotice('اطلاعات قابل ذخیره تغییری نکرده است.')
       return
     }
@@ -248,7 +266,8 @@ function EditAppForm({ app, reloadDeveloperApps }: { app: StoreApp; reloadDevelo
 
     const formData = new FormData()
     for (const [field, value] of Object.entries(patch)) formData.append(field, value)
-    if (iconFile) formData.append('icon', iconFile)
+    if (removeIcon) formData.append('icon', '')
+    else if (iconFile) formData.append('icon', iconFile)
     if (bannerFile) formData.append('banner', bannerFile)
     if (backgroundFile) formData.append('backgroundImage', backgroundFile)
     replacementScreenshots.forEach((file) => formData.append('screenshots', file))
@@ -264,6 +283,7 @@ function EditAppForm({ app, reloadDeveloperApps }: { app: StoreApp; reloadDevelo
       let confirmed = false
       try {
         const response = await fetch(`/api/developer-hub/apps/${encodeURIComponent(appId)}`, { cache: 'no-store' })
+        if (response.status === 401) { window.location.assign('/login?next=' + encodeURIComponent('/dashboard/edit/' + appId)); return }
         const detail = await response.json().catch(() => null)
         if (!response.ok || !detail || String(detail.id) !== appId) throw new Error('verification_unavailable')
         const missing = unconfirmedDeveloperMetadata(patch, detail)
@@ -347,38 +367,42 @@ function EditAppForm({ app, reloadDeveloperApps }: { app: StoreApp; reloadDevelo
           </Field>
         </div>
 
-        {['supportsNetboxPayment', 'isAndroidTv', 'isAirMouseCompatible'].map((field) => fieldErrors[field] && <p key={field} role="alert" className="text-sm text-destructive">{fieldErrors[field]}</p>)}
+        {['supportsNetboxPayment', 'hasInAppPayment', 'paymentCommitmentAccepted', 'isAndroidTv', 'isAirMouseCompatible'].map((field) => fieldErrors[field] && <p key={field} role="alert" className="text-sm text-destructive">{fieldErrors[field]}</p>)}
         <PaymentCommitmentSummary app={app} />
         <div className="rounded-xl border border-border p-4 text-sm leading-7">
-          <p>پرداخت درون‌برنامه‌ای: {app.hasInAppPayment ? 'دارد' : 'ندارد'} — تعهد پرداخت پس از اولین ارسال قابل ویرایش نیست.</p>
+          <label className="flex items-center gap-3"><input type="checkbox" checked={hasInAppPayment} onChange={event => { setHasInAppPayment(event.target.checked); setPaymentCommitmentAccepted(false); if (!event.target.checked) setSupportsNetboxPayment(false) }} />این اپلیکیشن پرداخت درون‌برنامه‌ای دارد.</label>
+          {hasInAppPayment && <div className="mt-3 space-y-2">
+            <p><Link href="/integrations/payment" target="_blank" rel="noopener noreferrer" className="text-primary underline">مستندات نت‌باکس پیمنت</Link></p>
+            <label className="flex items-center gap-3"><input type="radio" name="edit-payment" checked={supportsNetboxPayment} onChange={() => setSupportsNetboxPayment(true)} />نت‌باکس پیمنت را پیاده‌سازی کرده‌ام.</label>
+            <label className="flex items-center gap-3"><input type="radio" name="edit-payment" checked={!supportsNetboxPayment} onChange={() => setSupportsNetboxPayment(false)} />متعهد به پیاده‌سازی نت‌باکس پیمنت در مهلت مقرر هستم.</label>
+            {(!baseline.hasInAppPayment || fieldErrors.paymentCommitmentAccepted) && <label className="flex items-start gap-3"><input type="checkbox" checked={paymentCommitmentAccepted} onChange={event => setPaymentCommitmentAccepted(event.target.checked)} className="mt-2" />تعهد تکمیل الزامات پرداخت در مهلت یک‌ماهه را می‌پذیرم؛ تاریخ دقیق پس از ذخیره نمایش داده می‌شود.</label>}
+          </div>}
           <label className="mt-3 flex items-center gap-3"><input type="checkbox" checked={developedForAndroidTv} onChange={(event) => setDevelopedForAndroidTv(event.target.checked)} />این اپلیکیشن مخصوص Android TV توسعه داده شده است.</label>
           <label className="mt-3 flex items-center gap-3"><input type="checkbox" checked={airMouseCompatible} onChange={(event) => setAirMouseCompatible(event.target.checked)} />این اپلیکیشن با ایرماوس یا ماوس سازگار است.</label>
         </div>
-        <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-border p-4 text-sm leading-7">
-          <input type="checkbox" checked={supportsNetboxPayment} onChange={(event) => setSupportsNetboxPayment(event.target.checked)} className="mt-1 size-4" />
-          <span>این اپلیکیشن از Netbox Payment پشتیبانی می‌کند.</span>
-        </label>
+
 
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label="آدرس وبسایت"><Input value={website} onChange={(event) => setWebsite(event.target.value)} dir="ltr" type="url" /></Field>
           <Field label="ایمیل پشتیبانی"><Input value={supportEmail} onChange={(event) => setSupportEmail(event.target.value)} dir="ltr" type="email" /></Field>
         </div>
         <p className="text-xs leading-6 text-muted-foreground">فایل APK از صفحه ویرایش تغییر نمی‌کند. برای انتشار APK جدید از بخش «نسخه جدید» استفاده کنید تا تاریخچه نسخه‌ها حفظ شود.</p>
+        <label className="flex items-center gap-3 text-sm"><input type="checkbox" checked={removeIcon} onChange={event => { setRemoveIcon(event.target.checked); if (event.target.checked) setIconFile(null) }} />حذف آیکون فعلی</label>
         <div className="grid gap-4 sm:grid-cols-2">
           <MediaField
-            title="آیکون برنامه (نسبت ۱:۱)"
+            title="آیکون برنامه (مربع، حداقل ۱۲۸×۱۲۸)"
                 error={fieldErrors.icon}
-            value={iconPreview}
+            value={removeIcon ? '' : iconPreview}
             square
-            hint="PNG یا JPEG — حداکثر ۲MB — نسبت ۱:۱"
+            hint="PNG یا JPEG — حداکثر ۲MB — مربع، حداقل ۱۲۸×۱۲۸"
             onFile={(file) => void chooseSingle(file, 'icon')}
-            onClear={() => { setIconFile(null); setIconPreview(app.icon || '') }}
+            onClear={() => { setIconFile(null); setRemoveIcon(false); setIconPreview(app.icon || '') }}
           />
           <MediaField
-            title="بنر معرفی (نسبت ۱۶:۹)"
+            title="بنر معرفی"
                 error={fieldErrors.banner}
             value={bannerPreview}
-            hint="PNG یا JPEG — حداکثر ۵MB — نسبت ۱۶:۹"
+            hint="PNG یا JPEG — حداکثر ۵MB — افقی، نسبت حداقل ۱٫۵"
             onFile={(file) => void chooseSingle(file, 'banner')}
             onClear={() => { setBannerFile(null); setBannerPreview(app.banner || '') }}
           />
@@ -394,7 +418,7 @@ function EditAppForm({ app, reloadDeveloperApps }: { app: StoreApp; reloadDevelo
 
         <Field error={fieldErrors.screenshots} label="تصاویر محیط اپلیکیشن">
           <p className="text-xs leading-6 text-muted-foreground">
-            اگر فایل جدید انتخاب کنید، کل مجموعه تصاویر محیط اپلیکیشنی قبلی با مجموعه جدید جایگزین می‌شود. حداکثر ۱۰ تصویر، هرکدام حداکثر ۵MB با نسبت ۱۶:۹.
+            اگر فایل جدید انتخاب کنید، کل مجموعه تصاویر محیط اپلیکیشنی قبلی با مجموعه جدید جایگزین می‌شود. حداکثر ۱۰ تصویر، هرکدام حداکثر ۵MB با افقی، نسبت حداقل ۱٫۵.
           </p>
           <div className="mt-2">
             <FileDropzone

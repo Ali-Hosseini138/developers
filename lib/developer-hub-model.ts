@@ -42,6 +42,7 @@ export type DeveloperHubApp = {
   bannerUrl?: string | null
   backgroundImageUrl?: string | null
   screenshots?: Array<{ id: number; url: string; weight: number }>
+  installCount?: number
   isPublished?: boolean
   canEdit?: boolean
   canSubmit?: boolean
@@ -93,15 +94,16 @@ export function mapDeveloperHubApp(row: DeveloperHubApp, developer = 'توسعه
     version: latest?.versionName || '',
     price: 0,
     rating: 0,
-    downloads: 0,
+    downloads: Number(row.installCount || 0),
     platforms: [],
     tags: [],
-    updatedAt: row.updatedAt ? new Date(row.updatedAt).toLocaleString('fa-IR') : '—',
+    updatedAt: row.updatedAt ? new Date(row.updatedAt).toLocaleString('fa-IR', { timeZone: 'Asia/Tehran' }) : '—',
     reviews: [],
     packageName: row.packageName || undefined,
     canEdit: Boolean(row.canEdit),
     canSubmit: Boolean(row.canSubmit),
     isPublished: Boolean(row.isPublished),
+    submissionHistory: row.submissions || [],
     latestSubmissionId: latest ? String(latest.id) : undefined,
     latestSubmissionStatus: latest?.status,
     latestSubmissionDisplay: latest?.statusDisplay,
