@@ -69,9 +69,8 @@ export default function UploadPage() {
   const requirementsValid = hasInAppPayment !== null && developedForAndroidTv !== null &&
     (!hasInAppPayment || netboxPaymentIntegrated || netboxPaymentGraceAccepted) &&
     (developedForAndroidTv || airMouseCompatible)
-  // These declarations have no storage/validation contract in the current backend.
-  // Keep the restored form reviewable without silently discarding answers on submit.
-  const pendingContractFields = [
+  // Display-only declarations are deliberately excluded from the multipart payload.
+  const displayOnlyFields = [
     'داشتن پرداخت درون‌برنامه‌ای',
     'سازگاری Android TV یا ایرماوس/ماوس',
     ...(netboxPaymentGraceAccepted ? ['مهلت یک‌ماهه Netbox Payment'] : []),
@@ -262,12 +261,13 @@ export default function UploadPage() {
       setErrorMessage('اطلاعات و شرایط انتشار را کامل کنید.')
       return
     }
-    if (pendingContractFields.length) {
-      setErrorMessage('ارسال هنوز فعال نیست؛ ذخیره این اطلاعات در بک‌اند باید تکمیل شود: ' + pendingContractFields.join('، '))
-      return
-    }
     if (!apkFile || !iconFile || !bannerFile || !backgroundFile) {
       setErrorMessage('فایل APK، آیکون، بنر و تصویر پس‌زمینه الزامی هستند.')
+      return
+    }
+
+    if (screenshotFiles.length > 10 || [iconFile, bannerFile, backgroundFile, ...screenshotFiles].some((file) => file?.type === 'image/webp') || iconFile.size > 2 * 1024 * 1024) {
+      setErrorMessage('برای ارسال، حداکثر ۱۰ تصویر PNG/JPEG و آیکون تا ۲ مگابایت انتخاب کنید. بک‌اند فعلی فایل WEBP را نمی‌پذیرد.')
       return
     }
 
@@ -559,7 +559,7 @@ export default function UploadPage() {
         {step === 5 && (
           <div>
             <Header title="بازبینی اطلاعات" text="پس از ارسال، بک‌اند APK را پردازش می‌کند و وضعیت در داشبورد به‌روزرسانی می‌شود." />
-            <p role="status" className="my-4 rounded-xl border border-amber-500/30 bg-amber-500/5 p-4 text-sm leading-7">فرم قبلی بازگردانده شده است. ارسال نهایی تا تکمیل قرارداد ذخیره شرایط انتشار در بک‌اند غیرفعال است تا پاسخ‌های شما حذف نشوند.</p>
+            <p role="status" className="my-4 rounded-xl border border-amber-500/30 bg-amber-500/5 p-4 text-sm leading-7">اطلاعات زیر فقط در همین فرم نمایش داده می‌شوند و همراه درخواست ارسال یا ذخیره نمی‌شوند: {displayOnlyFields.join('، ')}. با خروج از فرم یا بارگذاری مجدد صفحه، این اطلاعات حفظ نمی‌شوند.</p>
             <div className="grid gap-3 text-sm">
               {[
                 ['فایل APK', apkName],
@@ -602,7 +602,7 @@ export default function UploadPage() {
             <ArrowLeft className="size-4" />
           </Button>
         ) : (
-          <Button onClick={() => void submitForReview()} disabled={saving || pendingContractFields.length > 0} className="gap-2">
+          <Button onClick={() => void submitForReview()} disabled={saving} className="gap-2">
             {saving ? <Loader2 className="size-4 animate-spin" /> : <Rocket className="size-4" />}
             {saving ? 'در حال ارسال...' : 'ارسال برای بررسی'}
           </Button>
