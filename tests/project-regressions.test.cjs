@@ -252,3 +252,43 @@ test('app list and detail transport timeouts become explicit JSON 502 responses'
     assert.ok((await response.json()).detail.includes('ارتباط'))
   }
 })
+
+test('app list retries one transient read and recovers without changing authentication', async () => {
+  let calls = 0
+  const route = load('app/api/developer-hub/apps/route.ts', { 'next/server': { NextResponse: Response }, '@/lib/developer-api': {
+    developerHubApi: async () => { if (++calls === 1) throw Object.assign(new Error('timeout'), { code: 'UND_ERR_CONNECT_TIMEOUT' }); return Response.json({ results: [], next: null }) },
+    copyBackendResponse: (response, payload) => Response.json(payload, { status: response.status }),
+  } }, { console: { error() {} } }).GET
+  const response = await route(new Request('https://local/api'))
+  assert.equal(calls, 2)
+  assert.equal(response.status, 200)
+  assert.deepEqual((await response.json()).results, [])
+})
+test('app list does not retry auth or application errors and exposes a safe tracking reference', async () => {
+  for (const status of [400, 401, 403, 429, 500]) {
+    let calls = 0
+    const logs = []
+    const route = load('app/api/developer-hub/apps/route.ts', { 'next/server': { NextResponse: Response }, '@/lib/developer-api': {
+      developerHubApi: async () => { calls++; return Response.json({ detail: 'backend failed' }, { status }) },
+      copyBackendResponse: (response, payload) => Response.json(payload, { status: response.status }),
+    } }, { console: { error: (...args) => logs.push(args) } }).GET
+    const response = await route(new Request('https://local/api'))
+    const payload = await response.json()
+    assert.equal(calls, 1)
+    assert.equal(response.status, status)
+    assert.equal(payload.detail, 'backend failed')
+    assert.ok(payload.supportReference)
+    assert.equal(logs[0][1].supportReference, payload.supportReference)
+  }
+})
+test('dashboard exposes the backend error and tracking reference without losing the logged-in user', async () => {
+  const f = store(async path => {
+    if (path === '/api/auth/session') return Response.json({ user: { id: '42', email: 'dev@example.com', name: 'Ali' } })
+    if (path === '/api/developer/profile') return Response.json({ profile: { id: '42', name: 'Ali' } })
+    return Response.json({ detail: 'سرویس در دسترس نیست', supportReference: 'safe-reference' }, { status: 502 })
+  })
+  f.mount(); await flush()
+  assert.equal(f.render().user.id, '42')
+  assert.ok(f.render().developerAppsError.includes('سرویس در دسترس نیست'))
+  assert.ok(f.render().developerAppsError.includes('safe-reference'))
+})
