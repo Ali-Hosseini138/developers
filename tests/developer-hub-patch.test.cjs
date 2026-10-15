@@ -8,7 +8,7 @@ const source = fs.readFileSync('lib/developer-hub-patch.ts', 'utf8')
 const output = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText
 const mod = { exports: {} }
 vm.runInNewContext(output, { module: mod, exports: mod.exports })
-const { changedDeveloperMetadata, unconfirmedDeveloperMetadata } = mod.exports
+const { changedDeveloperMetadata, unconfirmedDeveloperMetadata, developerMetadataLabels } = mod.exports
 const app = { id: '42', name: 'App', packageName: 'com.guessed.app', tagline: 'Short', description: 'Long', categoryId: 12, applicationType: 1, ageLimit: 0, supportsNetboxPayment: false, developedForAndroidTv: true, airMouseCompatible: false, hasInAppPayment: true }
 const fields = { packageName: app.packageName, name: app.name, nameEn: '', shortDescription: app.tagline, shortDescriptionEn: '', longDescription: app.description, longDescriptionEn: '', categoryId: '12', applicationType: '1', ageLimit: '0', supportsNetboxPayment: false, isAndroidTv: true, isAirMouseCompatible: false }
 
@@ -31,7 +31,7 @@ test('readback confirms the package, numeric category objects and explicit boole
   assert.equal(JSON.stringify(unconfirmedDeveloperMetadata({ isAndroidTv: 'false' }, {})), JSON.stringify(['isAndroidTv']))
 })
 
-async function runSave(mode) {
+async function runSave(mode, overrides = {}) {
   const source = fs.readFileSync('app/dashboard/edit/[id]/page.tsx', 'utf8')
   const start = source.indexOf('  async function save(')
   const code = ts.transpileModule(source.slice(start, source.indexOf('\n  return (', start)) + '\nsave({ preventDefault() {} })', { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText
@@ -43,7 +43,7 @@ async function runSave(mode) {
     categoryId: '12', applicationType: '1', ageLimit: '0', supportsNetboxPayment: false,
     developedForAndroidTv: true, airMouseCompatible: false,
     iconFile: null, bannerFile: null, backgroundFile: null, replacementScreenshots: [], FormData,
-    changedDeveloperMetadata, unconfirmedDeveloperMetadata, appDescription: text => text.trim(),
+    changedDeveloperMetadata, unconfirmedDeveloperMetadata, developerMetadataLabels, appDescription: text => `این برنامه با ایرماوس قابل استفاده است\n${text.trim()}`,
     setFieldErrors() {}, setSaving() {}, setUploadProgress() {}, setBaseline() {},
     setErrorMessage(v) { result.error = v }, setSaved(v) { result.saved = v },
     setSaveNotice(v) { result.notice = v }, setSaveWarning(v) { result.warning = v },
@@ -59,6 +59,7 @@ async function runSave(mode) {
       return { ok: true, json: async () => ({ id: 42, packageName: mode === 'stale' ? app.packageName : 'com.real.app' }) }
     },
     async reloadDeveloperApps() { if (mode === 'reload-failed') throw new Error('network') },
+    ...overrides,
   }
   await vm.runInNewContext(code, state)
   return result
@@ -73,7 +74,7 @@ test('save sends a sparse PATCH and confirms the corrected package with GET', as
 test('accepted PATCH with stale readback never reports success', async () => {
   const r = await runSave('stale')
   assert.equal(r.saved, false)
-  assert.ok(r.warning.includes('قبلی'))
+  assert.ok(r.warning.includes('پکیج‌نیم'))
 })
 test('rejected PATCH surfaces the failure without a readback', async () => {
   const r = await runSave('rejected')
@@ -95,4 +96,26 @@ test('dashboard refresh failure preserves confirmed save', async () => {
 test('unchanged form makes no API request', async () => {
   const r = await runSave('noop')
   assert.equal(r.calls.length, 0)
+})
+
+test('multipart CRLF line endings do not turn a saved description into a mismatch', async () => {
+  const form = new FormData()
+  form.append('longDescription', 'first\nsecond')
+  const serialized = await new Request('http://localhost', { method: 'PATCH', body: form }).text()
+  assert.ok(serialized.includes('first\r\nsecond'))
+  assert.equal(unconfirmedDeveloperMetadata({ longDescription: 'first\nsecond' }, { longDescription: 'first\r\nsecond' }).length, 0)
+  assert.equal(unconfirmedDeveloperMetadata({ longDescription: 'first\nsecond' }, { longDescription: 'first\r\nDIFFERENT' }).length, 1)
+})
+test('correcting only the package of a legacy air-mouse app does not rewrite its description', async () => {
+  const baseline = { ...app, developedForAndroidTv: false, airMouseCompatible: true }
+  const r = await runSave('success', { baseline, app: baseline, developedForAndroidTv: false, airMouseCompatible: true })
+  assert.equal(JSON.stringify(r.calls[0][2]), JSON.stringify([['packageName', 'com.real.app']]))
+  assert.equal(r.saved, true)
+})
+test('a saved package is confirmed separately when another field was not saved', async () => {
+  const r = await runSave('success', { name: 'New name' })
+  assert.equal(r.saved, false)
+  assert.ok(r.notice.includes('com.real.app'))
+  assert.ok(r.warning.includes('عنوان فارسی'))
+  assert.ok(!r.warning.includes('پکیج‌نیم'))
 })

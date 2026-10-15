@@ -16,6 +16,18 @@ export type DeveloperAppMetadata = {
   isAirMouseCompatible: boolean
 }
 
+// Multipart transport canonicalizes text line breaks to CRLF. Compare logical
+// text without hiding other content changes or missing boolean fields.
+const metadataValue = (value: unknown) => String(value ?? '').replace(/\r\n?/g, '\n').trim()
+
+export const developerMetadataLabels: Record<string, string> = {
+  packageName: 'پکیج‌نیم', name: 'عنوان فارسی', nameEn: 'عنوان انگلیسی',
+  shortDescription: 'خلاصه فارسی', shortDescriptionEn: 'خلاصه انگلیسی',
+  longDescription: 'توضیحات فارسی', longDescriptionEn: 'توضیحات انگلیسی',
+  categoryId: 'دسته‌بندی', applicationType: 'نوع اپلیکیشن', ageLimit: 'محدودیت سنی',
+  supportsNetboxPayment: 'نت‌باکس پیمنت', isAndroidTv: 'سازگاری Android TV', isAirMouseCompatible: 'سازگاری ایرماوس',
+}
+
 export function changedDeveloperMetadata(app: StoreApp, next: DeveloperAppMetadata) {
   const previous: DeveloperAppMetadata = {
     packageName: app.packageName || '', name: app.name, nameEn: app.nameEn || '',
@@ -28,8 +40,8 @@ export function changedDeveloperMetadata(app: StoreApp, next: DeveloperAppMetada
   }
   const patch: Record<string, string> = {}
   for (const key of Object.keys(next) as Array<keyof DeveloperAppMetadata>) {
-    const current = String(next[key]).trim()
-    if (current !== String(previous[key]).trim()) patch[key] = current
+    const current = metadataValue(next[key])
+    if (current !== metadataValue(previous[key])) patch[key] = current
   }
   return patch
 }
@@ -38,6 +50,6 @@ export function changedDeveloperMetadata(app: StoreApp, next: DeveloperAppMetada
 export function unconfirmedDeveloperMetadata(patch: Record<string, string>, detail: Record<string, unknown>) {
   return Object.keys(patch).filter((key) => {
     const value = key === 'categoryId' ? detail.categoryId ?? (detail.category as { id?: unknown } | null)?.id : detail[key]
-    return String(value ?? '').trim() !== patch[key]
+    return metadataValue(value) !== metadataValue(patch[key])
   })
 }

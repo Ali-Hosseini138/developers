@@ -10,7 +10,7 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { appDescription } from '@/lib/app-description'
-import { changedDeveloperMetadata, unconfirmedDeveloperMetadata } from '@/lib/developer-hub-patch'
+import { developerMetadataLabels, changedDeveloperMetadata, unconfirmedDeveloperMetadata } from '@/lib/developer-hub-patch'
 import { mapDeveloperHubApp } from '@/lib/developer-hub-model'
 import type { StoreApp } from '@/lib/types'
 import { useStore } from '@/components/store-provider'
@@ -202,9 +202,12 @@ function EditAppForm({ app, reloadDeveloperApps }: { app: StoreApp; reloadDevelo
     setErrorMessage('')
     setSaveNotice('')
     setSaveWarning('')
+    const descriptionChanged = description !== baseline.description ||
+      developedForAndroidTv !== Boolean(baseline.developedForAndroidTv) ||
+      airMouseCompatible !== Boolean(baseline.airMouseCompatible)
     const patch = changedDeveloperMetadata(baseline, {
       packageName, name, nameEn, shortDescription: tagline, shortDescriptionEn: taglineEn,
-      longDescription: appDescription(description, !developedForAndroidTv && airMouseCompatible), longDescriptionEn: descriptionEn, categoryId,
+      longDescription: descriptionChanged ? appDescription(description, !developedForAndroidTv && airMouseCompatible) : description, longDescriptionEn: descriptionEn, categoryId,
       applicationType, ageLimit, supportsNetboxPayment,
       isAndroidTv: developedForAndroidTv, isAirMouseCompatible: airMouseCompatible,
     })
@@ -264,13 +267,15 @@ function EditAppForm({ app, reloadDeveloperApps }: { app: StoreApp; reloadDevelo
         const detail = await response.json().catch(() => null)
         if (!response.ok || !detail || String(detail.id) !== appId) throw new Error('verification_unavailable')
         const missing = unconfirmedDeveloperMetadata(patch, detail)
+        setBaseline(mapDeveloperHubApp(detail, app.developer))
         if (missing.length) {
-          setSaveWarning(missing.includes('packageName')
-            ? 'درخواست ذخیره پذیرفته شد، اما سرویس هنوز Package Name قبلی را برمی‌گرداند. ذخیره پکیج‌نیم تأیید نشد؛ مقدار واردشده در فرم حفظ شده است.'
-            : 'درخواست ذخیره پذیرفته شد، اما دریافت دوباره اطلاعات، همه تغییرات را تأیید نکرد. مقدارهای واردشده در فرم حفظ شده‌اند.')
+          if ('packageName' in patch && !missing.includes('packageName')) {
+            setSaveNotice(`Package Name «${detail.packageName}» ذخیره و دوباره تأیید شد.`)
+          }
+          const fields = missing.map(field => developerMetadataLabels[field] || field).join('، ')
+          setSaveWarning(`ذخیره این موارد تأیید نشد: ${fields}. مقدارهای واردشده در فرم حفظ شده‌اند؛ دوباره بررسی کنید.`)
         } else {
           confirmed = true
-          setBaseline(mapDeveloperHubApp(detail, app.developer))
           setSaved(true)
           setSaveNotice('packageName' in patch ? `Package Name «${detail.packageName}» ذخیره و دوباره تأیید شد.` : 'تغییرات ذخیره و دریافت دوباره اطلاعات تأیید شد.')
         }
@@ -443,8 +448,8 @@ function EditAppForm({ app, reloadDeveloperApps }: { app: StoreApp; reloadDevelo
 
         {saveNotice && <div role="status" className="rounded-xl border border-primary/20 bg-primary/5 p-4 text-sm leading-7">
           <p>{saveNotice}</p>
-          {saved && app.latestSubmissionStatus === 'parse_failed' && <>
-            <p className="mt-2">خطای پکیج‌نیمِ آخرین ارسال APK به همان ارسال قبلی مربوط است. ذخیره اطلاعات، پردازش آن فایل را تکرار نمی‌کند؛ برای بررسی دوباره، APK را مجدداً ارسال کنید.</p>
+          {app.latestSubmissionStatus === 'parse_failed' && <>
+            <p className="mt-2">خطای آخرین ارسال APK به همان ارسال قبلی مربوط است. ذخیره اطلاعات، پردازش آن فایل را تکرار نمی‌کند؛ برای بررسی دوباره، APK را مجدداً ارسال کنید.</p>
             {app.canSubmit && <Button render={<Link href={`/dashboard/version/${app.id}`} />} className="mt-3">ارسال APK برای بررسی مجدد</Button>}
           </>}
         </div>}
