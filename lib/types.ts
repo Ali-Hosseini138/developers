@@ -100,23 +100,19 @@ export interface User {
   termsAcceptedAt?: string
 }
 
-export type TicketStatus = 'open' | 'answered' | 'closed'
-
-export interface TicketMessage {
-  id: string
-  role: 'developer' | 'support'
-  body: string
-  createdAt: string
-}
+export type TicketStatus = 'unanswered' | 'answered'
 
 export interface SupportTicket {
-  messages?: TicketMessage[]
-  id: string
+  id: string | number
   subject: string
-  message: string
+  question: string
+  answer: string
   status: TicketStatus
   createdAt: string
-  developer: string
-  adminReply?: string
-  repliedAt?: string
+  answeredAt: string | null
+  updatedAt: string
+}
+
+export interface AdminSupportTicket extends SupportTicket {
+  developer: { id: string | number; name: string; email: string }
 }

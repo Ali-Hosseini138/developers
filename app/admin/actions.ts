@@ -1,10 +1,8 @@
 'use server'
 
-import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { developerApi } from '@/lib/developer-api'
-import { destroyAdminSession, getAdminUser, setAdminSession } from '@/lib/admin-auth'
-import { createAdminClient } from '@/lib/supabase/admin'
+import { destroyAdminSession, setAdminSession } from '@/lib/admin-auth'
 
 function backendMessage(payload: any, fallback: string) {
   if (payload?.message) return String(payload.message)
@@ -51,27 +49,4 @@ export async function loginAction(_prev: { error?: string } | undefined, formDat
 export async function logoutAction() {
   await destroyAdminSession()
   redirect('/admin/login')
-}
-
-export async function updateSupportTicketAction(formData: FormData) {
-  const admin = await getAdminUser()
-  if (!admin) redirect('/admin/login')
-
-  const ticketId = String(formData.get('ticketId') || '')
-  const action = String(formData.get('action') || '')
-  const reply = String(formData.get('reply') || '').trim()
-
-  if (!ticketId || !['reply', 'close', 'reopen'].includes(action)) return
-  if (action === 'reply' && reply.length < 2) {
-    throw new Error('متن پاسخ نمی‌تواند خالی باشد.')
-  }
-
-  const supabase = createAdminClient()
-  if (reply.length > 10000) throw new Error('متن پاسخ نباید بیشتر از ۱۰۰۰۰ نویسه باشد.')
-  const { error } = await supabase.rpc('append_support_ticket_message', {
-    p_ticket_id: ticketId, p_owner_id: null, p_actor: 'support', p_action: action, p_body: reply,
-  })
-
-  if (error) throw error
-  revalidatePath('/admin')
 }

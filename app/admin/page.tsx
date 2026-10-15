@@ -1,29 +1,14 @@
 import { redirect } from 'next/navigation'
 import { getAdminUser, adminHubApi } from '@/lib/admin-auth'
-import { createAdminClient } from '@/lib/supabase/admin'
+import { loadTicketPages } from '@/lib/support-tickets'
 import { logoutAction } from './actions'
 import { Button } from '@/components/ui/button'
 import { AdminConsole } from '@/components/admin/admin-console'
-import type { TicketMessage } from '@/lib/types'
+import type { AdminSupportTicket } from '@/lib/types'
 import type { AdminSubmissionListItem } from '@/lib/admin-hub-model'
 
 export const metadata = { title: 'پنل مدیریت — نت‌استور' }
 export const dynamic = 'force-dynamic'
-
-export type AdminSupportTicket = {
-  id: string
-  messages: TicketMessage[]
-  user_id: string
-  subject: string
-  message: string
-  status: 'open' | 'answered' | 'closed'
-  created_at: string
-  updated_at: string
-  admin_reply: string | null
-  replied_at: string | null
-  developer: string
-  developer_email: string | null
-}
 
 export default async function AdminPage() {
   const adminUser = await getAdminUser()
@@ -48,34 +33,15 @@ export default async function AdminPage() {
   }
 
   if (sessionExpired) redirect('/admin/login')
-  const supabase = createAdminClient()
-  const [{ data: tickets }, { data: profiles }] = await Promise.all([
-    supabase.from('support_tickets').select('*').order('created_at', { ascending: false }),
-    supabase.from('profiles').select('id, full_name'),
-  ])
-
-  const ownerIds = [...new Set((tickets || []).map((row: Record<string, any>) => row.user_id).filter(Boolean))]
-  const authUsers = new Map<string, string | null>()
-  for (const ownerId of ownerIds) {
-    const { data } = await supabase.auth.admin.getUserById(ownerId)
-    authUsers.set(ownerId, data.user?.email || null)
-  }
-
-  const profileMap = new Map((profiles || []).map((p: { id: string; full_name: string | null }) => [p.id, p.full_name]))
-  const adminTickets: AdminSupportTicket[] = (tickets || []).map((row: Record<string, any>) => ({
-    id: row.id,
-    messages: Array.isArray(row.messages) ? row.messages : [],
-    user_id: row.user_id,
-    subject: row.subject,
-    message: row.message,
-    status: row.status,
-    created_at: row.created_at,
-    updated_at: row.updated_at,
-    admin_reply: row.admin_reply,
-    replied_at: row.replied_at,
-    developer: profileMap.get(row.user_id) || 'ناشناس',
-    developer_email: authUsers.get(row.user_id) || null,
-  }))
+  let adminTickets: AdminSupportTicket[] = []
+  let ticketsError = ''
+  try {
+    const response = await loadTicketPages(adminHubApi, '/api/v1/developer-hub/admin/tickets/?status=all')
+    if (response.status === 401) sessionExpired = true
+    else if (!response.ok) throw new Error('tickets_unavailable')
+    else adminTickets = (await response.json()).tickets
+  } catch { ticketsError = 'دریافت صندوق تیکت‌ها انجام نشد؛ دوباره تلاش کنید.' }
+  if (sessionExpired) redirect('/admin/login')
 
   const stats = [
     { label: 'در انتظار بررسی', value: submissions.filter((item) => item.status === 'pending_review').length },
@@ -83,7 +49,7 @@ export default async function AdminPage() {
     { label: 'خطای فایل', value: submissions.filter((item) => item.status === 'parse_failed').length },
     { label: 'منتشر شده', value: submissions.filter((item) => item.status === 'approved').length },
     { label: 'رد شده', value: submissions.filter((item) => item.status === 'rejected').length },
-    { label: 'تیکت‌ها', value: adminTickets.length },
+    ...(!ticketsError ? [{ label: 'تیکت‌ها', value: adminTickets.length }] : []),
   ]
 
   return (
@@ -107,6 +73,7 @@ export default async function AdminPage() {
         submissions={submissions}
         stats={stats}
         tickets={adminTickets}
+        ticketsError={ticketsError}
         canReviewSubmission={adminUser.canReviewSubmission}
       />
     </main>
