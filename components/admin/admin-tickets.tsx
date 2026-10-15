@@ -1,160 +1,87 @@
 'use client'
 
-import { useMemo, useState } from 'react'
-import { MessageSquare, Search } from 'lucide-react'
-import type { AdminSupportTicket } from '@/app/admin/page'
-import { updateSupportTicketAction } from '@/app/admin/actions'
+import { useRef, useState } from 'react'
+import type { AdminSupportTicket } from '@/lib/types'
+import { ticketError } from '@/lib/support-tickets'
 import { TicketConversation } from '@/components/ticket-conversation'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 
-function statusLabel(status: AdminSupportTicket['status']) {
-  if (status === 'answered') return 'پاسخ داده شده'
-  if (status === 'closed') return 'بسته شده'
-  return 'باز'
-}
-
-function faDateTime(value: string | null) {
-  if (!value) return '—'
-  return new Date(value).toLocaleString('fa-IR', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  })
-}
-
-export function AdminTickets({ tickets }: { tickets: AdminSupportTicket[] }) {
+export function AdminTickets({ tickets: initialTickets, initialError }: { tickets: AdminSupportTicket[]; initialError: string }) {
+  const [tickets, setTickets] = useState(initialTickets)
+  const [error, setError] = useState(initialError)
+  const [loading, setLoading] = useState(false)
   const [query, setQuery] = useState('')
-  const [filter, setFilter] = useState<'all' | 'open' | 'answered' | 'closed'>('open')
-
-  const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase()
-    return tickets.filter((ticket) => {
-      const statusOk = filter === 'all' || ticket.status === filter
-      const queryOk =
-        !q ||
-        ticket.subject.toLowerCase().includes(q) ||
-        ticket.message.toLowerCase().includes(q) ||
-        ticket.developer.toLowerCase().includes(q) ||
-        ticket.developer_email?.toLowerCase().includes(q)
-      return statusOk && queryOk
-    })
-  }, [tickets, query, filter])
-
-  const openCount = tickets.filter((ticket) => ticket.status === 'open').length
-  const answeredCount = tickets.filter((ticket) => ticket.status === 'answered').length
-  const closedCount = tickets.filter((ticket) => ticket.status === 'closed').length
-
-  return (
-    <section className="flex flex-col gap-5">
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <TicketStat label="کل تیکت‌ها" value={tickets.length} />
-        <TicketStat label="باز" value={openCount} />
-        <TicketStat label="پاسخ داده شده" value={answeredCount} />
-        <TicketStat label="بسته شده" value={closedCount} />
-      </div>
-
-      <div className="rounded-2xl border border-border bg-card p-4">
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-          <div className="relative min-w-0 flex-1 lg:max-w-md">
-            <Search className="absolute right-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="جستجو در موضوع، متن یا توسعه‌دهنده..."
-              className="pr-9"
-            />
-          </div>
-          <div className="flex gap-2 overflow-x-auto">
-            {[
-              ['open', 'باز'],
-              ['answered', 'پاسخ داده شده'],
-              ['closed', 'بسته شده'],
-              ['all', 'همه'],
-            ].map(([id, label]) => (
-              <Button
-                key={id}
-                type="button"
-                size="sm"
-                variant={filter === id ? 'default' : 'outline'}
-                onClick={() => setFilter(id as typeof filter)}
-                className="shrink-0"
-              >
-                {label}
-              </Button>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {filtered.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-border py-14 text-center text-sm text-muted-foreground">
-          تیکتی با این فیلتر پیدا نشد.
-        </div>
-      ) : (
-        <div className="flex flex-col gap-4">
-          {filtered.map((ticket) => (
-            <article key={ticket.id} className="rounded-2xl border border-border bg-card p-5">
-              <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
-                <div className="min-w-0 flex-1">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <MessageSquare className="size-4 text-primary" />
-                    <h3 className="font-bold">{ticket.subject}</h3>
-                    <Badge variant={ticket.status === 'open' ? 'default' : 'outline'}>
-                      {statusLabel(ticket.status)}
-                    </Badge>
-                  </div>
-                  <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
-                    <span>توسعه‌دهنده: <strong className="text-foreground">{ticket.developer}</strong></span>
-                    {ticket.developer_email && <span dir="ltr">{ticket.developer_email}</span>}
-                    <span>ثبت: {faDateTime(ticket.created_at)}</span>
-                  </div>
-                  <TicketConversation messages={ticket.messages} message={ticket.message} adminReply={ticket.admin_reply || undefined} createdAt={ticket.created_at} repliedAt={ticket.replied_at || undefined} />
-                </div>
-
-                <div className="w-full shrink-0 xl:w-[360px]">
-                  {ticket.status !== 'closed' && (
-                    <form action={updateSupportTicketAction} className="flex flex-col gap-2">
-                      <input type="hidden" name="ticketId" value={ticket.id} />
-                      <input type="hidden" name="action" value="reply" />
-                      <Textarea
-                        name="reply"
-                        required
-                        minLength={2}
-                        maxLength={10000}
-                        placeholder="پاسخ ادمین را بنویسید..."
-                        className="min-h-28"
-                      />
-                      <Button type="submit">ارسال پاسخ</Button>
-                    </form>
-                  )}
-
-                  <form action={updateSupportTicketAction} className="mt-2">
-                    <input type="hidden" name="ticketId" value={ticket.id} />
-                    <input type="hidden" name="action" value={ticket.status === 'closed' ? 'reopen' : 'close'} />
-                    <Button type="submit" variant="outline" className="w-full">
-                      {ticket.status === 'closed' ? 'باز کردن مجدد' : 'بستن تیکت'}
-                    </Button>
-                  </form>
-                </div>
-              </div>
-            </article>
-          ))}
-        </div>
-      )}
-    </section>
-  )
+  const [filter, setFilter] = useState<'all' | 'unanswered' | 'answered'>('unanswered')
+  async function refresh() {
+    setLoading(true)
+    try {
+      const response = await fetch('/api/admin-hub/tickets?status=all', { cache: 'no-store' })
+      const payload = await response.json()
+      if (response.status === 401) window.location.assign('/admin/login')
+      if (!response.ok || !Array.isArray(payload.tickets)) throw new Error(ticketError(payload))
+      setTickets(payload.tickets); setError('')
+    } catch (error) { setError(error instanceof Error ? error.message : ticketError(null)) }
+    finally { setLoading(false) }
+  }
+  const q = query.trim().toLowerCase()
+  const filtered = tickets.filter(ticket => (filter === 'all' || ticket.status === filter) &&
+    (!q || [ticket.subject, ticket.question, ticket.developer.name, ticket.developer.email].some(value => value?.toLowerCase().includes(q))))
+  return <section className="space-y-5">
+    <div className="flex flex-wrap gap-3">
+      <Button variant="outline" disabled={loading} onClick={() => void refresh()}>{loading ? 'در حال دریافت...' : 'تازه‌سازی صندوق'}</Button>
+      {(['unanswered', 'answered', 'all'] as const).map(status => <Button key={status} variant={filter === status ? 'default' : 'outline'} onClick={() => setFilter(status)}>{status === 'all' ? 'همه' : status === 'unanswered' ? 'در انتظار پاسخ' : 'پاسخ داده شده'} ({tickets.filter(ticket => status === 'all' || ticket.status === status).length.toLocaleString('fa-IR')})</Button>)}
+    </div>
+    <Input aria-label="جستجوی تیکت" value={query} onChange={event => setQuery(event.target.value)} placeholder="جستجو در موضوع، متن یا توسعه‌دهنده..." />
+    {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
+    {!error && !filtered.length && <p className="py-12 text-center text-muted-foreground">تیکتی با این فیلتر پیدا نشد.</p>}
+    {filtered.map(ticket => <article key={ticket.id} className="rounded-2xl border border-border bg-card p-5">
+      <div className="flex flex-wrap items-center justify-between gap-3"><h3 className="font-bold">{ticket.subject}</h3><Badge variant="outline">{ticket.status === 'unanswered' ? 'در انتظار پاسخ' : 'پاسخ داده شده'}</Badge></div>
+      <p className="mt-2 text-sm text-muted-foreground">{ticket.developer.name} · <span dir="ltr">{ticket.developer.email}</span> · تیکت #{ticket.id}</p>
+      <TicketConversation {...ticket} />
+      {ticket.status === 'unanswered' && <TicketReply ticket={ticket} onRefresh={refresh} onAnswered={updated => {
+        setTickets(current => [...current.filter(item => item.id !== updated.id && item.status === 'unanswered'), updated, ...current.filter(item => item.id !== updated.id && item.status === 'answered')])
+      }} />}
+    </article>)}
+  </section>
 }
 
-function TicketStat({ label, value }: { label: string; value: number }) {
-  return (
-    <div className="rounded-2xl border border-border bg-card p-5">
-      <p className="text-xs text-muted-foreground">{label}</p>
-      <p className="mt-2 text-2xl font-bold">{value.toLocaleString('fa-IR')}</p>
-    </div>
-  )
+export function TicketReply({ ticket, onRefresh, onAnswered }: { ticket: AdminSupportTicket; onRefresh: () => Promise<void>; onAnswered: (ticket: AdminSupportTicket) => void }) {
+  const [answer, setAnswer] = useState('')
+  const [sending, setSending] = useState(false)
+  const [error, setError] = useState('')
+  const [alreadyAnswered, setAlreadyAnswered] = useState(false)
+  const inFlight = useRef(false)
+  async function submit(event: React.FormEvent) {
+    event.preventDefault()
+    if (inFlight.current || alreadyAnswered || !answer.trim()) return
+    inFlight.current = true; setSending(true); setError('')
+    try {
+      const response = await fetch(`/api/admin-hub/tickets/${encodeURIComponent(String(ticket.id))}/reply`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ answer: answer.trim() }),
+      })
+      const payload = await response.json().catch(() => null)
+      if (response.status === 401) window.location.assign('/admin/login')
+      if (response.status === 409) {
+        setAlreadyAnswered(true)
+        setError('این تیکت قبلاً پاسخ داده شده است. صندوق دوباره دریافت می‌شود.')
+        await onRefresh()
+        return
+      }
+      if (!response.ok) throw new Error(ticketError(payload))
+      // Some APIs return a ticket, others only a confirmation. Re-fetch in either case.
+      // Hide the form immediately after success; never allow an overwrite attempt.
+      onAnswered({ ...ticket, status: 'answered', answer: payload?.answer || answer.trim(), answeredAt: payload?.answeredAt || null, updatedAt: payload?.updatedAt || ticket.updatedAt })
+      await onRefresh()
+    } catch (error) { setError(error instanceof Error ? error.message : ticketError(null)) }
+    finally { inFlight.current = false; setSending(false) }
+  }
+  return <form onSubmit={submit} className="mt-4 space-y-3">
+    <label htmlFor={`ticket-answer-${ticket.id}`} className="text-sm font-medium">پاسخ پشتیبانی (فقط یک بار قابل ارسال)</label>
+    <Textarea id={`ticket-answer-${ticket.id}`} value={answer} onChange={event => setAnswer(event.target.value)} required minLength={1} maxLength={20000} disabled={sending || alreadyAnswered} placeholder="پاسخ را بنویسید..." />
+    {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
+    <Button type="submit" disabled={sending || alreadyAnswered || !answer.trim()}>{sending ? 'در حال ارسال...' : 'ارسال پاسخ'}</Button>
+  </form>
 }

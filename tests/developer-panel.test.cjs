@@ -55,41 +55,6 @@ test('a description exceeding the contract after the added notice is rejected be
   assert.equal(r.sent, undefined)
   assert.ok(r.error)
 })
-const ticketId = '00000000-0000-4000-8000-000000000001'
-function replyRoute(identity, rpc) {
-  return load('app/api/developer/tickets/[id]/reply/route.ts', {
-    'next/server': { NextResponse: Response }, '@/lib/developer-identity': { getDeveloperIdentity: async () => identity },
-    '@/lib/supabase/admin': { createAdminClient: () => ({ rpc }) },
-  }).POST
-}
-test('ticket replies require authentication', async () => {
-  const route = replyRoute(null, () => { throw new Error('must not call') })
-  assert.equal((await route({ json: async () => ({ action: 'reply', message: 'test' }) }, { params: Promise.resolve({ id: ticketId }) })).status, 401)
-})
-test('ticket actor and owner come from the server, never request input', async () => {
-  let args
-  const route = replyRoute({ id: 'owner-id' }, async (name, data) => { args = data; return { data: { id: ticketId }, error: null } })
-  const response = await route({ json: async () => ({ action: 'reply', message: 'not solved', p_owner_id: 'other', p_actor: 'support' }) }, { params: Promise.resolve({ id: ticketId }) })
-  assert.equal(response.status, 200)
-  assert.equal(args.p_owner_id, 'owner-id')
-  assert.equal(args.p_actor, 'developer')
-})
-test('ticket reply validation and ownership failures are explicit', async () => {
-  const route = replyRoute({ id: 'owner' }, async () => ({ error: { message: 'ticket_not_found' } }))
-  for (const body of [{ action: 'reply', message: '' }, { action: 'close' }, { action: 'reply', message: 'x'.repeat(10001) }]) {
-    assert.equal((await route({ json: async () => body }, { params: Promise.resolve({ id: ticketId }) })).status, 400)
-  }
-  assert.equal((await route({ json: async () => ({ action: 'reply', message: 'test' }) }, { params: Promise.resolve({ id: ticketId }) })).status, 404)
-})
-test('ticket RPC rows are normalized for object and array response shapes', async () => {
-  for (const data of [{ id: ticketId }, [{ id: ticketId }]]) {
-    const route = replyRoute({ id: 'owner' }, async () => ({ data, error: null }))
-    const response = await route({ json: async () => ({ action: 'resolve' }) }, { params: Promise.resolve({ id: ticketId }) })
-    assert.equal(response.status, 200)
-    assert.equal((await response.json()).ticket.id, ticketId)
-  }
-})
-
 test('new app creation accepts an omitted icon and leaves extraction to the backend', async () => {
   const result = await create({ iconFile: null })
   assert.ok(result.sent)

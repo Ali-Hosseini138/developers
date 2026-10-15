@@ -1,51 +1,24 @@
 import { NextResponse } from 'next/server'
-import { createAdminClient } from '@/lib/supabase/admin'
-import { getDeveloperIdentity } from '@/lib/developer-identity'
+import { developerHubApi, copyBackendResponse } from '@/lib/developer-api'
+import { loadTicketPages } from '@/lib/support-tickets'
 
 export async function GET() {
-  const identity = await getDeveloperIdentity()
-  if (!identity) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
-
-  const supabase = createAdminClient()
-  const { data, error } = await supabase
-    .from('support_tickets')
-    .select('id, subject, message, status, created_at, updated_at, admin_reply, replied_at, messages')
-    .eq('user_id', identity.id)
-    .order('created_at', { ascending: false })
-
-  if (error) return NextResponse.json({ error: 'tickets_load_failed' }, { status: 500 })
-  return NextResponse.json({ tickets: data || [] })
+  try {
+    const response = await loadTicketPages(developerHubApi, '/api/v1/developer-hub/tickets/')
+    return copyBackendResponse(response, await response.json())
+  } catch { return NextResponse.json({ detail: 'دریافت تیکت‌ها انجام نشد؛ دوباره تلاش کنید.' }, { status: 502 }) }
 }
 
 export async function POST(request: Request) {
-  const identity = await getDeveloperIdentity()
-  if (!identity) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
-
-  let body: Record<string, unknown>
+  let body
+  try { body = await request.json() } catch { return NextResponse.json({ detail: 'درخواست معتبر نیست.' }, { status: 400 }) }
+  const subject = typeof body?.subject === 'string' ? body.subject.trim() : ''
+  const question = typeof body?.question === 'string' ? body.question.trim() : ''
+  if (!subject || !question || subject.length > 200 || question.length > 10000) {
+    return NextResponse.json({ detail: 'موضوع (تا ۲۰۰ نویسه) و توضیحات (تا ۱۰۰۰۰ نویسه) الزامی است.' }, { status: 400 })
+  }
   try {
-    body = await request.json()
-  } catch {
-    return NextResponse.json({ error: 'invalid_json' }, { status: 400 })
-  }
-
-  const subject = typeof body.subject === 'string' ? body.subject.trim() : ''
-  const message = typeof body.message === 'string' ? body.message.trim() : ''
-
-  if (subject.length < 2 || message.length < 2) {
-    return NextResponse.json({ error: 'ticket_fields_required' }, { status: 400 })
-  }
-
-  if (subject.length > 200 || message.length > 10000) {
-    return NextResponse.json({ error: 'ticket_too_long' }, { status: 400 })
-  }
-
-  const supabase = createAdminClient()
-  const { data, error } = await supabase
-    .from('support_tickets')
-    .insert({ user_id: identity.id, subject, message, status: 'open' })
-    .select('id, subject, message, status, created_at, updated_at, admin_reply, replied_at, messages')
-    .single()
-
-  if (error) return NextResponse.json({ error: 'ticket_create_failed' }, { status: 500 })
-  return NextResponse.json({ ticket: data }, { status: 201 })
+    const response = await developerHubApi('/api/v1/developer-hub/tickets/', { method: 'POST', body: JSON.stringify({ subject, question }) })
+    return copyBackendResponse(response, await response.json())
+  } catch { return NextResponse.json({ detail: 'نتیجه ارسال تیکت مشخص نیست؛ پیش از ارسال مجدد، فهرست را تازه کنید.' }, { status: 502 }) }
 }

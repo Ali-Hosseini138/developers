@@ -1,38 +1,35 @@
 'use client'
 
 import { useState } from 'react'
-import { useStore } from '@/components/store-provider'
 import { TicketConversation } from '@/components/ticket-conversation'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Textarea } from '@/components/ui/textarea'
-import { Label } from '@/components/ui/label'
+import { ticketError } from '@/lib/support-tickets'
 import type { SupportTicket } from '@/lib/types'
 
-export function DeveloperTicket({ ticket }: { ticket: SupportTicket }) {
-  const { replyToTicket } = useStore()
-  const [reply, setReply] = useState('')
-  const [sending, setSending] = useState(false)
+export function DeveloperTicket({ ticket, onFollowUp }: { ticket: SupportTicket; onFollowUp: (ticket: SupportTicket) => void }) {
+  const [latest, setLatest] = useState<SupportTicket | null>(null)
+  const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
-  async function send(action: 'reply' | 'resolve') {
-    if (sending || (action === 'reply' && reply.trim().length < 2)) return
-    setSending(true)
-    setError('')
-    try { await replyToTicket(ticket.id, reply, action); setReply('') }
-    catch { setError('ثبت پاسخ انجام نشد. متن شما حفظ شده است؛ دوباره تلاش کنید.') }
-    finally { setSending(false) }
+  const current = latest && latest.updatedAt > ticket.updatedAt ? latest : ticket
+  async function refresh() {
+    setLoading(true); setError('')
+    try {
+      const response = await fetch(`/api/developer/tickets/${encodeURIComponent(String(ticket.id))}`, { cache: 'no-store' })
+      const payload = await response.json()
+      if (response.status === 401) window.location.assign('/login?next=/dashboard')
+      if (!response.ok) throw new Error(ticketError(payload))
+      setLatest(payload)
+    } catch (error) { setError(error instanceof Error ? error.message : ticketError(null)) }
+    finally { setLoading(false) }
   }
   return <article className="rounded-xl border border-border p-4">
-    <div className="flex items-center justify-between gap-3"><h3 className="font-medium">{ticket.subject}</h3><Badge variant="outline">{ticket.status === 'open' ? 'در انتظار پاسخ' : ticket.status === 'answered' ? 'پاسخ داده شد' : 'بسته‌شده'}</Badge></div>
-    <TicketConversation {...ticket} />
-    <form onSubmit={event => { event.preventDefault(); void send('reply') }} className="mt-4 space-y-3">
-      <Label htmlFor={`reply-${ticket.id}`}>{ticket.status === 'closed' ? 'باز کردن مجدد و ادامه مکالمه' : 'پاسخ شما'}</Label>
-      <Textarea id={`reply-${ticket.id}`} value={reply} onChange={event => setReply(event.target.value)} maxLength={10000} minLength={2} required placeholder="آیا مشکل حل شده؟ پاسخ خود را بنویسید..." disabled={sending} />
-      {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
-      <div className="flex flex-wrap gap-2">
-        <Button type="submit" disabled={sending || reply.trim().length < 2}>{sending ? 'در حال ثبت...' : 'ارسال پاسخ'}</Button>
-        {ticket.status !== 'closed' && <Button type="button" variant="outline" disabled={sending} onClick={() => void send('resolve')}>مشکلم حل شد؛ بستن تیکت</Button>}
-      </div>
-    </form>
+    <div className="flex items-center justify-between gap-3"><h3 className="font-medium">{current.subject}</h3><Badge variant="outline">{current.status === 'unanswered' ? 'در انتظار پاسخ' : 'پاسخ داده شد'}</Badge></div>
+    <TicketConversation {...current} />
+    {error && <p role="alert" className="mt-3 text-sm text-destructive">{error}</p>}
+    <div className="mt-4 flex flex-wrap gap-2">
+      <Button variant="outline" disabled={loading} onClick={() => void refresh()}>{loading ? 'در حال دریافت...' : 'تازه‌سازی پاسخ'}</Button>
+      {current.status === 'answered' && <Button variant="outline" onClick={() => onFollowUp(current)}>تیکت جدید برای پیگیری</Button>}
+    </div>
   </article>
 }

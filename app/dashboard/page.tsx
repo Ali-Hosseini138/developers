@@ -14,6 +14,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { useStore } from '@/components/store-provider'
+import { followUpTicket } from '@/lib/support-tickets'
 import { toFa } from '@/lib/format'
 import { DeveloperSidebar } from '@/components/developer-sidebar'
 
@@ -61,11 +62,11 @@ function DashboardPageInner() {
     setTicketSending(true)
     setTicketError('')
     try {
-      await addTicket({ subject: subject.trim(), message: message.trim(), status: 'open' })
+      await addTicket({ subject: subject.trim(), question: message.trim() })
       setSubject('')
       setMessage('')
-    } catch {
-      setTicketError('ارسال تیکت انجام نشد. دوباره تلاش کنید.')
+    } catch (error) {
+      setTicketError(error instanceof Error ? error.message : 'ارسال تیکت انجام نشد. دوباره تلاش کنید.')
     } finally {
       setTicketSending(false)
     }
@@ -295,20 +296,31 @@ function SupportTab({ subject, message, setSubject, setMessage, submitTicket, ti
   subject: string; message: string; setSubject: (value: string) => void; setMessage: (value: string) => void;
   submitTicket: (event: React.FormEvent) => void; tickets: ReturnType<typeof useStore>['tickets']; sending: boolean; errorMessage: string
 }) {
+  const { reloadTickets, ticketsError } = useStore()
+  const [loading, setLoading] = useState(true)
+  useEffect(() => { let active = true; void reloadTickets().finally(() => { if (active) setLoading(false) }); return () => { active = false } }, [reloadTickets])
+  async function refresh() { setLoading(true); try { await reloadTickets() } finally { setLoading(false) } }
   return <section className="mt-8 grid gap-6 lg:grid-cols-[0.9fr_1.1fr]">
     <form onSubmit={submitTicket} className="self-start rounded-2xl border border-border bg-card p-6">
       <h2 className="flex items-center gap-3 font-bold"><FileText className="size-5 text-primary" />ارسال تیکت جدید</h2>
       <p className="mt-2 text-sm text-muted-foreground">پیام شما به تیم نت‌استور ارسال می‌شود</p>
       <div className="mt-6 flex flex-col gap-4">
-        <div><Label htmlFor="ticket-subject">موضوع</Label><Input id="ticket-subject" value={subject} onChange={event => setSubject(event.target.value)} minLength={2} maxLength={200} required placeholder="مثلاً مشکل در انتشار نسخه جدید" className="mt-1.5" /></div>
-        <div><Label htmlFor="ticket-message">توضیحات</Label><Textarea id="ticket-message" value={message} onChange={event => setMessage(event.target.value)} minLength={2} maxLength={10000} required placeholder="مشکل یا درخواست خود را توضیح دهید..." className="mt-1.5 min-h-32" /></div>
+        <div><Label htmlFor="ticket-subject">موضوع</Label><Input id="ticket-subject" value={subject} disabled={sending} onChange={event => setSubject(event.target.value)} minLength={1} maxLength={200} required placeholder="مثلاً مشکل در انتشار نسخه جدید" className="mt-1.5" /></div>
+        <div><Label htmlFor="ticket-message">توضیحات</Label><Textarea id="ticket-message" value={message} disabled={sending} onChange={event => setMessage(event.target.value)} minLength={1} maxLength={10000} required placeholder="مشکل یا درخواست خود را توضیح دهید..." className="mt-1.5 min-h-32" /></div>
         {errorMessage && <p role="alert" className="rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive">{errorMessage}</p>}
-        <Button type="submit" className="gap-2" disabled={sending || subject.trim().length < 2 || message.trim().length < 2}><Ticket className="size-4" />{sending ? 'در حال ارسال...' : 'ارسال به تیم پشتیبانی'}</Button>
+        <Button type="submit" className="gap-2" disabled={sending || !subject.trim() || !message.trim()}><Ticket className="size-4" />{sending ? 'در حال ارسال...' : 'ارسال به تیم پشتیبانی'}</Button>
       </div>
     </form>
     <div className="rounded-2xl border border-border bg-card p-6">
-      <h2 className="font-bold">تیکت‌های من</h2>
-      <div className="mt-4 flex flex-col gap-3">{tickets.length ? tickets.map(ticket => <DeveloperTicket key={ticket.id} ticket={ticket} />) : <p className="py-12 text-center text-sm text-muted-foreground">هنوز تیکتی ثبت نکرده‌اید.</p>}</div>
+      <div className="flex items-center justify-between gap-3"><h2 className="font-bold">تیکت‌های من</h2><Button variant="outline" disabled={loading} onClick={() => void refresh()}>{loading ? 'در حال دریافت...' : 'تازه‌سازی'}</Button></div>
+      <p className="mt-2 text-xs text-muted-foreground">هر تیکت یک پاسخ دارد؛ برای ادامه، تیکت جدید برای پیگیری ثبت کنید.</p>
+      {ticketsError && <p role="alert" className="mt-3 text-sm text-destructive">{ticketsError}</p>}
+      <div className="mt-4 flex flex-col gap-3">{tickets.length ? tickets.map(ticket => <DeveloperTicket key={ticket.id} ticket={ticket} onFollowUp={ticket => {
+        if (sending) return
+        if ((subject.trim() || message.trim()) && !window.confirm('متن فعلی فرم با پیگیری این تیکت جایگزین شود؟')) return
+        const draft = followUpTicket(ticket); setSubject(draft.subject); setMessage(draft.question)
+        document.getElementById('ticket-message')?.focus()
+      }} />) : !loading && !ticketsError ? <p className="py-12 text-center text-sm text-muted-foreground">هنوز تیکتی ثبت نکرده‌اید.</p> : null}</div>
     </div>
   </section>
 }
