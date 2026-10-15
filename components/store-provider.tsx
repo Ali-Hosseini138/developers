@@ -74,14 +74,16 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       const rows: any[] = []
       for (let page = 1; ; page++) {
         const response = await fetch(`/api/developer-hub/apps?page=${page}&page_size=200`, { cache: 'no-store' })
+        const payload = await response.json().catch(() => null)
         if (!response.ok) {
           if (response.status === 401) {
             setDeveloperApps([])
             window.location.assign('/login?next=/dashboard')
           }
-          throw new Error('دریافت اپلیکیشن‌ها انجام نشد. دوباره تلاش کنید.')
+          const message = ticketError(payload, 'دریافت اپلیکیشن‌ها انجام نشد. دوباره تلاش کنید.')
+          const reference = typeof payload?.supportReference === 'string' ? ` کد پیگیری: ${payload.supportReference}` : ''
+          throw new Error(message + reference)
         }
-        const payload = await response.json().catch(() => null)
         if (!Array.isArray(payload?.results)) throw new Error('پاسخ فهرست اپلیکیشن‌ها معتبر نیست.')
         rows.push(...payload.results)
         if (payload.next && (!payload.results.length || page >= 1000)) throw new Error('صفحه‌بندی فهرست اپلیکیشن‌ها معتبر نیست.')
