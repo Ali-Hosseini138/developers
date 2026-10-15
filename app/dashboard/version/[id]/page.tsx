@@ -13,7 +13,7 @@ import { FileDropzone } from '@/components/upload/file-dropzone'
 import { developerHubErrorMessage, postDeveloperHubMultipart } from '@/lib/developer-hub-client'
 import { toFa } from '@/lib/format'
 
-const MAX_APK_SIZE = 300 * 1024 * 1024
+const MAX_APK_SIZE = 250 * 1024 * 1024
 
 export default function NewVersionPage() {
   const { id } = useParams<{ id: string }>()
@@ -37,9 +37,11 @@ export default function NewVersionPage() {
   if (!app) return <main className="mx-auto max-w-2xl px-4 py-10 sm:px-6"><Link href="/dashboard" className="text-sm text-primary">بازگشت به داشبورد</Link><div className="mt-6 rounded-2xl border border-dashed border-border p-8 text-center text-sm text-muted-foreground">این اپ پیدا نشد یا به حساب شما تعلق ندارد.</div></main>
   if (!app.canSubmit) return <main className="mx-auto max-w-2xl px-4 py-10 sm:px-6"><Link href="/dashboard" className="text-sm text-primary">بازگشت به داشبورد</Link><div className="mt-6 rounded-2xl border border-dashed border-border p-8 text-center text-sm text-muted-foreground">در حال حاضر امکان ارسال APK جدید برای این اپ وجود ندارد؛ یک درخواست فعال در جریان است.</div></main>
 
+  const appId = app.id
+
   async function submit(event: React.FormEvent) {
     event.preventDefault()
-    if (!apkFile || saving) return
+    if (!apkFile || !changes.trim() || saving) return
 
     setSaving(true)
     setUploadProgress(0)
@@ -51,7 +53,7 @@ export default function NewVersionPage() {
 
     try {
       await postDeveloperHubMultipart(
-        `/api/v1/developer-hub/apps/${encodeURIComponent(app.id)}/submissions/`,
+        `/api/v1/developer-hub/apps/${encodeURIComponent(appId)}/submissions/`,
         formData,
         (percentage) => setUploadProgress(Math.round(percentage)),
       )
@@ -89,7 +91,7 @@ export default function NewVersionPage() {
           <FileDropzone
             accept=".apk,application/vnd.android.package-archive"
             label={app.isPublished ? 'فایل APK نسخه جدید' : 'فایل APK جدید'}
-            hint="حداکثر حجم قابل قبول در این پنل ۳۰۰ مگابایت است."
+            hint="حداکثر حجم قابل قبول در این پنل ۲۵۰ مگابایت است."
             onFiles={(files) => {
               const file = files[0]
               if (!file) return
@@ -100,7 +102,7 @@ export default function NewVersionPage() {
               }
               if (file.size > MAX_APK_SIZE) {
                 setApkFile(null)
-                setErrorMessage('حجم فایل APK نباید بیشتر از ۳۰۰ مگابایت باشد.')
+                setErrorMessage('حجم فایل APK نباید بیشتر از ۲۵۰ مگابایت باشد.')
                 return
               }
               setErrorMessage('')
@@ -121,7 +123,7 @@ export default function NewVersionPage() {
         </div>
 
         <div>
-          <Label htmlFor="changes">تغییرات نسخه — اختیاری</Label>
+          <Label htmlFor="changes">تغییرات نسخه</Label>
           <Textarea
             id="changes"
             value={changes}
@@ -129,6 +131,7 @@ export default function NewVersionPage() {
             placeholder="ویژگی‌های جدید، رفع مشکلات و تغییرات این نسخه را بنویسید..."
             className="mt-1.5 min-h-40"
             maxLength={5000}
+            required
           />
         </div>
 
@@ -155,7 +158,7 @@ export default function NewVersionPage() {
 
         {errorMessage && <p role="alert" className="rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive">{errorMessage}</p>}
 
-        <Button type="submit" disabled={saving || saved || !apkFile} className="gap-2">
+        <Button type="submit" disabled={saving || saved || !apkFile || !changes.trim()} className="gap-2">
           {saving ? <Loader2 className="size-4 animate-spin" /> : saved ? <Check className="size-4" /> : <UploadCloud className="size-4" />}
           {saving ? 'در حال ثبت...' : saved ? 'درخواست ثبت شد' : app.isPublished ? 'ارسال نسخه برای بررسی' : 'ارسال APK جدید'}
         </Button>
