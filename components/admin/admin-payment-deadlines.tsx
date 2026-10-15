@@ -52,7 +52,7 @@ export function AdminPaymentDeadlines() {
       }
       if (!payload || payload.id !== item.id) throw new Error('پاسخ عملیات معتبر نیست؛ صف را تازه کنید.')
       setItems((current) => current.map((row) => row.id === item.id ? payload : row))
-      setSuccess(action === 'complete' ? 'تکمیل تعهد ثبت شد.' : 'اپ منتشرشده غیرفعال شد.')
+      setSuccess(action === 'complete' ? 'تکمیل تعهد ثبت شد.' : 'اپلیکیشن منتشرشده غیرفعال شد.')
       setConfirmId(null)
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'ثبت عملیات انجام نشد.')
@@ -84,11 +84,11 @@ export function AdminPaymentDeadlines() {
       <p className="mt-4 text-sm">وضعیت فروشگاه: {item.publishedApplication ? (item.publishedApplication.enabled ? 'فعال' : 'غیرفعال') : 'هنوز منتشر نشده'}</p>
       <div className="mt-4 flex flex-wrap gap-2">
         {item.paymentStatus !== 'completed' && <Button type="button" onClick={() => void act(item, 'complete')} disabled={busyId !== null}>ثبت تکمیل تعهد</Button>}
-        {item.publishedApplication?.enabled && <Button type="button" variant="outline" onClick={() => setConfirmId(item.id)} disabled={busyId !== null}>غیرفعال‌کردن اپ</Button>}
+        {item.publishedApplication?.enabled && <Button type="button" variant="outline" onClick={() => setConfirmId(item.id)} disabled={busyId !== null}>غیرفعال‌کردن اپلیکیشن</Button>}
         {busyId === item.id && <span role="status" className="self-center text-sm">در حال ثبت...</span>}
       </div>
       {confirmId === item.id && <div role="group" aria-label="تأیید غیرفعال‌سازی" className="mt-4 rounded-xl border border-destructive/30 bg-destructive/5 p-4">
-        <p className="text-sm">اپ «{item.name}» با پکیج <span dir="ltr">{item.packageName}</span> در فروشگاه غیرفعال شود؟</p>
+        <p className="text-sm">اپلیکیشن «{item.name}» با پکیج <span dir="ltr">{item.packageName}</span> در فروشگاه غیرفعال شود؟</p>
         <div className="mt-3 flex gap-2"><Button type="button" variant="destructive" onClick={() => void act(item, 'deactivate')} disabled={busyId !== null}>بله، غیرفعال شود</Button><Button type="button" variant="outline" onClick={() => setConfirmId(null)} disabled={busyId !== null}>انصراف</Button></div>
       </div>}
     </article>)}

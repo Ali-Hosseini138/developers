@@ -17,6 +17,7 @@ interface StoreContextValue {
   reloadDeveloperApps: () => Promise<void>
   cancelSubmission: (submissionId: string) => Promise<void>
   tickets: SupportTicket[]
+  replyToTicket: (id: string, message: string, action?: 'reply' | 'resolve') => Promise<void>
   addTicket: (ticket: Omit<SupportTicket, 'id' | 'createdAt' | 'developer'>) => Promise<void>
   login: (user: User) => void
   logout: () => Promise<void>
@@ -32,6 +33,7 @@ function mapApp(row: Record<string, any>): StoreApp {
 function mapTicket(row: Record<string, any>, developer: string): SupportTicket {
   return {
     id: row.id,
+    messages: Array.isArray(row.messages) ? row.messages : [],
     subject: row.subject,
     message: row.message,
     status: row.status,
@@ -179,6 +181,16 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     if (!response.ok) throw new Error(payload?.error || 'terms_update_failed')
     setUser(payload.profile)
   }, [user?.id])
+  const replyToTicket = useCallback(async (id: string, message: string, action: 'reply' | 'resolve' = 'reply') => {
+    if (!user) throw new Error('unauthorized')
+    const response = await fetch(`/api/developer/tickets/${encodeURIComponent(id)}/reply`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ message, action }),
+    })
+    const payload = await response.json().catch(() => null)
+    if (!response.ok || !payload?.ticket) throw new Error(payload?.error || 'ticket_reply_failed')
+    setTickets(prev => prev.map(ticket => ticket.id === id ? mapTicket(payload.ticket, user.name) : ticket))
+  }, [user])
+
   const addTicket = useCallback(async (ticket: Omit<SupportTicket, 'id' | 'createdAt' | 'developer'>) => {
     if (!user?.id) throw new Error('unauthorized')
     const response = await fetch('/api/developer/tickets', {
@@ -234,7 +246,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   }, [developerApps, loadDeveloperAppsFor, user])
 
   const myApps = developerApps
-  const value = useMemo(() => ({ apps, user, authReady, updateProfile, acceptTerms, getApp, myApps, reloadDeveloperApps, cancelSubmission, tickets, addTicket, login, logout }), [apps, user, authReady, updateProfile, acceptTerms, getApp, myApps, reloadDeveloperApps, cancelSubmission, tickets, addTicket, login, logout])
+  const value = useMemo(() => ({ apps, user, authReady, updateProfile, acceptTerms, getApp, myApps, reloadDeveloperApps, cancelSubmission, tickets, addTicket, replyToTicket, login, logout }), [apps, user, authReady, updateProfile, acceptTerms, getApp, myApps, reloadDeveloperApps, cancelSubmission, tickets, addTicket, replyToTicket, login, logout])
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>
 }
 

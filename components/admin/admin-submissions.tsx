@@ -97,7 +97,7 @@ export function AdminSubmissions({
             <Input
               value={query}
               onChange={(event) => setQuery(event.target.value)}
-              placeholder="جستجو در نام اپ، Package Name یا توسعه‌دهنده..."
+              placeholder="جستجو در نام اپلیکیشن، Package Name یا توسعه‌دهنده..."
               className="pr-9"
             />
           </div>
@@ -263,7 +263,7 @@ function SubmissionDetailView({
             <Fact label="شرکت" value={detail.developer.companyName || '—'} />
             <Fact label="عضویت توسعه‌دهنده" value={faDate(detail.developer.dateJoined)} />
             <Fact label="وضعیت حساب" value={detail.developer.isActive ? 'فعال' : 'غیرفعال'} />
-            {detail.publishedApplication && <Fact label="اپ فعلی استور" value={detail.publishedApplication.name + ' · ' + detail.publishedApplication.packageName} />}
+            {detail.publishedApplication && <Fact label="اپلیکیشن فعلی استور" value={detail.publishedApplication.name + ' · ' + detail.publishedApplication.packageName} />}
           </div>
           {!detail.app.category.isValid && (
             <p className="mt-4 rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 text-sm text-amber-800">
@@ -439,7 +439,7 @@ function SubmissionDetailView({
               {detail.hasUnknownPermissions && (
                 <label className="flex items-start gap-2 text-sm leading-6">
                   <input type="checkbox" checked={createUnknownPermissions} onChange={(event) => setCreateUnknownPermissions(event.target.checked)} className="mt-1" />
-                  Permissionهای ناشناخته در استور ساخته و به اپ متصل شوند:
+                  Permissionهای ناشناخته در استور ساخته و به اپلیکیشن متصل شوند:
                   <span className="block text-xs text-muted-foreground" dir="ltr">
                     {detail.permissions.filter((permission) => permission.isUnknown).map((permission) => permission.name).join(', ')}
                   </span>

@@ -67,19 +67,10 @@ export async function updateSupportTicketAction(formData: FormData) {
   }
 
   const supabase = createAdminClient()
-  const now = new Date().toISOString()
-
-  const patch =
-    action === 'reply'
-      ? { admin_reply: reply, replied_at: now, status: 'answered', updated_at: now }
-      : action === 'close'
-        ? { status: 'closed', updated_at: now }
-        : { status: 'open', updated_at: now }
-
-  const { error } = await supabase
-    .from('support_tickets')
-    .update(patch)
-    .eq('id', ticketId)
+  if (reply.length > 10000) throw new Error('متن پاسخ نباید بیشتر از ۱۰۰۰۰ نویسه باشد.')
+  const { error } = await supabase.rpc('append_support_ticket_message', {
+    p_ticket_id: ticketId, p_owner_id: null, p_actor: 'support', p_action: action, p_body: reply,
+  })
 
   if (error) throw error
   revalidatePath('/admin')

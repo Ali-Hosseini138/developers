@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react'
 import { MessageSquare, Search } from 'lucide-react'
 import type { AdminSupportTicket } from '@/app/admin/page'
 import { updateSupportTicketAction } from '@/app/admin/actions'
+import { TicketConversation } from '@/components/ticket-conversation'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -112,18 +113,7 @@ export function AdminTickets({ tickets }: { tickets: AdminSupportTicket[] }) {
                     {ticket.developer_email && <span dir="ltr">{ticket.developer_email}</span>}
                     <span>ثبت: {faDateTime(ticket.created_at)}</span>
                   </div>
-                  <div className="mt-4 rounded-xl bg-secondary/50 p-4">
-                    <p className="text-xs text-muted-foreground">پیام توسعه‌دهنده</p>
-                    <p className="mt-2 whitespace-pre-wrap text-sm leading-7">{ticket.message}</p>
-                  </div>
-
-                  {ticket.admin_reply && (
-                    <div className="mt-3 rounded-xl border border-primary/20 bg-primary/5 p-4">
-                      <p className="text-xs font-medium text-primary">پاسخ تیم نت‌استور</p>
-                      <p className="mt-2 whitespace-pre-wrap text-sm leading-7">{ticket.admin_reply}</p>
-                      <p className="mt-2 text-xs text-muted-foreground">{faDateTime(ticket.replied_at)}</p>
-                    </div>
-                  )}
+                  <TicketConversation messages={ticket.messages} message={ticket.message} adminReply={ticket.admin_reply || undefined} createdAt={ticket.created_at} repliedAt={ticket.replied_at || undefined} />
                 </div>
 
                 <div className="w-full shrink-0 xl:w-[360px]">
@@ -135,7 +125,7 @@ export function AdminTickets({ tickets }: { tickets: AdminSupportTicket[] }) {
                         name="reply"
                         required
                         minLength={2}
-                        defaultValue={ticket.admin_reply || ''}
+                        maxLength={10000}
                         placeholder="پاسخ ادمین را بنویسید..."
                         className="min-h-28"
                       />

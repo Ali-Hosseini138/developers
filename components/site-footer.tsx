@@ -26,7 +26,7 @@ export function SiteFooter() {
             <FooterCol
               title="فروشگاه"
               links={[
-                { label: 'انتشار اپ', href: '/upload' },
+                { label: 'انتشار اپلیکیشن', href: '/upload' },
                 { label: 'داشبورد', href: '/dashboard' },
               ]}
             />

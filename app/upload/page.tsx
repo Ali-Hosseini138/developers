@@ -12,13 +12,15 @@ import { useStore } from '@/components/store-provider'
 import { FileDropzone } from '@/components/upload/file-dropzone'
 import { DeveloperCategorySelect } from '@/components/upload/developer-category-select'
 import { developerHubFieldErrors, developerHubErrorMessage, postDeveloperHubMultipart } from '@/lib/developer-hub-client'
+import Link from 'next/link'
+import { appDescription, shortAppDescription } from '@/lib/app-description'
 import { toFa } from '@/lib/format'
 
 const steps = ['فایل APK', 'اطلاعات پایه', 'شرایط انتشار', 'اطلاعات نمایشی', 'بازبینی']
 const MAX_APK_SIZE = 250 * 1024 * 1024
 const MAX_IMAGE_SIZE = 5 * 1024 * 1024
-const MAX_ICON_SIZE = 5 * 1024 * 1024
-const MAX_SCREENSHOTS = 20
+const MAX_ICON_SIZE = 2 * 1024 * 1024
+const MAX_SCREENSHOTS = 10
 
 type ImageKind = 'icon' | 'banner' | 'background' | 'screenshot'
 
@@ -39,7 +41,6 @@ export default function UploadPage() {
 
   const [name, setName] = useState('')
   const [nameEn, setNameEn] = useState('')
-  const [tagline, setTagline] = useState('')
   const [description, setDescription] = useState('')
   const [packageName, setPackageName] = useState('')
   const [categoryId, setCategoryId] = useState('')
@@ -61,12 +62,12 @@ export default function UploadPage() {
   const [paymentCommitmentAccepted, setPaymentCommitmentAccepted] = useState(false)
   const [developedForAndroidTv, setDevelopedForAndroidTv] = useState<boolean | null>(null)
   const [airMouseCompatible, setAirMouseCompatible] = useState(false)
-  const [taglineEn, setTaglineEn] = useState('')
   const [descriptionEn, setDescriptionEn] = useState('')
   const [website, setWebsite] = useState('')
   const [supportEmail, setSupportEmail] = useState('')
+  const [paymentChoice, setPaymentChoice] = useState<'implemented' | 'commitment' | null>(null)
   const requirementsValid = hasInAppPayment !== null && developedForAndroidTv !== null &&
-    (!hasInAppPayment || paymentCommitmentAccepted) &&
+    (!hasInAppPayment || (paymentChoice !== null && paymentCommitmentAccepted)) &&
     (developedForAndroidTv || airMouseCompatible)
   // Display-only declarations are deliberately excluded from the multipart payload.
   const displayOnlyFields = website.trim() || supportEmail.trim() ? ['وب‌سایت و ایمیل پشتیبانی'] : []
@@ -82,7 +83,6 @@ export default function UploadPage() {
     if (step === 2) {
       return Boolean(
         name.trim() &&
-        tagline.trim() &&
         description.trim() &&
         /^([A-Za-z][A-Za-z0-9_]*\.)+[A-Za-z][A-Za-z0-9_]*$/.test(packageName.trim()) &&
         /^\d+$/.test(categoryId) &&
@@ -94,7 +94,7 @@ export default function UploadPage() {
     }
     if (step === 3) return requirementsValid
     return true
-  }, [step, apkFile, name, tagline, description, packageName, categoryId, ageLimit, iconFile, bannerFile, backgroundFile, requirementsValid])
+  }, [step, apkFile, name, description, packageName, categoryId, ageLimit, iconFile, bannerFile, backgroundFile, requirementsValid])
 
   if (!authReady) {
     return <main className="mx-auto flex min-h-[40vh] max-w-5xl items-center justify-center px-4 py-10"><span className="text-sm text-muted-foreground">در حال بررسی حساب...</span></main>
@@ -126,14 +126,14 @@ export default function UploadPage() {
   }
 
   async function validateImage(file: File, kind: ImageKind) {
-    if (!['image/png', 'image/jpeg', 'image/webp'].includes(file.type)) {
-      setErrorMessage('فرمت تصویر باید PNG، JPG/JPEG یا WEBP باشد.')
+    if (!['image/png', 'image/jpeg'].includes(file.type)) {
+      setErrorMessage('فرمت تصویر باید PNG یا JPEG باشد.')
       return false
     }
 
     const maxSize = kind === 'icon' ? MAX_ICON_SIZE : MAX_IMAGE_SIZE
     if (file.size > maxSize) {
-      setErrorMessage('حجم هر تصویر باید حداکثر ۵ مگابایت باشد.')
+      setErrorMessage(kind === 'icon' ? 'حجم آیکون باید حداکثر ۲ مگابایت باشد.' : 'حجم هر تصویر باید حداکثر ۵ مگابایت باشد.')
       return false
     }
 
@@ -144,7 +144,7 @@ export default function UploadPage() {
         return false
       }
       if ((kind === 'banner' || kind === 'screenshot') && Math.abs(width / height - 16 / 9) > 0.01) {
-        setErrorMessage('نسبت تصویر بنر و اسکرین‌شات باید ۱۶:۹ باشد.')
+        setErrorMessage('نسبت تصویر بنر و تصویر محیط اپلیکیشن باید ۱۶:۹ باشد.')
         return false
       }
     } catch {
@@ -206,7 +206,7 @@ export default function UploadPage() {
     const remaining = Math.max(0, MAX_SCREENSHOTS - screenshotFiles.length)
     const candidates = files.slice(0, remaining)
     if (!candidates.length) {
-      setErrorMessage('حداکثر ۲۰ اسکرین‌شات قابل ثبت است.')
+      setErrorMessage('حداکثر ۱۰ تصویر محیط اپلیکیشن قابل ثبت است.')
       return
     }
 
@@ -242,8 +242,13 @@ export default function UploadPage() {
   async function submitForReview() {
     if (saving) return
     setFieldErrors({})
-    if (!requirementsValid || !name.trim() || !tagline.trim() || !description.trim()) {
+    if (!requirementsValid || !name.trim() || !description.trim()) {
       setErrorMessage('اطلاعات و شرایط انتشار را کامل کنید.')
+      return
+    }
+    if (appDescription(description, developedForAndroidTv === false && airMouseCompatible).length > 20000) {
+      setErrorMessage('با احتساب متن ایرماوس، توضیحات باید حداکثر ۲۰۰۰۰ نویسه باشد.')
+      setStep(2)
       return
     }
     if (!apkFile || !iconFile || !bannerFile || !backgroundFile) {
@@ -252,22 +257,21 @@ export default function UploadPage() {
     }
 
     if (screenshotFiles.length > 10 || [iconFile, bannerFile, backgroundFile, ...screenshotFiles].some((file) => file?.type === 'image/webp') || iconFile.size > 2 * 1024 * 1024) {
-      setErrorMessage('برای ارسال، حداکثر ۱۰ تصویر PNG/JPEG و آیکون تا ۲ مگابایت انتخاب کنید. بک‌اند فعلی فایل WEBP را نمی‌پذیرد.')
+      setErrorMessage('برای ارسال، حداکثر ۱۰ تصویر PNG/JPEG و آیکون تا ۲ مگابایت انتخاب کنید. فرمت WEBP پذیرفته نمی‌شود.')
       return
     }
 
     setSaving(true)
     setSubmitProgress(0)
-    setSubmitStage('در حال ارسال فایل‌ها و اطلاعات به بک‌اند...')
+    setSubmitStage('در حال ارسال فایل‌ها و اطلاعات...')
     setErrorMessage('')
 
     const formData = new FormData()
     formData.append('packageName', packageName.trim())
     formData.append('name', name.trim())
     if (nameEn.trim()) formData.append('nameEn', nameEn.trim())
-    formData.append('shortDescription', tagline.trim())
-    formData.append('shortDescriptionEn', taglineEn.trim())
-    formData.append('longDescription', description.trim())
+    formData.append('shortDescription', shortAppDescription(description))
+    formData.append('longDescription', appDescription(description, developedForAndroidTv === false && airMouseCompatible))
     formData.append('longDescriptionEn', descriptionEn.trim())
     formData.append('categoryId', categoryId)
     formData.append('applicationType', applicationType)
@@ -352,7 +356,6 @@ export default function UploadPage() {
                 <div>
                   <p className="font-medium">فایل APK انتخاب شد</p>
                   <p className="mt-1 text-xs text-muted-foreground"><span dir="ltr">{apkName}</span> — {apkSize}</p>
-                  <p className="mt-1 text-xs text-muted-foreground">آپلود واقعی فایل همراه ثبت نهایی اپ انجام می‌شود.</p>
                 </div>
               </div>
             )}
@@ -364,19 +367,16 @@ export default function UploadPage() {
             <Header title="اطلاعات پایه" text="اطلاعات اصلی اپلیکیشن را وارد کنید." />
             <Field error={fieldErrors.name} label="عنوان اپلیکیشن (فارسی)" required>
               <Input value={name} onChange={(event) => setName(event.target.value)} maxLength={255} />
-              <p className="text-xs leading-6 text-muted-foreground">این عنوان زیر بنر نمایش داده می‌شود و کاربر اپ شما را با این اسم خواهد شناخت.</p>
+              <p className="text-xs leading-6 text-muted-foreground">این عنوان زیر بنر نمایش داده می‌شود و کاربر اپلیکیشن شما را با این اسم خواهد شناخت.</p>
             </Field>
             <Field error={fieldErrors.nameEn} label="عنوان اپلیکیشن (English) — اختیاری">
               <Input value={nameEn} onChange={(event) => setNameEn(event.target.value)} maxLength={255} dir="ltr" />
             </Field>
-            <Field error={fieldErrors.shortDescription} label="توضیح کوتاه (فارسی)" required>
-              <Input value={tagline} onChange={(event) => setTagline(event.target.value)} maxLength={1000} />
-            </Field>
-            <Field error={fieldErrors.shortDescriptionEn} label="Short description (English) — اختیاری"><Input maxLength={1000} value={taglineEn} onChange={(event) => setTaglineEn(event.target.value)} dir="ltr" /></Field>
-            <Field error={fieldErrors.longDescription} label="توضیحات کامل (فارسی)" required>
+            <Field error={fieldErrors.longDescription} label="توضیحات (فارسی)" required>
+              <p className="text-xs text-muted-foreground">در صفحه جزئیات اپلیکیشن شما نمایش داده می‌شود.</p>
               <Textarea value={description} onChange={(event) => setDescription(event.target.value)} rows={6} maxLength={20000} />
             </Field>
-            <Field error={fieldErrors.longDescriptionEn} label="Full description (English) — اختیاری"><Textarea maxLength={20000} value={descriptionEn} onChange={(event) => setDescriptionEn(event.target.value)} dir="ltr" rows={6} /></Field>
+            <Field error={fieldErrors.longDescriptionEn} label="توضیحات (English) — اختیاری"><Textarea maxLength={20000} value={descriptionEn} onChange={(event) => setDescriptionEn(event.target.value)} dir="ltr" rows={6} /></Field>
             <Field error={fieldErrors.packageName} label="Package Name" required>
               <Input value={packageName} onChange={(event) => setPackageName(event.target.value.trim())} dir="ltr" maxLength={100} placeholder="com.company.app" />
             </Field>
@@ -404,14 +404,14 @@ export default function UploadPage() {
               </Field>
             </div>
             <div className="mt-6 border-t border-border pt-6">
-            <Header title="تصاویر اپلیکیشن" text="آیکون، بنر و تصاویر محیط اپ را اضافه کنید." />
+            <Header title="تصاویر اپلیکیشن" text="آیکون، بنر و تصاویر محیط اپلیکیشن را اضافه کنید." />
             <div className="mt-6 grid gap-5 sm:grid-cols-2">
               <MediaField
                 title="بنر معرفی (نسبت ۱۶:۹)"
                 error={fieldErrors.banner}
                 required
                 preview={bannerPreview}
-                hint="PNG، JPG/JPEG یا WEBP، حداکثر ۵ مگابایت، نسبت ۱۶:۹"
+                hint="PNG یا JPEG، حداکثر ۵ مگابایت، نسبت ۱۶:۹"
                 onFile={(file) => void selectSingleImage(file, 'banner')}
                 onClear={() => { setBannerFile(null); setBannerPreview('') }}
               />
@@ -430,17 +430,17 @@ export default function UploadPage() {
                 required
                 preview={iconPreview}
                 square
-                hint="PNG، JPG/JPEG یا WEBP، حداکثر ۵ مگابایت، نسبت ۱:۱"
+                hint="PNG یا JPEG، حداکثر ۲ مگابایت، نسبت ۱:۱"
                 onFile={(file) => void selectSingleImage(file, 'icon')}
                 onClear={() => { setIconFile(null); setIconPreview('') }}
               />
             </div>
 
-            <Field error={fieldErrors.screenshots} label="اسکرین‌شات‌ها — اختیاری">
+            <Field error={fieldErrors.screenshots} label="تصاویر محیط اپلیکیشن">
               <FileDropzone
-                accept="image/png,image/jpeg,image/webp"
-                label="افزودن اسکرین‌شات"
-                hint="حداکثر ۲۰ تصویر؛ PNG، JPG/JPEG یا WEBP تا ۵ مگابایت، نسبت ۱۶:۹"
+                accept="image/png,image/jpeg"
+                label="افزودن تصویر محیط اپلیکیشن"
+                hint="حداکثر ۱۰ تصویر؛ PNG یا JPEG تا ۵ مگابایت، نسبت ۱۶:۹"
                 multiple
                 onFiles={(files) => void selectScreenshots(files)}
               />
@@ -448,10 +448,10 @@ export default function UploadPage() {
                 <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
                   {screenshotPreviews.map((src, index) => (
                     <div key={`${src}-${index}`} className="relative overflow-hidden rounded-xl border border-border">
-                      <img src={src} alt={`اسکرین‌شات ${index + 1}`} className="aspect-video w-full object-cover" />
+                      <img src={src} alt={`تصویر محیط اپلیکیشن ${index + 1}`} className="aspect-video w-full object-cover" />
                       <button
                         type="button"
-                        aria-label={`حذف اسکرین‌شات ${index + 1}`}
+                        aria-label={`حذف تصویر محیط اپلیکیشن ${index + 1}`}
                         onClick={() => removeScreenshot(index)}
                         className="absolute right-2 top-2 rounded-full bg-destructive p-1.5 text-destructive-foreground"
                       >
@@ -468,30 +468,32 @@ export default function UploadPage() {
 
         {step === 3 && (
           <div>
-            <Header title="شرایط انتشار" text="پاسخ‌های زیر مشخص می‌کنند اپ شما با الزامات نت‌استور سازگار است یا نه." />
+            <Header title="شرایط انتشار"  />
             <div className="mt-6 flex flex-col gap-6">
               {['hasInAppPayment', 'paymentCommitmentAccepted', 'supportsNetboxPayment', 'isAndroidTv', 'isAirMouseCompatible'].map((field) => fieldErrors[field] && <p key={field} role="alert" className="text-sm text-destructive">{fieldErrors[field]}</p>)}
               <div className="rounded-2xl border border-border p-5">
                 <p className="font-semibold">آیا اپلیکیشن شما پرداخت یا خرید درون‌برنامه‌ای دارد؟</p>
                 <div className="mt-4 flex gap-2">
-                  <Button type="button" variant={hasInAppPayment === true ? 'default' : 'outline'} onClick={() => { setHasInAppPayment(true); setPaymentCommitmentAccepted(false) }}>بله</Button>
-                  <Button type="button" variant={hasInAppPayment === false ? 'default' : 'outline'} onClick={() => { setHasInAppPayment(false); setPaymentCommitmentAccepted(false) }}>خیر</Button>
+                  <Button type="button" variant={hasInAppPayment === true ? 'default' : 'outline'} onClick={() => { setHasInAppPayment(true); setPaymentChoice(null); setSupportsNetboxPayment(false); setPaymentCommitmentAccepted(false) }}>بله</Button>
+                  <Button type="button" variant={hasInAppPayment === false ? 'default' : 'outline'} onClick={() => { setHasInAppPayment(false); setPaymentChoice(null); setSupportsNetboxPayment(false); setPaymentCommitmentAccepted(false) }}>خیر</Button>
                 </div>
-                {hasInAppPayment && <label className="mt-4 flex cursor-pointer items-start gap-3 rounded-xl border border-border p-4 text-sm leading-7">
-                  <input type="checkbox" checked={paymentCommitmentAccepted} onChange={(event) => setPaymentCommitmentAccepted(event.target.checked)} className="mt-1 size-4" />
-                  <span>متعهد می‌شوم حداکثر تا یک ماه از اولین ارسال این اپ، الزامات پرداخت درون‌برنامه‌ای را تکمیل کنم. مهلت از زمان اولین ارسال شروع می‌شود و تاریخ دقیق آن پس از ثبت نمایش داده خواهد شد.</span>
-                </label>}
-
+                {hasInAppPayment && <div className="mt-4 space-y-3">
+                  <p className="text-sm leading-7">وضعیت پیاده‌سازی <Link href="/integrations/payment" target="_blank" rel="noopener noreferrer" className="text-primary underline">نت‌باکس پیمنت</Link> را انتخاب کنید.</p>
+                  <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-border p-4 text-sm leading-7">
+                    <input type="radio" name="payment-choice" checked={paymentChoice === 'implemented'} onChange={() => { setPaymentChoice('implemented'); setSupportsNetboxPayment(true); setPaymentCommitmentAccepted(false) }} className="mt-1 size-4" />
+                    <span>نت‌باکس پیمنت را پیاده‌سازی کرده‌ام.</span>
+                  </label>
+                  <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-border p-4 text-sm leading-7">
+                    <input type="radio" name="payment-choice" checked={paymentChoice === 'commitment'} onChange={() => { setPaymentChoice('commitment'); setSupportsNetboxPayment(false); setPaymentCommitmentAccepted(false) }} className="mt-1 size-4" />
+                    <span>متعهد می‌شوم حداکثر تا یک ماه از اولین ارسال، نت‌باکس پیمنت را پیاده‌سازی کنم.</span>
+                  </label>
+                  {paymentChoice && <label className="flex cursor-pointer items-start gap-3 text-sm leading-7">
+                    <input type="checkbox" checked={paymentCommitmentAccepted} onChange={event => setPaymentCommitmentAccepted(event.target.checked)} className="mt-1 size-4" />
+                    <span>{paymentChoice === 'implemented' ? 'مسئولیت تکمیل الزامات پرداخت را می‌پذیرم؛ اگر در بررسی نقصی مشخص شود، حداکثر تا یک ماه از اولین ارسال آن را برطرف می‌کنم.' : 'تعهد یک‌ماهه از زمان اولین ارسال اپلیکیشن را می‌پذیرم.'}</span>
+                  </label>}
+                </div>}
               </div>
 
-              <div className="rounded-2xl border border-border p-5">
-                <p className="font-semibold">آیا اپ از Netbox Payment پشتیبانی می‌کند؟</p>
-                <p className="mt-1 text-xs text-muted-foreground">این قابلیت مستقل از داشتن پرداخت درون‌برنامه‌ای است.</p>
-                <div className="mt-4 flex gap-2">
-                  <Button type="button" variant={supportsNetboxPayment ? 'default' : 'outline'} onClick={() => setSupportsNetboxPayment(true)}>بله</Button>
-                  <Button type="button" variant={!supportsNetboxPayment ? 'default' : 'outline'} onClick={() => setSupportsNetboxPayment(false)}>خیر</Button>
-                </div>
-              </div>
               <div className="rounded-2xl border border-border p-5">
                 <p className="font-semibold">آیا این اپلیکیشن مشخصاً برای Android TV توسعه داده شده است؟</p>
                 <div className="mt-4 flex gap-2">
@@ -501,10 +503,10 @@ export default function UploadPage() {
                 {developedForAndroidTv === false && (
                   <div className="mt-4 rounded-xl border border-amber-500/30 bg-amber-500/5 p-4 text-sm leading-7">
                     <p className="font-semibold">شرط بررسی نسخه غیر Android TV</p>
-                    <p className="mt-1 text-muted-foreground">اپ فقط زمانی قابل تأیید است که تمام بخش‌های اصلی آن با ایرماوس یا ماوس به‌راحتی قابل استفاده باشند. وضعیت سازگاری همراه اطلاعات اپ برای بررسی ارسال می‌شود.</p>
+                    <p className="mt-1 text-muted-foreground">اپلیکیشن فقط زمانی قابل تأیید است که تمام بخش‌های اصلی آن با ایرماوس یا ماوس به‌راحتی قابل استفاده باشند. عبارت «این برنامه با ایرماوس قابل استفاده است» به ابتدای توضیحات اپلیکیشن اضافه می‌شود.</p>
                     <label className="mt-3 flex cursor-pointer items-start gap-3">
                       <input type="checkbox" checked={airMouseCompatible} onChange={(e) => setAirMouseCompatible(e.target.checked)} className="mt-1 size-4" />
-                      <span>تأیید می‌کنم اپ با ایرماوس یا ماوس به‌طور کامل و بدون مشکل قابل استفاده است.</span>
+                      <span>تأیید می‌کنم اپلیکیشن با ایرماوس یا ماوس به‌طور کامل و بدون مشکل قابل استفاده است.</span>
                     </label>
                   </div>
                 )}
@@ -514,17 +516,17 @@ export default function UploadPage() {
         )}
         {step === 4 && (
           <div>
-            <Header title="اطلاعات نمایشی" text="این اطلاعات در صفحه معرفی اپ نمایش داده می‌شوند." />
+            <Header title="اطلاعات نمایشی" text="این اطلاعات در صفحه معرفی اپلیکیشن نمایش داده می‌شوند." />
             <Field label="آدرس وبسایت"><Input value={website} onChange={(event) => setWebsite(event.target.value)} dir="ltr" type="url" placeholder="https://example.com" /></Field>
             <Field label="ایمیل پشتیبانی"><Input value={supportEmail} onChange={(event) => setSupportEmail(event.target.value)} dir="ltr" type="email" placeholder="support@example.com" /></Field>
-            <Field error={fieldErrors.changeLog} label="توضیحات نسخه — اختیاری"><Textarea value={changeLog} onChange={(event) => setChangeLog(event.target.value)} rows={5} maxLength={5000} /></Field>
+            <Field error={fieldErrors.changeLog} label="توضیحات نسخه"><Textarea value={changeLog} onChange={(event) => setChangeLog(event.target.value)} rows={5} maxLength={5000} /></Field>
           </div>
         )}
 
         {step === 5 && (
           <div>
-            <Header title="بازبینی اطلاعات" text="پس از ارسال، بک‌اند APK را پردازش می‌کند و وضعیت در داشبورد به‌روزرسانی می‌شود." />
-            {displayOnlyFields.length > 0 && <p role="status" className="my-4 rounded-xl border border-amber-500/30 bg-amber-500/5 p-4 text-sm leading-7">اطلاعات زیر فقط در همین فرم نمایش داده می‌شوند و همراه درخواست ارسال یا ذخیره نمی‌شوند: {displayOnlyFields.join('، ')}. با خروج از فرم یا بارگذاری مجدد صفحه، این اطلاعات حفظ نمی‌شوند.</p>}
+            <Header title="بازبینی اطلاعات" text="پس از ارسال، وضعیت بررسی در داشبورد نمایش داده می‌شود." />
+            {displayOnlyFields.length > 0 && <p role="status" className="my-4 rounded-xl border border-amber-500/30 bg-amber-500/5 p-4 text-sm leading-7">این اطلاعات فعلاً ذخیره نمی‌شوند: {displayOnlyFields.join('، ')}. با خروج از فرم یا بارگذاری مجدد صفحه، این اطلاعات حفظ نمی‌شوند.</p>}
             <div className="grid gap-3 text-sm">
               {[
                 ['فایل APK', apkName],
@@ -534,8 +536,7 @@ export default function UploadPage() {
                 ['Category ID', categoryId],
                 ['نوع', applicationType === '2' ? 'بازی' : 'برنامه'],
                 ['محدودیت سنی', ageLimit],
-                ['توضیح کوتاه انگلیسی', taglineEn || '—'],
-                ['توضیحات کامل انگلیسی', descriptionEn || '—'],
+                ['توضیحات انگلیسی', descriptionEn || '—'],
                 ['پرداخت درون‌برنامه‌ای', hasInAppPayment ? 'دارد' : 'ندارد'],
                 ['Netbox Payment', supportsNetboxPayment ? 'پشتیبانی می‌شود' : 'پشتیبانی نمی‌شود'],
                 ['تعهد یک‌ماهه از اولین ارسال', hasInAppPayment && paymentCommitmentAccepted ? 'پذیرفته شده' : 'نیاز ندارد'],
@@ -544,12 +545,12 @@ export default function UploadPage() {
                 ['ایمیل پشتیبانی', supportEmail || '—'],
                 ['بنر', bannerFile?.name || '—'],
                 ['پس‌زمینه', backgroundFile?.name || '—'],
-                ['آیکون', iconFile?.name || 'استخراج از APK'],
-                ['اسکرین‌شات‌ها', `${toFa(screenshotFiles.length)} تصویر`],
+                ['آیکون', iconFile?.name || '—'],
+                ['تصاویر محیط اپلیکیشن', `${toFa(screenshotFiles.length)} تصویر`],
               ].map(([label, value]) => (
                 <div key={label} className="flex justify-between gap-4 rounded-xl bg-secondary/60 p-4">
                   <span className="text-muted-foreground">{label}</span>
-                  <span className="font-medium" dir="ltr">{value}</span>
+                  <span className="font-medium" dir={label === 'Package Name' ? 'ltr' : 'rtl'}>{value}</span>
                 </div>
               ))}
             </div>
@@ -595,8 +596,8 @@ export default function UploadPage() {
   )
 }
 
-function Header({ title, text }: { title: string; text: string }) {
-  return <div><h2 className="text-xl font-bold">{title}</h2><p className="mt-1 text-sm text-muted-foreground">{text}</p></div>
+function Header({ title, text }: { title: string; text?: string }) {
+  return <div><h2 className="text-xl font-bold">{title}</h2>{text && <p className="mt-1 text-sm text-muted-foreground">{text}</p>}</div>
 }
 
 function Field({ label, required, error, children }: { label: string; required?: boolean; error?: string; children: React.ReactNode }) {
@@ -634,7 +635,7 @@ function MediaField({
         </div>
       ) : (
         <div className="mt-3">
-          <FileDropzone accept="image/png,image/jpeg,image/webp" label="افزودن تصویر" hint={hint} onFiles={(files) => files[0] && onFile(files[0])} />
+          <FileDropzone accept="image/png,image/jpeg" label="افزودن تصویر" hint={hint} onFiles={(files) => files[0] && onFile(files[0])} />
         </div>
       )}
       {error && <p role="alert" className="mt-2 text-xs text-destructive">{error}</p>}

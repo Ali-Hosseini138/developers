@@ -9,7 +9,7 @@ export async function GET() {
   const supabase = createAdminClient()
   const { data, error } = await supabase
     .from('support_tickets')
-    .select('id, subject, message, status, created_at, updated_at, admin_reply, replied_at')
+    .select('id, subject, message, status, created_at, updated_at, admin_reply, replied_at, messages')
     .eq('user_id', identity.id)
     .order('created_at', { ascending: false })
 
@@ -43,7 +43,7 @@ export async function POST(request: Request) {
   const { data, error } = await supabase
     .from('support_tickets')
     .insert({ user_id: identity.id, subject, message, status: 'open' })
-    .select('id, subject, message, status, created_at, updated_at, admin_reply, replied_at')
+    .select('id, subject, message, status, created_at, updated_at, admin_reply, replied_at, messages')
     .single()
 
   if (error) return NextResponse.json({ error: 'ticket_create_failed' }, { status: 500 })

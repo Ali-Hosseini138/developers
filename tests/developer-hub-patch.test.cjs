@@ -43,7 +43,7 @@ async function runSave(mode) {
     categoryId: '12', applicationType: '1', ageLimit: '0', supportsNetboxPayment: false,
     developedForAndroidTv: true, airMouseCompatible: false,
     iconFile: null, bannerFile: null, backgroundFile: null, replacementScreenshots: [], FormData,
-    changedDeveloperMetadata, unconfirmedDeveloperMetadata,
+    changedDeveloperMetadata, unconfirmedDeveloperMetadata, appDescription: text => text.trim(),
     setFieldErrors() {}, setSaving() {}, setUploadProgress() {}, setBaseline() {},
     setErrorMessage(v) { result.error = v }, setSaved(v) { result.saved = v },
     setSaveNotice(v) { result.notice = v }, setSaveWarning(v) { result.warning = v },

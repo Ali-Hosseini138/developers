@@ -15,9 +15,9 @@ export default function SsoIntegrationPage() {
 
       <header className="mt-8">
         <p className="text-sm font-semibold text-primary">Netbox SSO</p>
-        <h1 className="mt-2 text-3xl font-bold tracking-tight sm:text-4xl">مراحل پیاده سازی ورود یکپارچه</h1>
+        <h1 className="mt-2 text-3xl font-bold tracking-tight sm:text-4xl">مراحل پیاده سازی ورود با نت‌باکس</h1>
         <p className="mt-4 leading-8 text-muted-foreground">
-          SDK ورود یکپارچه نت‌باکس برای اپلیکیشن‌های شخص ثالث طراحی شده تا کاربر بتواند با حساب نت‌باکس وارد اپ شود و بدون ورود مجدد بین سرویس‌های متصل جابه‌جا شود. امکان ساخت دکمه ورود اختصاصی یا استفاده از LoginButton آماده نیز وجود دارد.
+          SDK ورود با نت‌باکس نت‌باکس برای اپلیکیشن‌های شخص ثالث طراحی شده تا کاربر بتواند با حساب نت‌باکس وارد اپلیکیشن شود و بدون ورود مجدد بین سرویس‌های متصل جابه‌جا شود. امکان ساخت دکمه ورود اختصاصی یا استفاده از LoginButton آماده نیز وجود دارد.
         </p>
       </header>
 
@@ -54,7 +54,7 @@ export default function SsoIntegrationPage() {
         </div>
 
         <p className="mt-4 rounded-xl bg-secondary/60 p-4 text-sm leading-7 text-muted-foreground">
-          نکته: این API از سمت Netbox فراخوانی می‌شود و اپلیکیشن شما نیازی به فراخوانی مستقیم Netbox API ندارد. نتیجه در قالب Intent به اپ شما برگردانده می‌شود.
+          نکته: این API از سمت Netbox فراخوانی می‌شود و اپلیکیشن شما نیازی به فراخوانی مستقیم Netbox API ندارد. نتیجه در قالب Intent به اپلیکیشن شما برگردانده می‌شود.
         </p>
       </section>
 

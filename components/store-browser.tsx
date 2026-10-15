@@ -57,7 +57,7 @@ export function StoreBrowser() {
             <Input
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="جستجوی اپ، برچسب یا توضیحات..."
+              placeholder="جستجوی اپلیکیشن، برچسب یا توضیحات..."
               className="pe-9"
             />
           </div>

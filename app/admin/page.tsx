@@ -4,6 +4,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { logoutAction } from './actions'
 import { Button } from '@/components/ui/button'
 import { AdminConsole } from '@/components/admin/admin-console'
+import type { TicketMessage } from '@/lib/types'
 import type { AdminSubmissionListItem } from '@/lib/admin-hub-model'
 
 export const metadata = { title: 'پنل مدیریت — نت‌استور' }
@@ -11,6 +12,7 @@ export const dynamic = 'force-dynamic'
 
 export type AdminSupportTicket = {
   id: string
+  messages: TicketMessage[]
   user_id: string
   subject: string
   message: string
@@ -51,6 +53,7 @@ export default async function AdminPage() {
   const profileMap = new Map((profiles || []).map((p: { id: string; full_name: string | null }) => [p.id, p.full_name]))
   const adminTickets: AdminSupportTicket[] = (tickets || []).map((row: Record<string, any>) => ({
     id: row.id,
+    messages: Array.isArray(row.messages) ? row.messages : [],
     user_id: row.user_id,
     subject: row.subject,
     message: row.message,
