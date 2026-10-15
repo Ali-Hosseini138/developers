@@ -1,3 +1,4 @@
+import { LoadFailure } from '@/components/load-failure'
 import { redirect } from 'next/navigation'
 import { getAdminUser, adminHubApi } from '@/lib/admin-auth'
 import { loadTicketPages } from '@/lib/support-tickets'
@@ -11,7 +12,9 @@ export const metadata = { title: 'پنل مدیریت — نت‌استور' }
 export const dynamic = 'force-dynamic'
 
 export default async function AdminPage() {
-  const adminUser = await getAdminUser()
+  let adminUser
+  try { adminUser = await getAdminUser() }
+  catch { return <LoadFailure message="ارتباط با سرویس مدیریت برقرار نشد؛ دوباره تلاش کنید." /> }
   if (!adminUser) redirect('/admin/login')
 
   const submissions: AdminSubmissionListItem[] = []
@@ -71,7 +74,8 @@ export default async function AdminPage() {
       {submissionsError && <p role="alert" className="mb-4 rounded-xl bg-destructive/10 p-4 text-sm text-destructive">{submissionsError}</p>}
       <AdminConsole
         submissions={submissions}
-        stats={stats}
+        submissionsError={submissionsError}
+        stats={submissionsError ? stats.filter(stat => stat.label === 'تیکت‌ها') : stats}
         tickets={adminTickets}
         ticketsError={ticketsError}
         canReviewSubmission={adminUser.canReviewSubmission}

@@ -6,10 +6,12 @@ import { Check, Loader2, UserRound } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { asciiDigits } from '@/lib/input-normalization'
+import { LoadFailure } from '@/components/load-failure'
 import { useStore } from '@/components/store-provider'
 
 export default function AccountPage() {
-  const { user, authReady, updateProfile } = useStore()
+  const { user, authReady, sessionError, updateProfile } = useStore()
   const router = useRouter()
   const [name, setName] = useState('')
   const [phone, setPhone] = useState('')
@@ -20,16 +22,17 @@ export default function AccountPage() {
   const [errorMessage, setErrorMessage] = useState('')
 
   useEffect(() => {
-    if (authReady && !user) router.replace('/login?next=/account')
+    if (authReady && !sessionError && !user) router.replace('/login?next=/account')
     else if (user) {
       setName(user.name)
       setPhone(user.phone || '')
       setNationalId(user.nationalId || '')
       setOrganization(user.organization || '')
     }
-  }, [authReady, user, router])
+  }, [authReady, sessionError, user, router])
 
   if (!authReady) return <main className="mx-auto flex min-h-[40vh] max-w-3xl items-center justify-center px-4 py-10"><span className="text-sm text-muted-foreground">در حال بارگذاری حساب...</span></main>
+  if (sessionError) return <LoadFailure message={sessionError} />
   if (!user) return null
 
   async function save(e: React.FormEvent) {
@@ -39,7 +42,7 @@ export default function AccountPage() {
     setSaved(false)
     setErrorMessage('')
     try {
-      await updateProfile({ name: name.trim(), phone: phone.trim(), nationalId: nationalId.trim(), organization: organization.trim() })
+      await updateProfile({ name: name.trim(), phone: asciiDigits(phone.trim()), nationalId: asciiDigits(nationalId.trim()), organization: organization.trim() })
       setSaved(true)
     } catch {
       setErrorMessage('ذخیره اطلاعات انجام نشد. دوباره تلاش کنید.')

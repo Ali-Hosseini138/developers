@@ -35,12 +35,15 @@ export function FileDropzone({
   onFiles,
 }: FileDropzoneProps) {
   const inputRef = useRef<HTMLInputElement>(null)
+  const [fileError, setFileError] = useState('')
   const [dragActive, setDragActive] = useState(false)
 
   const submitFiles = (list: FileList | File[]) => {
     if (disabled) return
-    const files = Array.from(list).filter((file) => acceptsFile(file, accept))
-    if (files.length === 0) return
+    const files = Array.from(list)
+    if (!files.length) return
+    if (files.some(file => !acceptsFile(file, accept))) { setFileError('نوع فایل پذیرفته نیست؛ فایل قبلی تغییر نکرده است. ' + accept); return }
+    setFileError('')
     onFiles(multiple ? files : files.slice(0, 1))
   }
 
@@ -49,6 +52,7 @@ export function FileDropzone({
       role="button"
       tabIndex={disabled ? -1 : 0}
       aria-disabled={disabled}
+      aria-label={label}
       onClick={() => !disabled && inputRef.current?.click()}
       onKeyDown={(event) => {
         if (!disabled && (event.key === 'Enter' || event.key === ' ')) {
@@ -100,6 +104,7 @@ export function FileDropzone({
           event.currentTarget.value = ''
         }}
       />
+      {fileError && <p role="alert" className="text-xs text-destructive">{fileError}</p>}
       <UploadCloud className={cn('text-primary transition-transform', compact ? 'size-5' : 'size-8', dragActive && '-translate-y-0.5')} />
       <div>
         <p className="text-sm font-medium">{label}</p>

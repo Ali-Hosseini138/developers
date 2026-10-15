@@ -23,6 +23,7 @@ import { Separator } from '@/components/ui/separator'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { StarRating } from '@/components/star-rating'
 import { AppCard } from '@/components/app-card'
+import { LoadFailure } from '@/components/load-failure'
 import { useStore } from '@/components/store-provider'
 import { formatDownloads, toFa } from '@/lib/format'
 
@@ -32,10 +33,12 @@ export default function AppDetailPage({
   params: Promise<{ id: string }>
 }) {
   const { id } = use(params)
-  const { getApp, apps } = useStore()
-  const app = getApp(id)
+  const { apps, publishedAppsLoading, publishedAppsError } = useStore()
+  const app = apps.find(item => item.id === id && item.status === 'published')
   const [shareMessage, setShareMessage] = useState('')
 
+  if (publishedAppsLoading) return <p role="status" className="p-10 text-center">در حال دریافت اپلیکیشن...</p>
+  if (publishedAppsError) return <LoadFailure message={publishedAppsError} />
   if (!app) notFound()
 
   const related = apps

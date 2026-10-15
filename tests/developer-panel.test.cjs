@@ -24,7 +24,7 @@ async function create(overrides = {}) {
   const code = ts.transpileModule(source.slice(start, source.indexOf('\n  return (', start)) + '\nsubmitForReview()', { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText
   let sent, error = ''
   const file = new Blob(['png'], { type: 'image/png' })
-  const state = { ...description, saving: false, requirementsValid: true, name: 'App', nameEn: '', description: 'Full description', descriptionEn: '',
+  const state = { ...description, saving: false, submitting: { current: false }, submitted: false, mediaBusy: false, setSubmitted() {}, requirementsValid: true, name: 'App', nameEn: '', description: 'Full description', descriptionEn: '',
     apkFile: file, iconFile: file, bannerFile: file, backgroundFile: file, screenshotFiles: [], packageName: 'com.real.app', categoryId: '12', applicationType: '1', ageLimit: '0',
     supportsNetboxPayment: true, hasInAppPayment: true, paymentCommitmentAccepted: true, developedForAndroidTv: false, airMouseCompatible: true, changeLog: '',
     setFieldErrors() {}, setErrorMessage: value => error = value, setSaving() {}, setSubmitProgress() {}, setSubmitStage() {}, setStep() {},
@@ -59,4 +59,10 @@ test('new app creation accepts an omitted icon and leaves extraction to the back
   const result = await create({ iconFile: null })
   assert.ok(result.sent)
   assert.equal(result.sent.entries.icon, undefined)
+})
+
+test('accepted app upload is not reported as failed when dashboard reload is unavailable', async () => {
+  const result = await create({ reloadDeveloperApps: async () => { throw new Error('offline') } })
+  assert.ok(result.sent)
+  assert.equal(result.error, '')
 })

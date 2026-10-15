@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useParams, useRouter } from 'next/navigation'
 import { ArrowRight, Check, FileArchive, Loader2, UploadCloud } from 'lucide-react'
@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
+import { LoadFailure } from '@/components/load-failure'
 import { useStore } from '@/components/store-provider'
 import { FileDropzone } from '@/components/upload/file-dropzone'
 import { developerHubErrorMessage, postDeveloperHubMultipart } from '@/lib/developer-hub-client'
@@ -18,32 +19,36 @@ const MAX_APK_SIZE = 300 * 1024 * 1024
 
 export default function NewVersionPage() {
   const { id } = useParams<{ id: string }>()
-  const { user, authReady, getApp, reloadDeveloperApps } = useStore()
+  const { user, authReady, sessionError, myApps, developerAppsLoading, developerAppsError, reloadDeveloperApps } = useStore()
   const router = useRouter()
-  const app = getApp(id)
+  const app = myApps.find(item => item.id === id)
 
   const [changes, setChanges] = useState('')
   const [apkFile, setApkFile] = useState<File | null>(null)
   const [saved, setSaved] = useState(false)
+  const submitting = useRef(false)
   const [saving, setSaving] = useState(false)
   const [uploadProgress, setUploadProgress] = useState(0)
   const [errorMessage, setErrorMessage] = useState('')
 
   useEffect(() => {
-    if (authReady && !user) router.replace('/login?next=/dashboard')
-  }, [authReady, user, router])
+    if (authReady && !sessionError && !user) router.replace('/login?next=/dashboard')
+  }, [authReady, sessionError, user, router])
 
-  if (!authReady) return <main className="mx-auto flex min-h-[40vh] max-w-2xl items-center justify-center px-4 py-10"><span className="text-sm text-muted-foreground">در حال بارگذاری اپلیکیشن...</span></main>
+  if (!authReady || (!sessionError && Boolean(user) && !app && developerAppsLoading)) return <main className="mx-auto flex min-h-[40vh] max-w-2xl items-center justify-center px-4 py-10"><span className="text-sm text-muted-foreground">در حال بارگذاری اپلیکیشن...</span></main>
+  if (sessionError) return <LoadFailure message={sessionError} />
   if (!user) return null
+  if (!app && developerAppsError) return <LoadFailure message={developerAppsError} retry={() => { void reloadDeveloperApps().catch(() => {}) }} />
   if (!app) return <main className="mx-auto max-w-2xl px-4 py-10 sm:px-6"><Link href="/dashboard" className="text-sm text-primary">بازگشت به داشبورد</Link><div className="mt-6 rounded-2xl border border-dashed border-border p-8 text-center text-sm text-muted-foreground">این اپلیکیشن پیدا نشد یا به حساب شما تعلق ندارد.</div></main>
-  if (!app.canSubmit) return <main className="mx-auto max-w-2xl px-4 py-10 sm:px-6"><Link href="/dashboard" className="text-sm text-primary">بازگشت به داشبورد</Link><div className="mt-6 rounded-2xl border border-dashed border-border p-8 text-center text-sm text-muted-foreground">در حال حاضر امکان ارسال APK جدید برای این اپلیکیشن وجود ندارد؛ یک درخواست فعال در جریان است.</div></main>
+  if (!app.canSubmit && !saved) return <main className="mx-auto max-w-2xl px-4 py-10 sm:px-6"><Link href="/dashboard" className="text-sm text-primary">بازگشت به داشبورد</Link><div className="mt-6 rounded-2xl border border-dashed border-border p-8 text-center text-sm text-muted-foreground">در حال حاضر امکان ارسال APK جدید برای این اپلیکیشن وجود ندارد؛ یک درخواست فعال در جریان است.</div></main>
 
   const appId = app.id
 
   async function submit(event: React.FormEvent) {
     event.preventDefault()
-    if (!apkFile || !changes.trim() || saving) return
+    if (!apkFile || !changes.trim() || submitting.current || saved) return
 
+    submitting.current = true
     setSaving(true)
     setUploadProgress(0)
     setErrorMessage('')
@@ -60,7 +65,7 @@ export default function NewVersionPage() {
       )
       setUploadProgress(100)
       setSaved(true)
-      await reloadDeveloperApps()
+      await reloadDeveloperApps().catch(() => {})
       window.setTimeout(() => {
         router.push('/dashboard')
         router.refresh()
@@ -68,6 +73,7 @@ export default function NewVersionPage() {
     } catch (error) {
       setErrorMessage(developerHubErrorMessage(error, 'ثبت نسخه انجام نشد. فایل را بررسی کنید و دوباره تلاش کنید.'))
     } finally {
+      submitting.current = false
       setSaving(false)
     }
   }
@@ -88,8 +94,10 @@ export default function NewVersionPage() {
       </div>
 
       <form onSubmit={submit} className="mt-8 flex flex-col gap-5 rounded-2xl border border-border bg-card p-6">
+        <fieldset disabled={saving || saved} className="contents">
         <div>
           <FileDropzone
+            disabled={saving || saved}
             accept=".apk,application/vnd.android.package-archive"
             label={app.isPublished ? 'فایل APK نسخه جدید' : 'فایل APK جدید'}
             hint="حداکثر حجم قابل قبول در این پنل ۳۰۰ مگابایت است."
@@ -163,6 +171,7 @@ export default function NewVersionPage() {
           {saving ? <Loader2 className="size-4 animate-spin" /> : saved ? <Check className="size-4" /> : <UploadCloud className="size-4" />}
           {saving ? 'در حال ثبت...' : saved ? 'درخواست ثبت شد' : app.isPublished ? 'ارسال نسخه برای بررسی' : 'ارسال APK جدید'}
         </Button>
+        </fieldset>
       </form>
     </main>
   )

@@ -4,22 +4,22 @@ import { Suspense, useEffect, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Check, Loader2, ShieldCheck } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { safeInternalPath } from '@/lib/safe-navigation'
+import { LoadFailure } from '@/components/load-failure'
 import { useStore } from '@/components/store-provider'
 import { PUBLISHING_RULES } from '@/lib/publishing-rules'
 
 function TermsAcceptanceContent() {
-  const { user, authReady, acceptTerms } = useStore()
+  const { user, authReady, sessionError, acceptTerms } = useStore()
   const router = useRouter()
   const searchParams = useSearchParams()
   const requestedNext = searchParams.get('next') || '/dashboard'
-  const next = requestedNext.startsWith('/') && !requestedNext.startsWith('//') && requestedNext !== '/terms'
-    ? requestedNext
-    : '/dashboard'
+  const next = safeInternalPath(requestedNext) === '/terms' ? '/dashboard' : safeInternalPath(requestedNext)
   const [saving, setSaving] = useState(false)
   const [errorMessage, setErrorMessage] = useState('')
 
   useEffect(() => {
-    if (!authReady) return
+    if (!authReady || sessionError) return
     if (!user) {
       router.replace('/login?next=/terms')
       return
@@ -27,7 +27,7 @@ function TermsAcceptanceContent() {
     if (user.termsAcceptedAt) {
       router.replace(next)
     }
-  }, [authReady, user, router, next])
+  }, [authReady, sessionError, user, router, next])
 
   async function accept() {
     if (saving) return
@@ -44,6 +44,7 @@ function TermsAcceptanceContent() {
     }
   }
 
+  if (sessionError) return <LoadFailure message={sessionError} />
   if (!authReady || !user || user.termsAcceptedAt) {
     return (
       <main className="mx-auto flex min-h-[55vh] max-w-3xl items-center justify-center px-4 py-12">

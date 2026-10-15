@@ -13,6 +13,7 @@ import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
+import { LoadFailure } from '@/components/load-failure'
 import { useStore } from '@/components/store-provider'
 import { followUpTicket } from '@/lib/support-tickets'
 import { toFa } from '@/lib/format'
@@ -28,7 +29,7 @@ const tabs = [
 type Tab = (typeof tabs)[number]['id']
 
 function DashboardPageInner() {
-  const { user, authReady, myApps, cancelSubmission, tickets, addTicket } = useStore()
+  const { user, authReady, myApps, cancelSubmission, tickets, addTicket, sessionError, developerAppsLoading, developerAppsError, reloadDeveloperApps } = useStore()
   const router = useRouter()
   const searchParams = useSearchParams()
   const requestedTab = searchParams.get('tab')
@@ -50,8 +51,9 @@ function DashboardPageInner() {
   const [ticketSending, setTicketSending] = useState(false)
   const [ticketError, setTicketError] = useState('')
 
-  useEffect(() => { if (authReady && !user) router.replace('/login?next=/dashboard') }, [authReady, user, router])
+  useEffect(() => { if (authReady && !sessionError && !user) router.replace('/login?next=/dashboard') }, [authReady, sessionError, user, router])
   if (!authReady) return <PageLoading />
+  if (sessionError) return <LoadFailure message={sessionError} />
   if (!user) return null
 
   const myTickets = tickets
@@ -88,8 +90,10 @@ function DashboardPageInner() {
         <DeveloperSidebar activeTab={tab} onTabChange={changeTab} />
 
         <div className="min-w-0 lg:pr-24">
-          {tab === 'apps' && <AppsTab myApps={myApps} cancelSubmission={cancelSubmission} />}
-          {tab === 'analytics' && <DeveloperInstallStats myApps={myApps} />}
+          {developerAppsError && (tab === 'apps' || tab === 'analytics') && <LoadFailure message={developerAppsError} retry={() => { void reloadDeveloperApps().catch(() => {}) }} />}
+          {developerAppsLoading && (tab === 'apps' || tab === 'analytics') && <p role="status" className="mt-8">در حال دریافت اپلیکیشن‌ها...</p>}
+          {tab === 'apps' && (!developerAppsLoading || myApps.length > 0) && (!developerAppsError || myApps.length > 0) && <AppsTab myApps={myApps} cancelSubmission={cancelSubmission} />}
+          {tab === 'analytics' && (!developerAppsLoading || myApps.length > 0) && (!developerAppsError || myApps.length > 0) && <DeveloperInstallStats myApps={myApps} />}
           {tab === 'finance' && <FinanceTab />}
           {tab === 'support' && <SupportTab subject={subject} message={message} setSubject={setSubject} setMessage={setMessage} submitTicket={submitTicket} tickets={myTickets} sending={ticketSending} errorMessage={ticketError} />}
         </div>
@@ -106,14 +110,14 @@ function AppsTab({ myApps, cancelSubmission }: { myApps: ReturnType<typeof useSt
 
   const processingCount = myApps.filter((app) => app.status === 'processing').length
   const pendingCount = myApps.filter((app) => app.status === 'pending').length
-  const publishedCount = myApps.filter((app) => app.status === 'published').length
+  const publishedCount = myApps.filter((app) => app.isPublished).length
   const rejectedCount = myApps.filter((app) => app.status === 'rejected' || app.status === 'parse_failed').length
 
   const filteredApps = useMemo(() => {
     const q = query.trim().toLowerCase()
     return myApps.filter((app) => {
       const normalizedStatus = app.status === 'parse_failed' ? 'rejected' : app.status
-      const matchesStatus = statusFilter === 'all' || normalizedStatus === statusFilter
+      const matchesStatus = statusFilter === 'all' || (statusFilter === 'published' ? app.isPublished : normalizedStatus === statusFilter)
       const matchesQuery = !q || app.name.toLowerCase().includes(q) || app.packageName?.toLowerCase().includes(q)
       return matchesStatus && matchesQuery
     })
@@ -158,7 +162,7 @@ function AppsTab({ myApps, cancelSubmission }: { myApps: ReturnType<typeof useSt
         id: appId,
         message: code === 'state_changed'
           ? 'وضعیت درخواست تغییر کرده است. صفحه را تازه کنید.'
-          : 'لغو درخواست انجام نشد. دوباره تلاش کنید.',
+          : code,
       })
     } finally {
       setCancellingId(null)

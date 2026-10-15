@@ -3,7 +3,7 @@ import { Headphones, Users } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 
 const highlights = [
-  [Users, 'بیش از ۱۵۰ هزار', 'کاربر فعال'],
+  [Users, 'انتشار روی تلویزیون', 'برای کاربران Android TV'],
   [Headphones, 'پشتیبانی تخصصی', 'برای توسعه‌دهندگان'],
 ] as const
 

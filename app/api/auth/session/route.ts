@@ -17,6 +17,11 @@ export async function GET() {
     })
     const payload = await response.json().catch(() => ({}))
 
+    // An outage or rate limit is not proof that the user's refresh token is invalid.
+    if (!response.ok && ![400, 401, 403].includes(response.status)) {
+      return NextResponse.json({ detail: 'سرویس بررسی نشست موقتاً در دسترس نیست.' }, { status: response.status, headers: { 'Cache-Control': 'private, no-store', ...(response.headers.get('Retry-After') ? { 'Retry-After': response.headers.get('Retry-After')! } : {}) } })
+    }
+    if (response.ok && (typeof payload.access !== 'string' || !payload.access)) return NextResponse.json({ detail: 'پاسخ سرویس نشست معتبر نیست.' }, { status: 502 })
     if (!response.ok || !payload.access) {
       const result = NextResponse.json({ authenticated: false }, { status: 401 })
       for (const name of [ACCESS_COOKIE, REFRESH_COOKIE, EMAIL_COOKIE, OWNER_COOKIE]) {
@@ -37,6 +42,7 @@ export async function GET() {
         termsAcceptedAt: new Date(0).toISOString(),
       },
     })
+    result.headers.set('Cache-Control', 'private, no-store')
     result.cookies.set(ACCESS_COOKIE, payload.access, authCookieOptions(Number(payload.expiresIn || 1800)))
     result.cookies.set(OWNER_COOKIE, encodeDeveloperIdentity(identity), authCookieOptions(7 * 24 * 60 * 60))
     return result
