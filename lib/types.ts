@@ -101,7 +101,15 @@ export interface User {
 
 export type TicketStatus = 'open' | 'answered' | 'closed'
 
+export interface TicketMessage {
+  id: string
+  role: 'developer' | 'support'
+  body: string
+  createdAt: string
+}
+
 export interface SupportTicket {
+  messages?: TicketMessage[]
   id: string
   subject: string
   message: string

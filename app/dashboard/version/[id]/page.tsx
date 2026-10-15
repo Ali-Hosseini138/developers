@@ -11,6 +11,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { useStore } from '@/components/store-provider'
 import { FileDropzone } from '@/components/upload/file-dropzone'
 import { developerHubErrorMessage, postDeveloperHubMultipart } from '@/lib/developer-hub-client'
+import { Badge } from '@/components/ui/badge'
 import { toFa } from '@/lib/format'
 
 const MAX_APK_SIZE = 250 * 1024 * 1024
@@ -32,10 +33,10 @@ export default function NewVersionPage() {
     if (authReady && !user) router.replace('/login?next=/dashboard')
   }, [authReady, user, router])
 
-  if (!authReady) return <main className="mx-auto flex min-h-[40vh] max-w-2xl items-center justify-center px-4 py-10"><span className="text-sm text-muted-foreground">در حال بارگذاری اپ...</span></main>
+  if (!authReady) return <main className="mx-auto flex min-h-[40vh] max-w-2xl items-center justify-center px-4 py-10"><span className="text-sm text-muted-foreground">در حال بارگذاری اپلیکیشن...</span></main>
   if (!user) return null
-  if (!app) return <main className="mx-auto max-w-2xl px-4 py-10 sm:px-6"><Link href="/dashboard" className="text-sm text-primary">بازگشت به داشبورد</Link><div className="mt-6 rounded-2xl border border-dashed border-border p-8 text-center text-sm text-muted-foreground">این اپ پیدا نشد یا به حساب شما تعلق ندارد.</div></main>
-  if (!app.canSubmit) return <main className="mx-auto max-w-2xl px-4 py-10 sm:px-6"><Link href="/dashboard" className="text-sm text-primary">بازگشت به داشبورد</Link><div className="mt-6 rounded-2xl border border-dashed border-border p-8 text-center text-sm text-muted-foreground">در حال حاضر امکان ارسال APK جدید برای این اپ وجود ندارد؛ یک درخواست فعال در جریان است.</div></main>
+  if (!app) return <main className="mx-auto max-w-2xl px-4 py-10 sm:px-6"><Link href="/dashboard" className="text-sm text-primary">بازگشت به داشبورد</Link><div className="mt-6 rounded-2xl border border-dashed border-border p-8 text-center text-sm text-muted-foreground">این اپلیکیشن پیدا نشد یا به حساب شما تعلق ندارد.</div></main>
+  if (!app.canSubmit) return <main className="mx-auto max-w-2xl px-4 py-10 sm:px-6"><Link href="/dashboard" className="text-sm text-primary">بازگشت به داشبورد</Link><div className="mt-6 rounded-2xl border border-dashed border-border p-8 text-center text-sm text-muted-foreground">در حال حاضر امکان ارسال APK جدید برای این اپلیکیشن وجود ندارد؛ یک درخواست فعال در جریان است.</div></main>
 
   const appId = app.id
 
@@ -82,7 +83,7 @@ export default function NewVersionPage() {
         <p className="text-sm font-semibold text-primary">{app.isPublished ? 'انتشار نسخه جدید' : 'ارسال مجدد APK'}</p>
         <h1 className="mt-2 text-3xl font-bold">{app.name}</h1>
         <p className="mt-2 text-sm leading-7 text-muted-foreground">
-          فایل مستقیم برای بک‌اند Developer Hub ارسال می‌شود و ابتدا وارد مرحله پردازش APK خواهد شد.
+          فایل APK نسخه جدید را برای بررسی ارسال کنید.
         </p>
       </div>
 
@@ -110,7 +111,7 @@ export default function NewVersionPage() {
             }}
           />
           <p className="mt-2 text-center text-xs text-muted-foreground">
-            {apkFile ? `${apkFile.name} — ${(apkFile.size / 1024 / 1024).toFixed(1)} MB` : 'فایل هنگام ثبت درخواست مستقیماً برای بک‌اند ارسال می‌شود.'}
+            {apkFile ? `${apkFile.name} — ${(apkFile.size / 1024 / 1024).toFixed(1)} MB` : 'فایل APK را انتخاب کنید.'}
           </p>
         </div>
 
@@ -118,12 +119,12 @@ export default function NewVersionPage() {
           <Label>Package Name ثبت‌شده</Label>
           <Input value={app.packageName || '—'} readOnly dir="ltr" className="mt-1.5 bg-secondary/50" />
           <p className="mt-2 text-xs leading-6 text-muted-foreground">
-            بک‌اند Package Name داخل APK را استخراج می‌کند و با این مقدار تطبیق می‌دهد.
+            Package Name فایل APK باید با مقدار ثبت‌شده یکسان باشد.
           </p>
         </div>
 
         <div>
-          <Label htmlFor="changes">تغییرات نسخه</Label>
+          <Label htmlFor="changes">تغییرات نسخه <Badge variant="secondary">اجباری</Badge></Label>
           <Textarea
             id="changes"
             value={changes}
@@ -137,7 +138,7 @@ export default function NewVersionPage() {
 
         <div className="flex items-start gap-3 rounded-xl bg-secondary/60 p-4 text-sm leading-7 text-muted-foreground">
           <FileArchive className="mt-1 size-4 shrink-0 text-primary" />
-          پس از ارسال، وضعیت پردازش و بررسی از خود بک‌اند دریافت می‌شود. برای نسخه‌های منتشرشده، امضا و versionCode نیز سمت سرور کنترل می‌شوند.
+          پس از ارسال، وضعیت بررسی در داشبورد نمایش داده می‌شود.
         </div>
 
         {saving && (

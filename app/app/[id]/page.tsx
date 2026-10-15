@@ -144,7 +144,7 @@ export default function AppDetailPage({
                 اشتراک‌گذاری
               </Button>
             </div>
-            <p className="mt-2 text-xs text-muted-foreground">نصب اپ از داخل نت‌استور روی تلویزیون یا اندروید باکس انجام می‌شود.</p>
+            <p className="mt-2 text-xs text-muted-foreground">نصب اپلیکیشن از داخل نت‌استور روی تلویزیون یا اندروید باکس انجام می‌شود.</p>
             {shareMessage && <p role="status" className="mt-2 text-xs font-medium text-primary">{shareMessage}</p>}
           </div>
         </div>
@@ -184,7 +184,7 @@ export default function AppDetailPage({
                   <PlayCircle className="size-6" />
                 </span>
                 <div className="min-w-0">
-                  <p className="text-sm font-medium">مشاهده ویدیوی معرفی اپ</p>
+                  <p className="text-sm font-medium">مشاهده ویدیوی معرفی اپلیکیشن</p>
                   <p className="truncate text-xs text-muted-foreground" dir="ltr">
                     {app.videoUrl}
                   </p>
@@ -194,7 +194,7 @@ export default function AppDetailPage({
           )}
 
           <section className="mb-8">
-            <h2 className="mb-3 text-lg font-bold">درباره این اپ</h2>
+            <h2 className="mb-3 text-lg font-bold">درباره این اپلیکیشن</h2>
             <p className="whitespace-pre-line text-pretty leading-loose text-muted-foreground">
               {app.description}
             </p>
@@ -339,7 +339,7 @@ export default function AppDetailPage({
 
       {related.length > 0 && (
         <section className="mt-12">
-          <h2 className="mb-4 text-lg font-bold">اپ‌های مشابه</h2>
+          <h2 className="mb-4 text-lg font-bold">اپلیکیشن‌های مشابه</h2>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {related.map((r) => (
               <AppCard key={r.id} app={r} />

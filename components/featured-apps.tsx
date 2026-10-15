@@ -15,7 +15,7 @@ export function FeaturedApps() {
 
   return (
     <section className="mx-auto max-w-6xl px-4 pt-12 sm:px-6">
-      <h2 className="text-2xl font-bold tracking-tight">اپ‌های منتخب</h2>
+      <h2 className="text-2xl font-bold tracking-tight">اپلیکیشن‌های منتخب</h2>
       <p className="mt-1 text-sm text-muted-foreground">
         برگزیده‌های سردبیر از میان بهترین ابزارها
       </p>

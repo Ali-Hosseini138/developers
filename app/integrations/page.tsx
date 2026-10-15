@@ -10,7 +10,7 @@ const guides = [
   },
   {
     href: '/integrations/sso',
-    title: 'مراحل پیاده سازی ورود یکپارچه',
+    title: 'مراحل پیاده سازی ورود با نت‌باکس',
     description: 'راهنمای اتصال اپلیکیشن به Netbox SSO، دریافت نتیجه ورود و اعتبارسنجی token.',
     icon: LogIn,
   },

@@ -4,6 +4,16 @@ import { getDeveloperIdentity } from '@/lib/developer-identity'
 
 const datePattern = /^\d{4}-\d{2}-\d{2}$/
 
+async function allMetricRows<T>(query: { range: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: unknown }> }) {
+  const rows: T[] = []
+  for (let from = 0; ; from += 1000) {
+    const result = await query.range(from, from + 999)
+    if (result.error) return { data: [], error: result.error }
+    rows.push(...(result.data || []))
+    if (!result.data || result.data.length < 1000) return { data: rows, error: null }
+  }
+}
+
 export async function GET(request: Request) {
   const identity = await getDeveloperIdentity()
   if (!identity) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
@@ -47,6 +57,7 @@ export async function GET(request: Request) {
     .gte('metric_date', start)
     .lte('metric_date', end)
     .order('metric_date', { ascending: true })
+    .order('app_id', { ascending: true })
 
   installsQuery = selectedIds.length === 1
     ? installsQuery.eq('app_id', selectedIds[0])
@@ -64,16 +75,17 @@ export async function GET(request: Request) {
           .gte('metric_date', start)
           .lte('metric_date', end)
           .order('metric_date', { ascending: true })
+          .order('app_id', { ascending: true })
 
         query = paymentIds.length === 1
           ? query.eq('app_id', paymentIds[0])
           : query.in('app_id', paymentIds)
 
-        return query
+        return allMetricRows(query)
       })()
     : Promise.resolve({ data: [], error: null })
 
-  const [installsResult, salesResult] = await Promise.all([installsQuery, salesPromise])
+  const [installsResult, salesResult] = await Promise.all([allMetricRows(installsQuery), salesPromise])
 
   if (installsResult.error || salesResult.error) {
     return NextResponse.json({ error: 'analytics_load_failed' }, { status: 500 })
