@@ -1,24 +1,14 @@
 import { NextResponse } from 'next/server'
-
-type CategoryOption = { id: number; name: string }
+import { developerHubApi, copyBackendResponse } from '@/lib/developer-api'
 
 export async function GET() {
-  let categories: CategoryOption[] = []
-
   try {
-    const raw = process.env.DEVELOPER_HUB_CATEGORIES_JSON || ''
-    const parsed = raw ? JSON.parse(raw) : []
-    if (Array.isArray(parsed)) {
-      categories = parsed
-        .map((item) => ({
-          id: Number(item?.id),
-          name: String(item?.name || '').trim(),
-        }))
-        .filter((item) => Number.isInteger(item.id) && item.id > 0 && item.name)
-    }
+    const response = await developerHubApi('/api/v1/developer-hub/categories/')
+    const payload = await response.json().catch(() => null)
+    if (!response.ok) return copyBackendResponse(response, payload || { detail: 'دریافت دسته‌بندی‌ها انجام نشد.' })
+    if (!Array.isArray(payload)) return NextResponse.json({ detail: 'پاسخ دسته‌بندی‌ها معتبر نیست.' }, { status: 502 })
+    return NextResponse.json({ categories: payload })
   } catch {
-    categories = []
+    return NextResponse.json({ detail: 'ارتباط با سرویس دسته‌بندی برقرار نشد.' }, { status: 502 })
   }
-
-  return NextResponse.json({ categories })
 }

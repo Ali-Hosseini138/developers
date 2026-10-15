@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { AdminPaymentDeadlines } from '@/components/admin/admin-payment-deadlines'
 import { MessageSquare, PackageCheck } from 'lucide-react'
 import type { AdminSupportTicket } from '@/app/admin/page'
 import type { AdminSubmissionListItem } from '@/lib/admin-hub-model'
@@ -21,7 +22,7 @@ export function AdminConsole({
   tickets: AdminSupportTicket[]
   canReviewSubmission: boolean
 }) {
-  const [tab, setTab] = useState<'reviews' | 'tickets'>('reviews')
+  const [tab, setTab] = useState<'reviews' | 'tickets' | 'payments'>('reviews')
 
   return (
     <>
@@ -30,6 +31,7 @@ export function AdminConsole({
           <PackageCheck className="size-4" />
           بررسی و انتشار
         </Button>
+        {canReviewSubmission && <Button type="button" variant={tab === 'payments' ? 'default' : 'ghost'} onClick={() => setTab('payments')} className="shrink-0">مهلت تعهد پرداخت</Button>}
         <Button type="button" variant={tab === 'tickets' ? 'default' : 'ghost'} onClick={() => setTab('tickets')} className="shrink-0 gap-2">
           <MessageSquare className="size-4" />
           تیکت‌ها
@@ -54,6 +56,8 @@ export function AdminConsole({
           <AdminSubmissions submissions={submissions} canReviewSubmission={canReviewSubmission} />
         </>
       )}
+
+      {tab === 'payments' && canReviewSubmission && <AdminPaymentDeadlines />}
 
       {tab === 'tickets' && <AdminTickets tickets={tickets} />}
     </>
