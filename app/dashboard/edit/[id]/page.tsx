@@ -14,8 +14,8 @@ import { FileDropzone } from '@/components/upload/file-dropzone'
 import { developerHubErrorMessage, patchDeveloperHubMultipart } from '@/lib/developer-hub-client'
 
 const MAX_IMAGE_SIZE = 5 * 1024 * 1024
-const MAX_ICON_SIZE = 2 * 1024 * 1024
-const MAX_SCREENSHOTS = 10
+const MAX_ICON_SIZE = 5 * 1024 * 1024
+const MAX_SCREENSHOTS = 20
 
 type CategoryOption = { id: number; name: string }
 type ImageKind = 'icon' | 'banner' | 'background' | 'screenshot'
@@ -30,6 +30,10 @@ export default function EditAppPage() {
   const [nameEn, setNameEn] = useState(app?.nameEn || '')
   const [tagline, setTagline] = useState(app?.tagline || '')
   const [description, setDescription] = useState(app?.description || '')
+  const [taglineEn, setTaglineEn] = useState(app?.taglineEn || '')
+  const [descriptionEn, setDescriptionEn] = useState(app?.descriptionEn || '')
+  const [website, setWebsite] = useState(app?.website || '')
+  const [supportEmail, setSupportEmail] = useState(app?.supportEmail || '')
   const [packageName, setPackageName] = useState(app?.packageName || '')
   const [categoryId, setCategoryId] = useState(app?.categoryId ? String(app.categoryId) : '')
   const [categories, setCategories] = useState<CategoryOption[]>([])
@@ -77,6 +81,8 @@ export default function EditAppPage() {
     return <main className="mx-auto max-w-3xl px-4 py-10 sm:px-6"><Link href="/dashboard" className="text-sm text-primary">بازگشت به داشبورد</Link><div className="mt-6 rounded-2xl border border-dashed border-border p-8 text-center text-sm text-muted-foreground">در حال حاضر ویرایش اطلاعات این اپ مجاز نیست. وضعیت و دسترسی ویرایش مستقیماً توسط بک‌اند تعیین می‌شود.</div></main>
   }
 
+  const appId = app.id
+
   async function imageDimensions(file: File) {
     if ('createImageBitmap' in window) {
       const bitmap = await createImageBitmap(file)
@@ -102,25 +108,25 @@ export default function EditAppPage() {
   }
 
   async function validateImage(file: File, kind: ImageKind) {
-    if (!['image/png', 'image/jpeg'].includes(file.type)) {
-      setErrorMessage('فرمت تصویر باید PNG یا JPEG باشد.')
+    if (!['image/png', 'image/jpeg', 'image/webp'].includes(file.type)) {
+      setErrorMessage('فرمت تصویر باید PNG، JPG/JPEG یا WEBP باشد.')
       return false
     }
 
     const maxSize = kind === 'icon' ? MAX_ICON_SIZE : MAX_IMAGE_SIZE
     if (file.size > maxSize) {
-      setErrorMessage(kind === 'icon' ? 'حجم آیکون باید حداکثر ۲ مگابایت باشد.' : 'حجم هر تصویر باید حداکثر ۵ مگابایت باشد.')
+      setErrorMessage('حجم هر تصویر باید حداکثر ۵ مگابایت باشد.')
       return false
     }
 
     try {
       const { width, height } = await imageDimensions(file)
-      if (kind === 'icon' && (width !== height || width < 128 || height < 128)) {
-        setErrorMessage('آیکون باید مربع و حداقل ۱۲۸×۱۲۸ پیکسل باشد.')
+      if (kind === 'icon' && width !== height) {
+        setErrorMessage('نسبت تصویر آیکون باید ۱:۱ باشد.')
         return false
       }
-      if ((kind === 'banner' || kind === 'screenshot') && width / height < 1.5) {
-        setErrorMessage('بنر و اسکرین‌شات باید افقی باشند؛ نسبت عرض به ارتفاع حداقل ۱.۵ است.')
+      if ((kind === 'banner' || kind === 'screenshot') && Math.abs(width / height - 16 / 9) > 0.01) {
+        setErrorMessage('نسبت تصویر بنر و اسکرین‌شات باید ۱۶:۹ باشد.')
         return false
       }
     } catch {
@@ -156,7 +162,7 @@ export default function EditAppPage() {
   async function chooseScreenshots(files: File[]) {
     const candidates = files.slice(0, MAX_SCREENSHOTS)
     if (files.length > MAX_SCREENSHOTS) {
-      setErrorMessage('حداکثر ۱۰ اسکرین‌شات قابل ثبت است.')
+      setErrorMessage('حداکثر ۲۰ اسکرین‌شات قابل ثبت است.')
       return
     }
 
@@ -205,6 +211,14 @@ export default function EditAppPage() {
       return
     }
 
+    if (taglineEn.trim() || descriptionEn.trim() || website.trim() || supportEmail.trim()) {
+      setErrorMessage('ذخیره توضیحات انگلیسی، وب‌سایت و ایمیل پشتیبانی در API فعلی تعریف نشده است. برای جلوگیری از حذف اطلاعات، اتصال این فیلدها باید تکمیل شود.')
+      return
+    }
+    if (replacementScreenshots.length > 10 || [iconFile, bannerFile, backgroundFile, ...replacementScreenshots].some((file) => file?.type === 'image/webp') || (iconFile && iconFile.size > 2 * 1024 * 1024)) {
+      setErrorMessage('فرم قبلی بازگردانده شده، اما API فعلی حداکثر ۱۰ تصویر PNG/JPEG و آیکون تا ۲ مگابایت می‌پذیرد. اتصال محدودیت‌های قبلی باید تکمیل شود.')
+      return
+    }
     setSaving(true)
     setSaved(false)
     setUploadProgress(0)
@@ -227,7 +241,7 @@ export default function EditAppPage() {
 
     try {
       await patchDeveloperHubMultipart(
-        '/api/v1/developer-hub/apps/' + encodeURIComponent(app.id) + '/',
+        '/api/v1/developer-hub/apps/' + encodeURIComponent(appId) + '/',
         formData,
         (percent) => setUploadProgress(Math.round(percent)),
       )
@@ -268,13 +282,15 @@ export default function EditAppPage() {
         <Field label="توضیح کوتاه (فارسی)" required>
           <Textarea value={tagline} onChange={(event) => setTagline(event.target.value)} maxLength={1000} rows={3} />
         </Field>
+        <Field label="Short description (English) — اختیاری"><Input value={taglineEn} onChange={(event) => setTaglineEn(event.target.value)} dir="ltr" /></Field>
         <Field label="توضیحات کامل (فارسی)" required>
           <Textarea value={description} onChange={(event) => setDescription(event.target.value)} maxLength={20000} rows={7} />
         </Field>
 
+        <Field label="Full description (English) — اختیاری"><Textarea value={descriptionEn} onChange={(event) => setDescriptionEn(event.target.value)} dir="ltr" rows={6} /></Field>
         <Field label="Package Name" required>
-          <Input value={packageName} onChange={(event) => setPackageName(event.target.value.trim())} maxLength={100} dir="ltr" />
-          <p className="text-xs leading-6 text-muted-foreground">قبل از انتشار قابل تغییر است و باید با Package Name داخل APK یکسان باشد.</p>
+          <Input readOnly={app.isPublished} value={packageName} onChange={(event) => setPackageName(event.target.value.trim())} maxLength={100} dir="ltr" />
+          <p className="text-xs leading-6 text-muted-foreground">{app.isPublished ? 'Package Name اپ منتشرشده قابل تغییر نیست.' : 'تا قبل از انتشار می‌توانید Package Name را اصلاح کنید؛ این مقدار باید با شناسه داخل APK یکسان باشد.'}</p>
         </Field>
 
         <div className="grid gap-4 sm:grid-cols-2">
@@ -305,7 +321,10 @@ export default function EditAppPage() {
           </Field>
 
           <Field label="محدودیت سنی">
-            <Input value={ageLimit} onChange={(event) => setAgeLimit(event.target.value.replace(/\D/g, '').slice(0, 2))} inputMode="numeric" dir="ltr" placeholder="0 تا 99" />
+            <Select value={ageLimit} onValueChange={(value) => value && setAgeLimit(value)}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>{[['0', 'همه سنین'], ['7', '+۷'], ['12', '+۱۲'], ['15', '+۱۵'], ['18', '+۱۸'], ...(!['0', '7', '12', '15', '18'].includes(ageLimit) ? [[ageLimit, ageLimit]] : [])].map(([value, label]) => <SelectItem key={value} value={value}>{label}</SelectItem>)}</SelectContent>
+            </Select>
           </Field>
         </div>
 
@@ -315,18 +334,23 @@ export default function EditAppPage() {
         </label>
 
         <div className="grid gap-4 sm:grid-cols-2">
+          <Field label="آدرس وبسایت"><Input value={website} onChange={(event) => setWebsite(event.target.value)} dir="ltr" type="url" /></Field>
+          <Field label="ایمیل پشتیبانی"><Input value={supportEmail} onChange={(event) => setSupportEmail(event.target.value)} dir="ltr" type="email" /></Field>
+        </div>
+        <p className="text-xs leading-6 text-muted-foreground">فایل APK از صفحه ویرایش تغییر نمی‌کند. برای انتشار APK جدید از بخش «نسخه جدید» استفاده کنید تا تاریخچه نسخه‌ها حفظ شود.</p>
+        <div className="grid gap-4 sm:grid-cols-2">
           <MediaField
-            title="آیکون"
+            title="آیکون برنامه (نسبت ۱:۱)"
             value={iconPreview}
             square
-            hint="PNG یا JPEG — حداکثر ۲MB — مربع و حداقل ۱۲۸×۱۲۸"
+            hint="PNG، JPG/JPEG یا WEBP — حداکثر ۵MB — نسبت ۱:۱"
             onFile={(file) => void chooseSingle(file, 'icon')}
             onClear={() => { setIconFile(null); setIconPreview(app.icon || '') }}
           />
           <MediaField
-            title="بنر"
+            title="بنر معرفی (نسبت ۱۶:۹)"
             value={bannerPreview}
-            hint="PNG یا JPEG — حداکثر ۵MB — افقی با نسبت حداقل ۱.۵"
+            hint="PNG، JPG/JPEG یا WEBP — حداکثر ۵MB — نسبت ۱۶:۹"
             onFile={(file) => void chooseSingle(file, 'banner')}
             onClear={() => { setBannerFile(null); setBannerPreview(app.banner || '') }}
           />
@@ -341,13 +365,13 @@ export default function EditAppPage() {
 
         <Field label="اسکرین‌شات‌ها">
           <p className="text-xs leading-6 text-muted-foreground">
-            اگر فایل جدید انتخاب کنید، کل مجموعه اسکرین‌شات‌های قبلی با مجموعه جدید جایگزین می‌شود. حداکثر ۱۰ تصویر، هرکدام حداکثر ۵MB و افقی.
+            اگر فایل جدید انتخاب کنید، کل مجموعه اسکرین‌شات‌های قبلی با مجموعه جدید جایگزین می‌شود. حداکثر ۲۰ تصویر، هرکدام حداکثر ۵MB با نسبت ۱۶:۹.
           </p>
           <div className="mt-2">
             <FileDropzone
-              accept="image/png,image/jpeg"
+              accept="image/png,image/jpeg,image/webp"
               label="انتخاب مجموعه جدید اسکرین‌شات‌ها"
-              hint="PNG یا JPEG — حداکثر ۱۰ فایل"
+              hint="PNG، JPG/JPEG یا WEBP — حداکثر ۲۰ فایل"
               multiple
               onFiles={(files) => void chooseScreenshots(files)}
             />
@@ -429,7 +453,7 @@ function MediaField({
       {value && <img src={value} alt={title} className={'mt-3 w-full rounded-lg border border-border object-cover ' + (square ? 'aspect-square max-w-40' : 'aspect-video')} />}
       <div className="mt-3">
         <FileDropzone
-          accept="image/png,image/jpeg"
+          accept="image/png,image/jpeg,image/webp"
           label="انتخاب فایل جدید"
           hint={hint}
           compact
