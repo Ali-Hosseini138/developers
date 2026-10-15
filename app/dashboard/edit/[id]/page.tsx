@@ -9,6 +9,8 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { changedDeveloperMetadata, unconfirmedDeveloperMetadata } from '@/lib/developer-hub-patch'
+import { mapDeveloperHubApp } from '@/lib/developer-hub-model'
 import type { StoreApp } from '@/lib/types'
 import { useStore } from '@/components/store-provider'
 import { PaymentCommitmentSummary } from '@/components/payment-commitment-summary'
@@ -48,7 +50,9 @@ export default function EditAppPage() {
 }
 
 function EditAppForm({ app, reloadDeveloperApps }: { app: StoreApp; reloadDeveloperApps: () => Promise<void> }) {
-  const router = useRouter()
+  const [baseline, setBaseline] = useState(app)
+  const [saveNotice, setSaveNotice] = useState('')
+  const [saveWarning, setSaveWarning] = useState('')
   const [name, setName] = useState(app?.name || '')
   const [nameEn, setNameEn] = useState(app?.nameEn || '')
   const [tagline, setTagline] = useState(app?.tagline || '')
@@ -194,21 +198,34 @@ function EditAppForm({ app, reloadDeveloperApps }: { app: StoreApp; reloadDevelo
     event.preventDefault()
     if (saving) return
     setFieldErrors({})
+    setErrorMessage('')
+    setSaveNotice('')
+    setSaveWarning('')
+    const patch = changedDeveloperMetadata(baseline, {
+      packageName, name, nameEn, shortDescription: tagline, shortDescriptionEn: taglineEn,
+      longDescription: description, longDescriptionEn: descriptionEn, categoryId,
+      applicationType, ageLimit, supportsNetboxPayment,
+      isAndroidTv: developedForAndroidTv, isAirMouseCompatible: airMouseCompatible,
+    })
 
-    if (!name.trim() || !tagline.trim() || !description.trim()) {
-      setErrorMessage('عنوان، توضیح کوتاه و توضیحات کامل فارسی الزامی هستند.')
+    if (['name', 'shortDescription', 'longDescription'].some((field) => field in patch && !patch[field])) {
+      setErrorMessage('عنوان، توضیح کوتاه و توضیحات کامل فارسی نمی‌توانند خالی باشند.')
       return
     }
-    if (!/^([A-Za-z][A-Za-z0-9_]*\.)+[A-Za-z][A-Za-z0-9_]*$/.test(packageName.trim())) {
+    if ('packageName' in patch && !/^([A-Za-z][A-Za-z0-9_]*\.)+[A-Za-z][A-Za-z0-9_]*$/.test(patch.packageName)) {
       setErrorMessage('Package Name معتبر نیست. نمونه صحیح: com.company.app')
       return
     }
-    if (!/^\d+$/.test(categoryId) || Number(categoryId) <= 0) {
-      setErrorMessage('Category ID معتبر وارد کنید.')
+    if ('categoryId' in patch && (!/^\d+$/.test(patch.categoryId) || Number(patch.categoryId) <= 0)) {
+      setErrorMessage('یک دسته‌بندی معتبر انتخاب کنید.')
       return
     }
-    if (!/^\d+$/.test(ageLimit) || Number(ageLimit) < 0 || Number(ageLimit) > 99) {
+    if ('ageLimit' in patch && (!/^\d+$/.test(patch.ageLimit) || Number(patch.ageLimit) > 99)) {
       setErrorMessage('محدودیت سنی باید عددی بین ۰ تا ۹۹ باشد.')
+      return
+    }
+    if (!Object.keys(patch).length && !iconFile && !bannerFile && !backgroundFile && !replacementScreenshots.length) {
+      setSaveNotice('اطلاعات قابل ذخیره تغییری نکرده است.')
       return
     }
 
@@ -222,19 +239,7 @@ function EditAppForm({ app, reloadDeveloperApps }: { app: StoreApp; reloadDevelo
     setErrorMessage('')
 
     const formData = new FormData()
-    formData.append('packageName', packageName.trim())
-    formData.append('name', name.trim())
-    formData.append('nameEn', nameEn.trim())
-    formData.append('shortDescription', tagline.trim())
-    formData.append('shortDescriptionEn', taglineEn.trim())
-    formData.append('longDescription', description.trim())
-    formData.append('longDescriptionEn', descriptionEn.trim())
-    formData.append('categoryId', categoryId)
-    formData.append('applicationType', applicationType)
-    formData.append('ageLimit', ageLimit)
-    formData.append('supportsNetboxPayment', supportsNetboxPayment ? 'true' : 'false')
-    formData.append('isAndroidTv', developedForAndroidTv ? 'true' : 'false')
-    formData.append('isAirMouseCompatible', airMouseCompatible ? 'true' : 'false')
+    for (const [field, value] of Object.entries(patch)) formData.append(field, value)
     if (iconFile) formData.append('icon', iconFile)
     if (bannerFile) formData.append('banner', bannerFile)
     if (backgroundFile) formData.append('backgroundImage', backgroundFile)
@@ -247,12 +252,29 @@ function EditAppForm({ app, reloadDeveloperApps }: { app: StoreApp; reloadDevelo
         (percent) => setUploadProgress(Math.round(percent)),
       )
       setUploadProgress(100)
-      setSaved(true)
-      await reloadDeveloperApps()
-      window.setTimeout(() => {
-        router.push('/dashboard')
-        router.refresh()
-      }, 500)
+      // Read the listing back through the authenticated BFF before reporting success.
+      let confirmed = false
+      try {
+        const response = await fetch(`/api/developer-hub/apps/${encodeURIComponent(appId)}`, { cache: 'no-store' })
+        const detail = await response.json().catch(() => null)
+        if (!response.ok || !detail || String(detail.id) !== appId) throw new Error('verification_unavailable')
+        const missing = unconfirmedDeveloperMetadata(patch, detail)
+        if (missing.length) {
+          setSaveWarning(missing.includes('packageName')
+            ? 'درخواست ذخیره پذیرفته شد، اما بک‌اند هنوز Package Name قبلی را برمی‌گرداند. ذخیره پکیج‌نیم تأیید نشد؛ مقدار واردشده در فرم حفظ شده است.'
+            : 'درخواست ذخیره پذیرفته شد، اما دریافت دوباره اطلاعات، همه تغییرات را تأیید نکرد. مقدارهای واردشده در فرم حفظ شده‌اند.')
+        } else {
+          confirmed = true
+          setBaseline(mapDeveloperHubApp(detail, app.developer))
+          setSaved(true)
+          setSaveNotice('packageName' in patch ? `Package Name «${detail.packageName}» در بک‌اند ذخیره و دوباره تأیید شد.` : 'تغییرات در بک‌اند ذخیره و دریافت دوباره اطلاعات تأیید شد.')
+        }
+      } catch {
+        setSaveWarning('درخواست ذخیره پذیرفته شد، اما خواندن دوباره اطلاعات برای تأیید انجام نشد. مقدارهای فرم حفظ شده‌اند؛ این پیام به معنی ردشدن ذخیره نیست.')
+      }
+      try { await reloadDeveloperApps() } catch {
+        if (confirmed) setSaveWarning('ذخیره تأیید شد، اما تازه‌سازی داشبورد انجام نشد.')
+      }
     } catch (error) {
       setFieldErrors(developerHubFieldErrors(error))
       setErrorMessage(developerHubErrorMessage(error, 'ذخیره تغییرات انجام نشد. دوباره تلاش کنید.'))
@@ -274,7 +296,7 @@ function EditAppForm({ app, reloadDeveloperApps }: { app: StoreApp; reloadDevelo
         <p className="mt-2 text-sm leading-7 text-muted-foreground">این صفحه فقط فیلدهایی را ویرایش می‌کند که API رسمی Developer Hub پشتیبانی می‌کند.</p>
       </div>
 
-      <form onSubmit={save} className="mt-8 flex flex-col gap-5 rounded-2xl border border-border bg-card p-6">
+      <form onSubmit={save} onChange={() => { setSaved(false); setSaveNotice(''); setSaveWarning('') }} className="mt-8 flex flex-col gap-5 rounded-2xl border border-border bg-card p-6">
         <Field error={fieldErrors.name} label="عنوان اپلیکیشن (فارسی)" required>
           <Input value={name} onChange={(event) => setName(event.target.value)} maxLength={255} />
         </Field>
@@ -416,6 +438,15 @@ function EditAppForm({ app, reloadDeveloperApps }: { app: StoreApp; reloadDevelo
             </div>
           </div>
         )}
+
+        {saveNotice && <div role="status" className="rounded-xl border border-primary/20 bg-primary/5 p-4 text-sm leading-7">
+          <p>{saveNotice}</p>
+          {saved && app.latestSubmissionStatus === 'parse_failed' && <>
+            <p className="mt-2">خطای پکیج‌نیمِ آخرین ارسال APK به همان ارسال قبلی مربوط است. ذخیره اطلاعات، پردازش آن فایل را تکرار نمی‌کند؛ برای بررسی دوباره، APK را مجدداً ارسال کنید.</p>
+            {app.canSubmit && <Button render={<Link href={`/dashboard/version/${app.id}`} />} className="mt-3">ارسال APK برای بررسی مجدد</Button>}
+          </>}
+        </div>}
+        {saveWarning && <p role="alert" className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-4 text-sm leading-7">{saveWarning}</p>}
 
         {errorMessage && <p role="alert" className="rounded-lg bg-destructive/10 px-3 py-2 text-sm leading-7 text-destructive">{errorMessage}</p>}
 
