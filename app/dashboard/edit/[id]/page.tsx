@@ -211,10 +211,6 @@ export default function EditAppPage() {
       return
     }
 
-    if (taglineEn.trim() || descriptionEn.trim() || website.trim() || supportEmail.trim()) {
-      setErrorMessage('ذخیره توضیحات انگلیسی، وب‌سایت و ایمیل پشتیبانی در API فعلی تعریف نشده است. برای جلوگیری از حذف اطلاعات، اتصال این فیلدها باید تکمیل شود.')
-      return
-    }
     if (replacementScreenshots.length > 10 || [iconFile, bannerFile, backgroundFile, ...replacementScreenshots].some((file) => file?.type === 'image/webp') || (iconFile && iconFile.size > 2 * 1024 * 1024)) {
       setErrorMessage('فرم قبلی بازگردانده شده، اما API فعلی حداکثر ۱۰ تصویر PNG/JPEG و آیکون تا ۲ مگابایت می‌پذیرد. اتصال محدودیت‌های قبلی باید تکمیل شود.')
       return
@@ -418,6 +414,8 @@ export default function EditAppPage() {
         )}
 
         {errorMessage && <p role="alert" className="rounded-lg bg-destructive/10 px-3 py-2 text-sm leading-7 text-destructive">{errorMessage}</p>}
+
+        <p role="status" className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-4 text-sm leading-7">توضیحات انگلیسی، وب‌سایت و ایمیل پشتیبانی فقط در همین فرم نمایش داده می‌شوند و با ذخیره تغییرات به بک‌اند ارسال نمی‌شوند. با خروج از فرم یا بارگذاری مجدد صفحه، تغییرات این فیلدها حفظ نمی‌شوند.</p>
 
         <Button type="submit" disabled={saving || saved} className="gap-2">
           {saving ? <Loader2 className="size-4 animate-spin" /> : <Save className="size-4" />}
