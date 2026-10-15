@@ -8,7 +8,7 @@ export type PaymentDeadlineItem = {
   deadlineStartedAt: string | null
   deadlineAt: string | null
   daysRemaining: number | null
-  paymentStatus: 'pending' | 'overdue' | 'completed' | 'missingDeadline'
+  paymentStatus: 'pending' | 'overdue' | 'completed' | 'missing_deadline'
   paymentCompletedAt: string | null
   publishedApplication: { id: number; enabled: boolean } | null
 }
@@ -17,17 +17,21 @@ export const paymentStatusLabels: Record<PaymentDeadlineItem['paymentStatus'], s
   pending: 'در مهلت انجام',
   overdue: 'مهلت گذشته',
   completed: 'تکمیل شده',
-  missingDeadline: 'بدون تاریخ مهلت',
+  missing_deadline: 'بدون تاریخ مهلت',
 }
 
 export function sortPaymentDeadlines(items: PaymentDeadlineItem[]) {
   const timestamp = (value: string | null) => {
-    const date = value ? Date.parse(value) : NaN
+    const date = value ? Date.parse(utcPaymentDate(value)) : NaN
     return Number.isFinite(date) ? date : Infinity
   }
   return [...items].sort((a, b) => timestamp(a.deadlineAt) - timestamp(b.deadlineAt))
 }
 
 export function paymentDate(value?: string | null) {
-  return value ? new Date(value).toLocaleString('fa-IR', { timeZone: 'Asia/Tehran' }) : '—'
+  return value ? new Date(utcPaymentDate(value)).toLocaleString('fa-IR', { timeZone: 'Asia/Tehran' }) : '—'
+}
+
+export function utcPaymentDate(value: string) {
+  return /(?:Z|[+-]\d{2}:?\d{2})$/i.test(value) ? value : value + 'Z'
 }

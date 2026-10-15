@@ -37,7 +37,7 @@ async function runSave(mode, overrides = {}) {
   const code = ts.transpileModule(source.slice(start, source.indexOf('\n  return (', start)) + '\nsave({ preventDefault() {} })', { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText
   const result = { saved: false, warning: '', notice: '', error: '', calls: [] }
   const state = {
-    baseline: app, app, appId: '42', saving: false,
+    baseline: app, app, appId: '42', saving: false, hasInAppPayment: true, paymentCommitmentAccepted: false, removeIcon: false,
     packageName: mode === 'noop' ? app.packageName : 'com.real.app', name: app.name, nameEn: '',
     tagline: app.tagline, taglineEn: '', description: app.description, descriptionEn: '',
     categoryId: '12', applicationType: '1', ageLimit: '0', supportsNetboxPayment: false,
@@ -118,4 +118,31 @@ test('a saved package is confirmed separately when another field was not saved',
   assert.ok(r.notice.includes('com.real.app'))
   assert.ok(r.warning.includes('عنوان فارسی'))
   assert.ok(!r.warning.includes('پکیج‌نیم'))
+})
+
+test('enabling in-app payment requires explicit commitment before any PATCH', async () => {
+  const baseline = { ...app, hasInAppPayment: false }
+  const r = await runSave('success', { baseline, hasInAppPayment: true, paymentCommitmentAccepted: false })
+  assert.equal(r.calls.length, 0)
+  assert.ok(r.error.includes('تعهد'))
+})
+test('payment edits send the new flag and commitment; acceptance is verified through its timestamp', async () => {
+  const baseline = { ...app, hasInAppPayment: false }
+  const r = await runSave('success', { baseline, hasInAppPayment: true, paymentCommitmentAccepted: true })
+  const entries = Object.fromEntries(r.calls[0][2])
+  assert.equal(entries.hasInAppPayment, 'true')
+  assert.equal(entries.paymentCommitmentAccepted, 'true')
+  assert.equal(unconfirmedDeveloperMetadata({ hasInAppPayment: 'true', paymentCommitmentAccepted: 'true' }, { hasInAppPayment: true, paymentCommitmentAcceptedAt: '2026-10-15T12:00:00Z' }).length, 0)
+  assert.equal(unconfirmedDeveloperMetadata({ paymentCommitmentAccepted: 'true' }, {}).length, 1)
+})
+test('removing the icon sends an explicit empty icon part', async () => {
+  const r = await runSave('noop', { removeIcon: true })
+  assert.equal(Object.fromEntries(r.calls[0][2]).icon, '')
+})
+
+test('expired verification session returns to login without claiming persistence', async () => {
+  let target = ''
+  const r = await runSave('success', { fetch: async () => ({ status: 401, ok: false }), window: { location: { assign: value => target = value } } })
+  assert.equal(r.saved, false)
+  assert.ok(target.startsWith('/login?next='))
 })

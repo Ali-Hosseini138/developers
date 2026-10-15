@@ -80,7 +80,7 @@ export async function getAdminUser(): Promise<AdminUser | null> {
   const response = await adminHubApi('/api/v1/developer-hub/admin/auth/me/')
   if (!response.ok) return null
   const payload = await response.json().catch(() => null)
-  if (!payload?.isStaff) return null
+  if (!payload?.isStaff && !payload?.isSuperuser) return null
   return payload as AdminUser
 }
 

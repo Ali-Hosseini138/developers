@@ -14,7 +14,7 @@ import { developerHubErrorMessage, postDeveloperHubMultipart } from '@/lib/devel
 import { Badge } from '@/components/ui/badge'
 import { toFa } from '@/lib/format'
 
-const MAX_APK_SIZE = 250 * 1024 * 1024
+const MAX_APK_SIZE = 300 * 1024 * 1024
 
 export default function NewVersionPage() {
   const { id } = useParams<{ id: string }>()
@@ -92,7 +92,7 @@ export default function NewVersionPage() {
           <FileDropzone
             accept=".apk,application/vnd.android.package-archive"
             label={app.isPublished ? 'فایل APK نسخه جدید' : 'فایل APK جدید'}
-            hint="حداکثر حجم قابل قبول در این پنل ۲۵۰ مگابایت است."
+            hint="حداکثر حجم قابل قبول در این پنل ۳۰۰ مگابایت است."
             onFiles={(files) => {
               const file = files[0]
               if (!file) return
@@ -103,7 +103,7 @@ export default function NewVersionPage() {
               }
               if (file.size > MAX_APK_SIZE) {
                 setApkFile(null)
-                setErrorMessage('حجم فایل APK نباید بیشتر از ۲۵۰ مگابایت باشد.')
+                setErrorMessage('حجم فایل APK نباید بیشتر از ۳۰۰ مگابایت باشد.')
                 return
               }
               setErrorMessage('')

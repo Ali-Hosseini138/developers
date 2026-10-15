@@ -76,6 +76,7 @@ export interface StoreApp {
   canEdit?: boolean
   canSubmit?: boolean
   isPublished?: boolean
+  submissionHistory?: Array<{ id: number; kind: 'new' | 'update'; statusDisplay: string; versionName: string | null; submittedAt: string; decidedAt: string | null; cancelledAt: string | null; rejectionReason: string | null }>
   latestSubmissionId?: string
   latestSubmissionStatus?: string
   latestSubmissionDisplay?: string

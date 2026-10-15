@@ -21,7 +21,8 @@ export function AdminPaymentDeadlines() {
     try {
       const response = await fetch('/api/admin-hub/payment-deadlines', { cache: 'no-store', signal })
       const payload = await response.json().catch(() => null)
-      if (!response.ok) throw new Error(payload?.detail || 'دریافت صف مهلت پرداخت انجام نشد.')
+      if (response.status === 401) { window.location.assign('/admin/login'); return }
+      if (!response.ok) throw new Error(response.status >= 500 ? 'سرویس مهلت پرداخت موقتاً در دسترس نیست. بعداً دوباره تلاش کنید.' : payload?.detail || 'دریافت صف مهلت پرداخت انجام نشد.')
       if (!Array.isArray(payload)) throw new Error('پاسخ صف مهلت پرداخت معتبر نیست.')
       if (!signal?.aborted) setItems(payload)
     } catch (reason) {
@@ -46,9 +47,10 @@ export function AdminPaymentDeadlines() {
     try {
       const response = await fetch(`/api/admin-hub/payment-deadlines/${item.id}/${action}`, { method: 'POST' })
       const payload = await response.json().catch(() => null)
+      if (response.status === 401) { window.location.assign('/admin/login'); return }
       if (!response.ok) {
         if (response.status === 409) await load()
-        throw new Error(payload?.detail || payload?.message || payload?.code || 'ثبت عملیات انجام نشد.')
+        throw new Error(response.status >= 500 ? 'سرویس مهلت پرداخت موقتاً در دسترس نیست؛ تکمیل عملیات تأیید نشد. صف را تازه کنید.' : payload?.detail || payload?.message || payload?.code || 'ثبت عملیات انجام نشد.')
       }
       if (!payload || payload.id !== item.id) throw new Error('پاسخ عملیات معتبر نیست؛ صف را تازه کنید.')
       setItems((current) => current.map((row) => row.id === item.id ? payload : row))
@@ -70,7 +72,7 @@ export function AdminPaymentDeadlines() {
     {error && <p role="alert" className="rounded-xl bg-destructive/10 p-4 text-sm text-destructive">{error}</p>}
     {success && <p role="status" className="rounded-xl bg-primary/5 p-4 text-sm">{success}</p>}
     {loading ? <p role="status">در حال دریافت صف...</p> : !error && sorted.length === 0 ? <p className="rounded-xl border border-dashed p-8 text-center text-sm">تعهد پرداختی در صف نیست.</p> : null}
-    {!loading && sorted.map((item) => <article key={item.id} className="rounded-2xl border border-border bg-card p-5">
+    {!loading && !error && sorted.map((item) => <article key={item.id} className="rounded-2xl border border-border bg-card p-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div><h3 className="font-bold">{item.name}</h3><p className="mt-1 text-xs text-muted-foreground">{item.developer.name} · <span dir="ltr">{item.packageName}</span></p></div>
         <Badge variant={item.paymentStatus === 'overdue' ? 'outline' : 'secondary'}>{paymentStatusLabels[item.paymentStatus]}</Badge>

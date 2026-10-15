@@ -67,24 +67,31 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const loadDeveloperAppsFor = useCallback(async (developerName: string) => {
-    const response = await fetch('/api/developer-hub/apps?page=1&page_size=200', { cache: 'no-store' })
-    if (!response.ok) {
-      if (response.status === 401) setDeveloperApps([])
-      return
-    }
-
-    const payload = await response.json().catch(() => null)
-    const rows = Array.isArray(payload?.results) ? payload.results : []
-
-    const detailedRows = await Promise.all(rows.map(async (row: any) => {
-      try {
-        const detailResponse = await fetch(`/api/developer-hub/apps/${encodeURIComponent(String(row.id))}`, { cache: 'no-store' })
-        if (!detailResponse.ok) return row
-        return await detailResponse.json()
-      } catch {
-        return row
+    const rows: any[] = []
+    for (let page = 1; ; page++) {
+      const response = await fetch(`/api/developer-hub/apps?page=${page}&page_size=200`, { cache: 'no-store' })
+      if (!response.ok) {
+        if (response.status === 401) {
+          setDeveloperApps([])
+          window.location.assign('/login?next=/dashboard')
+        }
+        return
       }
-    }))
+      const payload = await response.json().catch(() => null)
+      if (!Array.isArray(payload?.results)) return
+      rows.push(...payload.results)
+      if (!payload.next || !payload.results.length) break
+    }
+    const detailedRows: any[] = []
+    // Bound concurrent detail requests, including when the account has many apps.
+    for (let index = 0; index < rows.length; index += 6) {
+      detailedRows.push(...await Promise.all(rows.slice(index, index + 6).map(async (row: any) => {
+        try {
+          const response = await fetch(`/api/developer-hub/apps/${encodeURIComponent(String(row.id))}`, { cache: 'no-store' })
+          return response.ok ? await response.json() : row
+        } catch { return row }
+      })))
+    }
 
     setDeveloperApps(detailedRows.map((row: any) => mapDeveloperHubApp(row, developerName)))
   }, [])
@@ -154,7 +161,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       method: 'POST',
     })
     const payload = await response.json().catch(() => null)
-    if (!response.ok) throw new Error(payload?.code || payload?.message || payload?.detail || 'cancel_failed')
+    if (!response.ok) {
+      if (response.status === 409) await reloadDeveloperApps()
+      if (response.status === 401) window.location.assign('/login?next=/dashboard')
+      throw new Error(payload?.message || payload?.detail || 'لغو درخواست انجام نشد.')
+    }
     await reloadDeveloperApps()
   }, [reloadDeveloperApps])
 
@@ -226,6 +237,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             '/api/developer-hub/submissions/' + encodeURIComponent(app.latestSubmissionId!),
             { cache: 'no-store' },
           )
+          if (response.status === 401) window.location.assign('/login?next=/dashboard')
           if (!response.ok) return null
           return await response.json()
         } catch {

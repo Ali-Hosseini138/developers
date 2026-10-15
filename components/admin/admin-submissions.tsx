@@ -5,13 +5,15 @@ import { AlertTriangle, CheckCircle2, ChevronDown, ChevronUp, Loader2, Search, S
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { paymentDate } from '@/lib/payment-deadline'
+import { developerHubFieldErrors } from '@/lib/developer-hub-client'
 import { Textarea } from '@/components/ui/textarea'
 import type { AdminSubmissionDetail, AdminSubmissionListItem } from '@/lib/admin-hub-model'
 import { adminSubmissionKindLabel, adminSubmissionStatusLabel } from '@/lib/admin-hub-model'
 
 function faDate(value?: string | null) {
   if (!value) return '—'
-  return new Date(value).toLocaleString('fa-IR')
+  return new Date(value).toLocaleString('fa-IR', { timeZone: 'Asia/Tehran' })
 }
 
 function statusVariant(status: AdminSubmissionListItem['status']): 'default' | 'secondary' | 'outline' {
@@ -79,6 +81,7 @@ export function AdminSubmissions({
     try {
       const response = await fetch(`/api/admin-hub/submissions/${item.id}`, { cache: 'no-store' })
       const payload = await response.json().catch(() => null)
+      if (response.status === 401) { window.location.assign('/admin/login'); return }
       if (!response.ok) throw new Error(errorMessage(payload, 'دریافت جزئیات درخواست انجام نشد.'))
       setDetails((current) => ({ ...current, [item.id]: payload }))
     } catch (error) {
@@ -178,7 +181,7 @@ export function AdminSubmissions({
                     ) : loadError && !detail ? (
                       <p role="alert" className="rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive">{loadError}</p>
                     ) : detail ? (
-                      <SubmissionDetailView detail={detail} canReviewSubmission={canReviewSubmission} />
+                      <SubmissionDetailView detail={detail} canReviewSubmission={canReviewSubmission} onUpdate={updated => setDetails(current => ({ ...current, [updated.id]: updated }))} />
                     ) : null}
                   </div>
                 )}
@@ -194,7 +197,9 @@ export function AdminSubmissions({
 function SubmissionDetailView({
   detail,
   canReviewSubmission,
+  onUpdate,
 }: {
+  onUpdate: (detail: AdminSubmissionDetail) => void
   detail: AdminSubmissionDetail
   canReviewSubmission: boolean
 }) {
@@ -207,16 +212,18 @@ function SubmissionDetailView({
   const [reason, setReason] = useState('')
   const [busy, setBusy] = useState<'approve' | 'reject' | null>(null)
   const [actionError, setActionError] = useState('')
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
 
   const canApprove =
     canReviewSubmission &&
     detail.canDecide &&
-    Boolean(clientVariation) &&
-    (detail.kind !== 'new' || Boolean(iconSource))
+    ['ALL', 'NETBOX', 'GENERAL'].includes(clientVariation) &&
+    (detail.kind !== 'new' || detail.icons.availableSources.includes(iconSource as 'USER' | 'EXTRACTED'))
 
   async function decide(action: 'approve' | 'reject') {
-    if (busy) return
+    if (busy || !detail.canDecide || !canReviewSubmission || (action === 'approve' && !canApprove) || (action === 'reject' && !reason.trim())) return
     setBusy(action)
+    setFieldErrors({})
     setActionError('')
 
     try {
@@ -225,7 +232,7 @@ function SubmissionDetailView({
             clientVariation,
             netboxUserOnly,
             ...(detail.kind === 'new' ? { iconSource } : {}),
-            createUnknownPermissions,
+            createUnknownPermissions: detail.hasUnknownPermissions && createUnknownPermissions,
           }
         : { reason: reason.trim() }
 
@@ -235,7 +242,15 @@ function SubmissionDetailView({
         body: JSON.stringify(body),
       })
       const payload = await response.json().catch(() => null)
-      if (!response.ok) throw new Error(errorMessage(payload, action === 'approve' ? 'تأیید انجام نشد.' : 'رد درخواست انجام نشد.'))
+      if (response.status === 401) { window.location.assign('/admin/login'); return }
+      if (!response.ok) {
+        setFieldErrors(developerHubFieldErrors({ payload }))
+        if (response.status === 409 && ['state_changed', 'recheck_failed'].includes(payload?.code)) {
+          const latest = await fetch(`/api/admin-hub/submissions/${detail.id}`, { cache: 'no-store' }).catch(() => null)
+          if (latest?.ok) onUpdate(await latest.json())
+        }
+        throw new Error(errorMessage(payload, action === 'approve' ? 'تأیید انجام نشد.' : 'رد درخواست انجام نشد.'))
+      }
       window.location.reload()
     } catch (error) {
       setActionError(error instanceof Error ? error.message : 'عملیات انجام نشد.')
@@ -256,6 +271,12 @@ function SubmissionDetailView({
             <Fact label="دسته‌بندی" value={`${detail.app.category.name} (#${detail.app.category.id})`} />
             <Fact label="نوع" value={detail.app.applicationType === 2 ? 'بازی' : 'برنامه'} />
             <Fact label="محدودیت سنی" value={String(detail.app.ageLimit)} />
+            <Fact label="تعداد نصب فعلی" value={String(detail.installCount ?? 0)} />
+            <Fact label="پرداخت درون‌برنامه‌ای" value={detail.app.hasInAppPayment ? 'دارد' : 'ندارد'} />
+            <Fact label="مخصوص Android TV" value={detail.app.isAndroidTv ? 'بله' : 'خیر'} />
+            <Fact label="سازگار با ایرماوس" value={detail.app.isAirMouseCompatible ? 'بله' : 'خیر'} />
+            <Fact label="پایان مهلت پرداخت" value={paymentDate(detail.app.paymentDeadlineAt)} />
+            <Fact label="تکمیل پرداخت" value={paymentDate(detail.app.paymentCompletedAt)} />
             <Fact label="Netbox Payment" value={detail.app.supportsNetboxPayment ? 'پشتیبانی می‌کند' : 'پشتیبانی نمی‌کند'} />
             <Fact label="توسعه‌دهنده" value={detail.developer.name} />
             <Fact label="ایمیل توسعه‌دهنده" value={detail.developer.email} ltr />
@@ -275,8 +296,9 @@ function SubmissionDetailView({
             <p className="mt-2 whitespace-pre-wrap text-sm leading-7">{detail.app.shortDescription || '—'}</p>
           </div>
           <div className="mt-3 rounded-lg bg-secondary/50 p-3">
-            <p className="text-xs text-muted-foreground">توضیحات کامل</p>
+            <p className="text-xs text-muted-foreground">توضیحات</p>
             <p className="mt-2 whitespace-pre-wrap text-sm leading-7">{detail.app.longDescription || '—'}</p>
+            {detail.app.longDescriptionEn && <p className="mt-3 whitespace-pre-wrap text-sm leading-7" dir="ltr">{detail.app.longDescriptionEn}</p>}
           </div>
           {detail.changeLog && (
             <div className="mt-3 rounded-lg bg-secondary/50 p-3">
@@ -301,7 +323,7 @@ function SubmissionDetailView({
             <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3">
               {detail.app.screenshots.slice().sort((a, b) => a.weight - b.weight).map((shot, index) => (
                 <a key={shot.id} href={shot.url} target="_blank" rel="noreferrer" className="overflow-hidden rounded-lg border border-border">
-                  <img src={shot.url} alt={`اسکرین‌شات ${index + 1}`} className="aspect-video w-full object-cover" />
+                  <img src={shot.url} alt={`تصویر محیط اپلیکیشن ${index + 1}`} className="aspect-video w-full object-cover" />
                 </a>
               ))}
             </div>
@@ -412,11 +434,13 @@ function SubmissionDetailView({
                 </select>
               </div>
 
+              {fieldErrors.clientVariation && <p role="alert" className="text-xs text-destructive">{fieldErrors.clientVariation}</p>}
               <label className="flex items-center gap-2 text-sm">
                 <input type="checkbox" checked={netboxUserOnly} onChange={(event) => setNetboxUserOnly(event.target.checked)} />
                 فقط کاربران نت‌باکس
               </label>
 
+              {fieldErrors.netboxUserOnly && <p role="alert" className="text-xs text-destructive">{fieldErrors.netboxUserOnly}</p>}
               {detail.kind === 'new' && (
                 <div>
                   <label className="text-sm font-medium">منبع آیکون</label>
@@ -430,6 +454,7 @@ function SubmissionDetailView({
                       <option key={source} value={source}>{source === 'USER' ? 'آیکون توسعه‌دهنده' : 'آیکون استخراج‌شده از APK'}</option>
                     ))}
                   </select>
+                  {fieldErrors.iconSource && <p role="alert" className="mt-2 text-xs text-destructive">{fieldErrors.iconSource}</p>}
                   {detail.icons.availableSources.length === 0 && (
                     <p className="mt-2 text-xs text-destructive">هیچ آیکونی برای تأیید انتشار اولیه موجود نیست.</p>
                   )}
@@ -446,6 +471,7 @@ function SubmissionDetailView({
                 </label>
               )}
 
+              {fieldErrors.createUnknownPermissions && <p role="alert" className="text-xs text-destructive">{fieldErrors.createUnknownPermissions}</p>}
               <Button type="button" disabled={!canApprove || busy !== null} onClick={() => void decide('approve')} className="gap-2">
                 {busy === 'approve' && <Loader2 className="size-4 animate-spin" />}
                 تأیید و انتشار
@@ -464,6 +490,7 @@ function SubmissionDetailView({
               placeholder="دلیل رد را دقیق بنویسید؛ همین متن به توسعه‌دهنده نمایش داده می‌شود."
               className="mt-3 min-h-28"
             />
+            {fieldErrors.reason && <p role="alert" className="mt-2 text-xs text-destructive">{fieldErrors.reason}</p>}
             <Button
               type="button"
               variant="outline"

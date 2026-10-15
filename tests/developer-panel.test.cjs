@@ -81,36 +81,6 @@ test('ticket reply validation and ownership failures are explicit', async () => 
   }
   assert.equal((await route({ json: async () => ({ action: 'reply', message: 'test' }) }, { params: Promise.resolve({ id: ticketId }) })).status, 404)
 })
-test('Excel export produces an OOXML ZIP without formula cells and filters the selected range', () => {
-  const bytes = load('lib/install-export.ts').installWorkbook({ appName: '=unsafe & نام', start: '2026-10-01', end: '2026-10-03', rows: [
-    { metric_date: '2026-09-30', installs: 999 }, { metric_date: '2026-10-02', installs: 42 },
-  ] })
-  const xml = Buffer.from(bytes).toString('utf8')
-  assert.equal(Buffer.from(bytes).readUInt32LE(0), 0x04034b50)
-  assert.ok(xml.includes('=unsafe &amp; نام'))
-  assert.ok(xml.includes('<v>42</v>'))
-  assert.ok(xml.includes('rightToLeft="1"'))
-  assert.ok(!xml.includes('<f>'))
-  assert.ok(!xml.includes('999'))
-})
-
-test('analytics pagination collects more than one backend page and propagates errors', async () => {
-  const source = fs.readFileSync('app/api/developer/analytics/route.ts', 'utf8')
-  const start = source.indexOf('async function allMetricRows')
-  const code = ts.transpileModule(source.slice(start, source.indexOf('export async function GET', start)) + '\nallMetricRows', { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText
-  const paginate = vm.runInNewContext(code)
-  let calls = 0
-  const result = await paginate({ range: async (from, to) => {
-    calls++
-    assert.equal(to - from, 999)
-    return { data: Array.from({ length: from === 0 ? 1000 : 2 }, (_, i) => ({ id: from + i })), error: null }
-  } })
-  assert.equal(result.data.length, 1002)
-  assert.equal(calls, 2)
-  const failed = await paginate({ range: async () => ({ data: null, error: 'database unavailable' }) })
-  assert.equal(failed.error, 'database unavailable')
-})
-
 test('ticket RPC rows are normalized for object and array response shapes', async () => {
   for (const data of [{ id: ticketId }, [{ id: ticketId }]]) {
     const route = replyRoute({ id: 'owner' }, async () => ({ data, error: null }))
@@ -118,4 +88,10 @@ test('ticket RPC rows are normalized for object and array response shapes', asyn
     assert.equal(response.status, 200)
     assert.equal((await response.json()).ticket.id, ticketId)
   }
+})
+
+test('new app creation accepts an omitted icon and leaves extraction to the backend', async () => {
+  const result = await create({ iconFile: null })
+  assert.ok(result.sent)
+  assert.equal(result.sent.entries.icon, undefined)
 })

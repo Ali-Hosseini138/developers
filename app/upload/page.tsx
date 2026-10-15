@@ -17,7 +17,7 @@ import { appDescription, shortAppDescription } from '@/lib/app-description'
 import { toFa } from '@/lib/format'
 
 const steps = ['فایل APK', 'اطلاعات پایه', 'شرایط انتشار', 'اطلاعات نمایشی', 'بازبینی']
-const MAX_APK_SIZE = 250 * 1024 * 1024
+const MAX_APK_SIZE = 300 * 1024 * 1024
 const MAX_IMAGE_SIZE = 5 * 1024 * 1024
 const MAX_ICON_SIZE = 2 * 1024 * 1024
 const MAX_SCREENSHOTS = 10
@@ -89,7 +89,7 @@ export default function UploadPage() {
         Number(categoryId) > 0 &&
         /^\d+$/.test(ageLimit) &&
         Number(ageLimit) >= 0 &&
-        Number(ageLimit) <= 99 && iconFile && bannerFile && backgroundFile
+        Number(ageLimit) <= 99 && bannerFile && backgroundFile
       )
     }
     if (step === 3) return requirementsValid
@@ -143,8 +143,12 @@ export default function UploadPage() {
         setErrorMessage('نسبت تصویر آیکون باید ۱:۱ باشد.')
         return false
       }
-      if ((kind === 'banner' || kind === 'screenshot') && Math.abs(width / height - 16 / 9) > 0.01) {
-        setErrorMessage('نسبت تصویر بنر و تصویر محیط اپلیکیشن باید ۱۶:۹ باشد.')
+      if (kind === 'icon' && (width < 128 || height < 128)) {
+        setErrorMessage('ابعاد آیکون باید حداقل ۱۲۸×۱۲۸ باشد.')
+        return false
+      }
+      if ((kind === 'banner' || kind === 'screenshot') && width / height < 1.5) {
+        setErrorMessage('بنر و تصاویر محیط اپلیکیشن باید افقی و نسبت عرض به ارتفاع حداقل ۱٫۵ داشته باشند.')
         return false
       }
     } catch {
@@ -178,7 +182,7 @@ export default function UploadPage() {
       setApkFile(null)
       setApkName('')
       setApkSize('')
-      setErrorMessage('حجم فایل APK نباید بیشتر از ۲۵۰ مگابایت باشد.')
+      setErrorMessage('حجم فایل APK نباید بیشتر از ۳۰۰ مگابایت باشد.')
       return
     }
 
@@ -251,12 +255,12 @@ export default function UploadPage() {
       setStep(2)
       return
     }
-    if (!apkFile || !iconFile || !bannerFile || !backgroundFile) {
-      setErrorMessage('فایل APK، آیکون، بنر و تصویر پس‌زمینه الزامی هستند.')
+    if (!apkFile || !bannerFile || !backgroundFile) {
+      setErrorMessage('فایل APK، بنر و تصویر پس‌زمینه الزامی هستند.')
       return
     }
 
-    if (screenshotFiles.length > 10 || [iconFile, bannerFile, backgroundFile, ...screenshotFiles].some((file) => file?.type === 'image/webp') || iconFile.size > 2 * 1024 * 1024) {
+    if (screenshotFiles.length > 10 || [iconFile, bannerFile, backgroundFile, ...screenshotFiles].some((file) => file?.type === 'image/webp') || (iconFile && iconFile.size > 2 * 1024 * 1024)) {
       setErrorMessage('برای ارسال، حداکثر ۱۰ تصویر PNG/JPEG و آیکون تا ۲ مگابایت انتخاب کنید. فرمت WEBP پذیرفته نمی‌شود.')
       return
     }
@@ -345,7 +349,7 @@ export default function UploadPage() {
               <FileDropzone
                 accept=".apk,application/vnd.android.package-archive"
                 label="انتخاب فایل APK"
-                hint="حداکثر حجم قابل قبول ۲۵۰ مگابایت است."
+                hint="حداکثر حجم قابل قبول ۳۰۰ مگابایت است."
                 onFiles={(files) => selectApk(files[0])}
               />
             </div>
@@ -407,11 +411,11 @@ export default function UploadPage() {
             <Header title="تصاویر اپلیکیشن" text="آیکون، بنر و تصاویر محیط اپلیکیشن را اضافه کنید." />
             <div className="mt-6 grid gap-5 sm:grid-cols-2">
               <MediaField
-                title="بنر معرفی (نسبت ۱۶:۹)"
+                title="بنر معرفی"
                 error={fieldErrors.banner}
                 required
                 preview={bannerPreview}
-                hint="PNG یا JPEG، حداکثر ۵ مگابایت، نسبت ۱۶:۹"
+                hint="PNG یا JPEG، حداکثر ۵ مگابایت، افقی، نسبت حداقل ۱٫۵"
                 onFile={(file) => void selectSingleImage(file, 'banner')}
                 onClear={() => { setBannerFile(null); setBannerPreview('') }}
               />
@@ -425,12 +429,11 @@ export default function UploadPage() {
                 onClear={() => { setBackgroundFile(null); setBackgroundPreview('') }}
               />
               <MediaField
-                title="آیکون اپلیکیشن (نسبت ۱:۱)"
+                title="آیکون اپلیکیشن (مربع، حداقل ۱۲۸×۱۲۸)"
                 error={fieldErrors.icon}
-                required
                 preview={iconPreview}
                 square
-                hint="PNG یا JPEG، حداکثر ۲ مگابایت، نسبت ۱:۱"
+                hint="PNG یا JPEG، حداکثر ۲ مگابایت، مربع، حداقل ۱۲۸×۱۲۸"
                 onFile={(file) => void selectSingleImage(file, 'icon')}
                 onClear={() => { setIconFile(null); setIconPreview('') }}
               />
@@ -440,7 +443,7 @@ export default function UploadPage() {
               <FileDropzone
                 accept="image/png,image/jpeg"
                 label="افزودن تصویر محیط اپلیکیشن"
-                hint="حداکثر ۱۰ تصویر؛ PNG یا JPEG تا ۵ مگابایت، نسبت ۱۶:۹"
+                hint="حداکثر ۱۰ تصویر؛ PNG یا JPEG تا ۵ مگابایت، افقی، نسبت حداقل ۱٫۵"
                 multiple
                 onFiles={(files) => void selectScreenshots(files)}
               />

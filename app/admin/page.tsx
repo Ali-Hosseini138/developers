@@ -29,14 +29,25 @@ export default async function AdminPage() {
   const adminUser = await getAdminUser()
   if (!adminUser) redirect('/admin/login')
 
-  const submissionsResponse = await adminHubApi(
-    '/api/v1/developer-hub/admin/submissions/?page=1&page_size=200&ordering=submitted_at',
-  )
-  const submissionsPayload = await submissionsResponse.json().catch(() => ({}))
-  const submissions: AdminSubmissionListItem[] = Array.isArray(submissionsPayload?.results)
-    ? submissionsPayload.results
-    : []
+  const submissions: AdminSubmissionListItem[] = []
+  let submissionsError = ''
+  let sessionExpired = false
+  try {
+    for (let page = 1; ; page++) {
+      const response = await adminHubApi(`/api/v1/developer-hub/admin/submissions/?page=${page}&page_size=200&ordering=submitted_at`)
+      if (response.status === 401) { sessionExpired = true; break }
+      if (!response.ok) throw new Error('queue_unavailable')
+      const payload = await response.json()
+      if (!Array.isArray(payload.results)) throw new Error('queue_invalid')
+      submissions.push(...payload.results)
+      if (!payload.next || !payload.results.length) break
+    }
+  } catch {
+    submissions.length = 0
+    submissionsError = 'دریافت صف بررسی انجام نشد؛ صفحه را تازه کنید.'
+  }
 
+  if (sessionExpired) redirect('/admin/login')
   const supabase = createAdminClient()
   const [{ data: tickets }, { data: profiles }] = await Promise.all([
     supabase.from('support_tickets').select('*').order('created_at', { ascending: false }),
@@ -91,6 +102,7 @@ export default async function AdminPage() {
         </form>
       </header>
 
+      {submissionsError && <p role="alert" className="mb-4 rounded-xl bg-destructive/10 p-4 text-sm text-destructive">{submissionsError}</p>}
       <AdminConsole
         submissions={submissions}
         stats={stats}

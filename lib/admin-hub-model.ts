@@ -39,6 +39,13 @@ export type AdminSubmissionDetail = {
     packageName: string
     name: string
     nameEn?: string
+    isAndroidTv: boolean
+    isAirMouseCompatible: boolean
+    hasInAppPayment: boolean
+    paymentDeadlineAt: string | null
+    paymentCompletedAt: string | null
+    shortDescriptionEn?: string
+    longDescriptionEn?: string
     shortDescription: string
     longDescription: string
     category: { id: number; name: string; isValid: boolean }
@@ -81,6 +88,7 @@ export type AdminSubmissionDetail = {
     publicKey: string
     parsedAt: string
   } | null
+  installCount: number
   currentStoreMaxVersionCode: number | null
   issues: Array<{ id: number; code: string; severity: 'error' | 'warning'; message: string }>
   errorCount: number
