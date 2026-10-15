@@ -6,6 +6,9 @@ const backendBase = (
 ).replace(/\/$/, '')
 
 const nextConfig = {
+  // Django API routes require their trailing slash. Avoid redirects that
+  // strip it before proxying POST/PATCH multipart requests.
+  skipTrailingSlashRedirect: true,
   typescript: {
     ignoreBuildErrors: true,
   },
@@ -16,7 +19,7 @@ const nextConfig = {
     return [
       {
         source: '/backend-api/:path*',
-        destination: backendBase + '/:path*',
+        destination: backendBase + '/:path*/',
       },
     ]
   },
