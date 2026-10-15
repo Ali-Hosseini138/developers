@@ -7,13 +7,15 @@ import { ArrowLeft, ArrowRight, Building2, Check, Eye, EyeOff, Loader2, UserRoun
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { asciiDigits } from '@/lib/input-normalization'
+import { safeInternalPath } from '@/lib/safe-navigation'
 import { useStore } from '@/components/store-provider'
 
 type AccountType = 'individual' | 'legal'
 const signupSteps = ['اطلاعات ورود', 'نوع حساب', 'اطلاعات هویتی', 'شماره موبایل']
 
 function normalizeIranPhone(value: string) {
-  const digits = value.replace(/\D/g, '')
+  const digits = asciiDigits(value).replace(/\D/g, '')
   if (/^09\d{9}$/.test(digits)) return `+98${digits.slice(1)}`
   if (/^989\d{9}$/.test(digits)) return `+${digits}`
   return ''
@@ -35,7 +37,7 @@ function AuthFormInner({ mode }: { mode: 'login' | 'signup' }) {
   const router = useRouter()
   const searchParams = useSearchParams()
   const requestedNext = searchParams.get('next') || '/dashboard'
-  const next = requestedNext.startsWith('/') && !requestedNext.startsWith('//') ? requestedNext : '/dashboard'
+  const next = safeInternalPath(requestedNext)
 
   const [signupStep, setSignupStep] = useState(1)
   const [accountType, setAccountType] = useState<AccountType | null>(null)
@@ -85,6 +87,7 @@ function AuthFormInner({ mode }: { mode: 'login' | 'signup' }) {
   function goBack() { resetMessages(); setSignupStep((current) => Math.max(1, current - 1)) }
 
   async function finishSignup() {
+    if (loading) return
     resetMessages()
     if (!accountType || !stepValid) return setErrorMessage('اطلاعات ثبت‌نام را کامل کنید.')
     setLoading(true)
@@ -114,6 +117,7 @@ function AuthFormInner({ mode }: { mode: 'login' | 'signup' }) {
 
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault()
+    if (loading) return
     setLoading(true)
     resetMessages()
     try {
@@ -183,7 +187,7 @@ function AuthFormInner({ mode }: { mode: 'login' | 'signup' }) {
               <StepHeader title={accountType === 'legal' ? 'اطلاعات شخص حقوقی' : 'اطلاعات شخص حقیقی'} text="اطلاعات هویتی حساب توسعه‌دهنده را وارد کنید." />
               {accountType === 'legal' && <div className="mt-6"><Label htmlFor="organization">نام شرکت یا سازمان</Label><Input id="organization" value={organization} onChange={(e) => setOrganization(e.target.value)} className="mt-1.5 h-11" autoComplete="organization" /></div>}
               <div className="mt-5 grid gap-4 sm:grid-cols-2"><div><Label htmlFor="name">{accountType === 'legal' ? 'نام نماینده' : 'نام'}</Label><Input id="name" value={name} onChange={(e) => setName(e.target.value)} className="mt-1.5 h-11" /></div><div><Label htmlFor="lastName">{accountType === 'legal' ? 'نام خانوادگی نماینده' : 'نام خانوادگی'}</Label><Input id="lastName" value={lastName} onChange={(e) => setLastName(e.target.value)} className="mt-1.5 h-11" /></div></div>
-              <div className="mt-5"><Label htmlFor="nationalId">{accountType === 'legal' ? 'شناسه ملی شرکت' : 'کد ملی'}</Label><Input id="nationalId" value={nationalId} onChange={(e) => setNationalId(e.target.value.replace(/\D/g, ''))} dir="ltr" inputMode="numeric" className="mt-1.5 h-11 text-left" maxLength={accountType === 'legal' ? 11 : 10} /></div>
+              <div className="mt-5"><Label htmlFor="nationalId">{accountType === 'legal' ? 'شناسه ملی شرکت' : 'کد ملی'}</Label><Input id="nationalId" value={nationalId} onChange={(e) => setNationalId(asciiDigits(e.target.value).replace(/\D/g, ''))} dir="ltr" inputMode="numeric" className="mt-1.5 h-11 text-left" maxLength={accountType === 'legal' ? 11 : 10} /></div>
             </div>}
 
             {signupStep === 4 && <div>

@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useParams, useRouter } from 'next/navigation'
 import { ArrowRight, Loader2, Save, X } from 'lucide-react'
@@ -13,6 +13,7 @@ import { appDescription } from '@/lib/app-description'
 import { developerMetadataLabels, changedDeveloperMetadata, unconfirmedDeveloperMetadata } from '@/lib/developer-hub-patch'
 import { mapDeveloperHubApp } from '@/lib/developer-hub-model'
 import type { StoreApp } from '@/lib/types'
+import { LoadFailure } from '@/components/load-failure'
 import { useStore } from '@/components/store-provider'
 import { PaymentCommitmentSummary } from '@/components/payment-commitment-summary'
 import { FileDropzone } from '@/components/upload/file-dropzone'
@@ -27,19 +28,21 @@ type ImageKind = 'icon' | 'banner' | 'background' | 'screenshot'
 
 export default function EditAppPage() {
   const { id } = useParams<{ id: string }>()
-  const { user, authReady, getApp, reloadDeveloperApps } = useStore()
+  const { user, authReady, sessionError, myApps, developerAppsLoading, developerAppsError, reloadDeveloperApps } = useStore()
   const router = useRouter()
-  const app = getApp(id)
+  const app = myApps.find(item => item.id === id)
 
   useEffect(() => {
-    if (authReady && !user) router.replace('/login?next=/dashboard')
-  }, [authReady, user, router])
+    if (authReady && !sessionError && !user) router.replace('/login?next=/dashboard')
+  }, [authReady, sessionError, user, router])
 
 
-  if (!authReady) {
+  if (!authReady || (!sessionError && Boolean(user) && !app && developerAppsLoading)) {
     return <main className="mx-auto flex min-h-[40vh] max-w-3xl items-center justify-center px-4 py-10"><span className="text-sm text-muted-foreground">در حال بارگذاری اپلیکیشن...</span></main>
   }
+  if (sessionError) return <LoadFailure message={sessionError} />
   if (!user) return null
+  if (!app && developerAppsError) return <LoadFailure message={developerAppsError} retry={() => { void reloadDeveloperApps().catch(() => {}) }} />
   if (!app) {
     return <main className="mx-auto max-w-3xl px-4 py-10 sm:px-6"><Link href="/dashboard" className="text-sm text-primary">بازگشت به داشبورد</Link><div className="mt-6 rounded-2xl border border-dashed border-border p-8 text-center text-sm text-muted-foreground">این اپلیکیشن پیدا نشد یا به حساب شما تعلق ندارد.</div></main>
   }
@@ -47,7 +50,7 @@ export default function EditAppPage() {
     return <main className="mx-auto max-w-3xl px-4 py-10 sm:px-6"><Link href="/dashboard" className="text-sm text-primary">بازگشت به داشبورد</Link><div className="mt-6 rounded-2xl border border-dashed border-border p-8 text-center text-sm text-muted-foreground">در حال حاضر ویرایش اطلاعات این اپلیکیشن مجاز نیست. </div></main>
   }
 
-  return <EditAppForm key={app.id} app={app} reloadDeveloperApps={reloadDeveloperApps} />
+  return <>{developerAppsError && <LoadFailure message={developerAppsError} retry={() => { void reloadDeveloperApps().catch(() => {}) }} />}<EditAppForm key={app.id} app={app} reloadDeveloperApps={reloadDeveloperApps} /></>
 }
 
 function EditAppForm({ app, reloadDeveloperApps }: { app: StoreApp; reloadDeveloperApps: () => Promise<void> }) {
@@ -83,10 +86,13 @@ function EditAppForm({ app, reloadDeveloperApps }: { app: StoreApp; reloadDevelo
   const [backgroundPreview, setBackgroundPreview] = useState(app?.backgroundImage || '')
   const [replacementPreviews, setReplacementPreviews] = useState<string[]>([])
 
+  const submitting = useRef(false)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [uploadProgress, setUploadProgress] = useState(0)
   const [errorMessage, setErrorMessage] = useState('')
+  const mediaReading = useRef(false)
+  const [mediaBusy, setMediaBusy] = useState(false)
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
 
   const appId = app.id
@@ -151,61 +157,75 @@ function EditAppForm({ app, reloadDeveloperApps }: { app: StoreApp; reloadDevelo
   }
 
   function preview(file: File, setter: (value: string) => void) {
-    const reader = new FileReader()
-    reader.onload = () => setter(String(reader.result))
-    reader.readAsDataURL(file)
+    return new Promise<void>((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onload = () => { setter(String(reader.result)); resolve() }
+      reader.onerror = () => reject(new Error('image_read_failed'))
+      reader.readAsDataURL(file)
+    })
   }
 
   async function chooseSingle(file: File, kind: Exclude<ImageKind, 'screenshot'>) {
-    if (!(await validateImage(file, kind))) return
+    if (mediaReading.current || submitting.current) return
+    mediaReading.current = true; setMediaBusy(true)
+    try {
+      if (!(await validateImage(file, kind))) return
 
-    if (kind === 'icon') {
-      setRemoveIcon(false)
-      setIconFile(file)
-      preview(file, setIconPreview)
-    } else if (kind === 'banner') {
-      setBannerFile(file)
-      preview(file, setBannerPreview)
-    } else {
-      setBackgroundFile(file)
-      preview(file, setBackgroundPreview)
-    }
+      if (kind === 'icon') {
+        setRemoveIcon(false)
+        await preview(file, setIconPreview)
+        setIconFile(file)
+      } else if (kind === 'banner') {
+        await preview(file, setBannerPreview)
+        setBannerFile(file)
+      } else {
+        await preview(file, setBackgroundPreview)
+        setBackgroundFile(file)
+      }
+    } catch { setErrorMessage('خواندن تصویر انجام نشد؛ دوباره انتخاب کنید.') }
+    finally { mediaReading.current = false; setMediaBusy(false) }
   }
 
   async function chooseScreenshots(files: File[]) {
-    const candidates = files.slice(0, MAX_SCREENSHOTS)
-    if (files.length > MAX_SCREENSHOTS) {
-      setErrorMessage('حداکثر ۱۰ تصویر محیط اپلیکیشن قابل ثبت است.')
-      return
-    }
+    if (mediaReading.current || submitting.current) return
+    mediaReading.current = true; setMediaBusy(true)
+    try {
+      const candidates = files.slice(0, MAX_SCREENSHOTS)
+      if (files.length > MAX_SCREENSHOTS) {
+        setErrorMessage('حداکثر ۱۰ تصویر محیط اپلیکیشن قابل ثبت است.')
+        return
+      }
 
-    const seen = new Set<string>()
-    const unique = candidates.filter((file) => {
-      const key = file.name + ':' + file.size + ':' + file.lastModified
-      if (seen.has(key)) return false
-      seen.add(key)
-      return true
-    })
+      const seen = new Set<string>()
+      const unique = candidates.filter((file) => {
+        const key = file.name + ':' + file.size + ':' + file.lastModified
+        if (seen.has(key)) return false
+        seen.add(key)
+        return true
+      })
 
-    for (const file of unique) {
-      if (!(await validateImage(file, 'screenshot'))) return
-    }
+      for (const file of unique) {
+        if (!(await validateImage(file, 'screenshot'))) return
+      }
 
-    const previews = await Promise.all(unique.map((file) => new Promise<string>((resolve, reject) => {
-      const reader = new FileReader()
-      reader.onload = () => resolve(String(reader.result))
-      reader.onerror = () => reject(new Error('image_read_failed'))
-      reader.readAsDataURL(file)
-    })))
+      const previews = await Promise.all(unique.map((file) => new Promise<string>((resolve, reject) => {
+        const reader = new FileReader()
+        reader.onload = () => resolve(String(reader.result))
+        reader.onerror = () => reject(new Error('image_read_failed'))
+        reader.readAsDataURL(file)
+      })))
 
-    setReplacementScreenshots(unique)
-    setReplacementPreviews(previews)
-    setErrorMessage('')
+      setReplacementScreenshots(unique)
+      setReplacementPreviews(previews)
+      setErrorMessage('')
+    } catch { setErrorMessage('خواندن تصاویر انجام نشد؛ دوباره انتخاب کنید.') }
+    finally { mediaReading.current = false; setMediaBusy(false) }
   }
 
   async function save(event: React.FormEvent) {
     event.preventDefault()
-    if (saving) return
+    if (submitting.current || mediaBusy) return
+    if (!developedForAndroidTv && !airMouseCompatible) { setErrorMessage('اپلیکیشن غیر Android TV باید با ایرماوس یا ماوس قابل استفاده باشد.'); return }
     setFieldErrors({})
     setErrorMessage('')
     setSaveNotice('')
@@ -259,6 +279,7 @@ function EditAppForm({ app, reloadDeveloperApps }: { app: StoreApp; reloadDevelo
       setErrorMessage('حداکثر ۱۰ تصویر PNG/JPEG و آیکون تا ۲ مگابایت انتخاب کنید.')
       return
     }
+    submitting.current = true
     setSaving(true)
     setSaved(false)
     setUploadProgress(0)
@@ -273,12 +294,15 @@ function EditAppForm({ app, reloadDeveloperApps }: { app: StoreApp; reloadDevelo
     replacementScreenshots.forEach((file) => formData.append('screenshots', file))
 
     try {
-      await patchDeveloperHubMultipart(
+      const patched = await patchDeveloperHubMultipart(
         '/api/v1/developer-hub/apps/' + encodeURIComponent(appId) + '/',
         formData,
         (percent) => setUploadProgress(Math.round(percent)),
       )
       setUploadProgress(100)
+      setRemoveIcon(false); setIconFile(null); setBannerFile(null); setBackgroundFile(null)
+      setReplacementScreenshots([]); setReplacementPreviews([]); setPaymentCommitmentAccepted(false)
+      if (String(patched?.id) === appId) setBaseline(mapDeveloperHubApp(patched, app.developer))
       // Read the listing back through the authenticated BFF before reporting success.
       let confirmed = false
       try {
@@ -309,6 +333,7 @@ function EditAppForm({ app, reloadDeveloperApps }: { app: StoreApp; reloadDevelo
       setFieldErrors(developerHubFieldErrors(error))
       setErrorMessage(developerHubErrorMessage(error, 'ذخیره تغییرات انجام نشد. دوباره تلاش کنید.'))
     } finally {
+      submitting.current = false
       setSaving(false)
     }
   }
@@ -327,6 +352,7 @@ function EditAppForm({ app, reloadDeveloperApps }: { app: StoreApp; reloadDevelo
       </div>
 
       <form onSubmit={save} onChange={() => { setSaved(false); setSaveNotice(''); setSaveWarning('') }} className="mt-8 flex flex-col gap-5 rounded-2xl border border-border bg-card p-6">
+        <fieldset disabled={saving || mediaBusy} className="contents">
         <Field error={fieldErrors.name} label="عنوان اپلیکیشن (فارسی)" required>
           <Input value={name} onChange={(event) => setName(event.target.value)} maxLength={255} />
         </Field>
@@ -396,7 +422,7 @@ function EditAppForm({ app, reloadDeveloperApps }: { app: StoreApp; reloadDevelo
             square
             hint="PNG یا JPEG — حداکثر ۲MB — مربع، حداقل ۱۲۸×۱۲۸"
             onFile={(file) => void chooseSingle(file, 'icon')}
-            onClear={() => { setIconFile(null); setRemoveIcon(false); setIconPreview(app.icon || '') }}
+            onClear={() => { setIconFile(null); setRemoveIcon(false); setIconPreview(baseline.icon || '') }}
           />
           <MediaField
             title="بنر معرفی"
@@ -404,7 +430,7 @@ function EditAppForm({ app, reloadDeveloperApps }: { app: StoreApp; reloadDevelo
             value={bannerPreview}
             hint="PNG یا JPEG — حداکثر ۵MB — افقی، نسبت حداقل ۱٫۵"
             onFile={(file) => void chooseSingle(file, 'banner')}
-            onClear={() => { setBannerFile(null); setBannerPreview(app.banner || '') }}
+            onClear={() => { setBannerFile(null); setBannerPreview(baseline.banner || '') }}
           />
           <MediaField
             title="تصویر پس‌زمینه"
@@ -412,7 +438,7 @@ function EditAppForm({ app, reloadDeveloperApps }: { app: StoreApp; reloadDevelo
             value={backgroundPreview}
             hint="PNG یا JPEG — حداکثر ۵MB"
             onFile={(file) => void chooseSingle(file, 'background')}
-            onClear={() => { setBackgroundFile(null); setBackgroundPreview(app.backgroundImage || '') }}
+            onClear={() => { setBackgroundFile(null); setBackgroundPreview(baseline.backgroundImage || '') }}
           />
         </div>
 
@@ -449,9 +475,9 @@ function EditAppForm({ app, reloadDeveloperApps }: { app: StoreApp; reloadDevelo
                 </div>
               ))}
             </div>
-          ) : app.screenshots.length > 0 ? (
+          ) : baseline.screenshots.length > 0 ? (
             <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3">
-              {app.screenshots.map((src, index) => (
+              {baseline.screenshots.map((src, index) => (
                 <img key={src + '-' + index} src={src} alt={'تصویر محیط اپلیکیشن فعلی ' + (index + 1)} className="aspect-video w-full rounded-lg border border-border object-cover" />
               ))}
             </div>
@@ -479,14 +505,16 @@ function EditAppForm({ app, reloadDeveloperApps }: { app: StoreApp; reloadDevelo
         </div>}
         {saveWarning && <p role="alert" className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-4 text-sm leading-7">{saveWarning}</p>}
 
-        {errorMessage && <p role="alert" className="rounded-lg bg-destructive/10 px-3 py-2 text-sm leading-7 text-destructive">{errorMessage}</p>}
+        {mediaBusy && <p role="status" className="text-sm text-muted-foreground">در حال بررسی و خواندن تصاویر...</p>}
+      {errorMessage && <p role="alert" className="rounded-lg bg-destructive/10 px-3 py-2 text-sm leading-7 text-destructive">{errorMessage}</p>}
 
         <p role="status" className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-4 text-sm leading-7">وب‌سایت و ایمیل پشتیبانی فعلاً ذخیره نمی‌شوند. با خروج از فرم یا بارگذاری مجدد صفحه، تغییرات این فیلدها حفظ نمی‌شوند.</p>
 
-        <Button type="submit" disabled={saving || saved} className="gap-2">
+        <Button type="submit" disabled={saving || mediaBusy} className="gap-2">
           {saving ? <Loader2 className="size-4 animate-spin" /> : <Save className="size-4" />}
           {saving ? 'در حال ذخیره...' : saved ? 'ذخیره شد' : 'ذخیره تغییرات'}
         </Button>
+        </fieldset>
       </form>
     </main>
   )

@@ -13,17 +13,21 @@ type AdminStat = { label: string; value: number }
 
 export function AdminConsole({
   submissions,
+  submissionsError,
   stats,
-  tickets,
-  ticketsError,
+  tickets: initialTickets,
+  ticketsError: initialTicketsError,
   canReviewSubmission,
 }: {
   submissions: AdminSubmissionListItem[]
+  submissionsError: string
   stats: AdminStat[]
   tickets: AdminSupportTicket[]
   ticketsError: string
   canReviewSubmission: boolean
 }) {
+  const [tickets, setTickets] = useState(initialTickets)
+  const [ticketsError, setTicketsError] = useState(initialTicketsError)
   const [tab, setTab] = useState<'reviews' | 'tickets' | 'payments'>('reviews')
 
   return (
@@ -55,13 +59,13 @@ export function AdminConsole({
               </div>
             ))}
           </section>
-          <AdminSubmissions submissions={submissions} canReviewSubmission={canReviewSubmission} />
+          {!submissionsError && <AdminSubmissions submissions={submissions} canReviewSubmission={canReviewSubmission} />}
         </>
       )}
 
       {tab === 'payments' && canReviewSubmission && <AdminPaymentDeadlines />}
 
-      {tab === 'tickets' && <AdminTickets tickets={tickets} initialError={ticketsError} />}
+      {tab === 'tickets' && <AdminTickets tickets={tickets} initialError={ticketsError} onTicketsChange={setTickets} onErrorChange={setTicketsError} />}
     </>
   )
 }

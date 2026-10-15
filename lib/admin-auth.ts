@@ -24,7 +24,11 @@ async function refreshAdminAccess() {
     body: JSON.stringify({ refresh }),
   })
   const payload = await response.json().catch(() => ({}))
-  if (!response.ok || typeof payload.access !== 'string') return null
+  if (!response.ok) {
+    if ([400, 401, 403].includes(response.status)) return null
+    throw new Error('token_refresh_unavailable')
+  }
+  if (typeof payload.access !== 'string' || !payload.access) throw new Error('token_refresh_invalid_response')
 
   try {
     store.set(ADMIN_ACCESS_COOKIE, payload.access, authCookieOptions(Number(payload.expiresIn || 1800)))

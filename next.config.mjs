@@ -9,9 +9,6 @@ const nextConfig = {
   // Django API routes require their trailing slash. Avoid redirects that
   // strip it before proxying POST/PATCH multipart requests.
   skipTrailingSlashRedirect: true,
-  typescript: {
-    ignoreBuildErrors: true,
-  },
   images: {
     unoptimized: true,
   },

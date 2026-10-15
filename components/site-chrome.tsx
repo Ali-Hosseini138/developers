@@ -11,7 +11,7 @@ const protectedPrefixes = ['/dashboard', '/upload', '/account']
 export function SiteChrome({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
   const router = useRouter()
-  const { user, authReady } = useStore()
+  const { user, authReady, sessionError } = useStore()
   const isAdmin = pathname?.startsWith('/admin')
   const requiresTerms = Boolean(
     pathname &&
@@ -19,15 +19,15 @@ export function SiteChrome({ children }: { children: React.ReactNode }) {
   )
 
   useEffect(() => {
-    if (!authReady || !user || !requiresTerms || user.termsAcceptedAt) return
-    router.replace(`/terms?next=${encodeURIComponent(pathname || '/dashboard')}`)
-  }, [authReady, user, requiresTerms, pathname, router])
+    if (!authReady || sessionError || !user || !requiresTerms || user.termsAcceptedAt) return
+    router.replace(`/terms?next=${encodeURIComponent((pathname || '/dashboard') + window.location.search)}`)
+  }, [authReady, sessionError, user, requiresTerms, pathname, router])
 
   if (isAdmin) {
     return <div className="flex min-h-screen flex-col">{children}</div>
   }
 
-  if (requiresTerms && authReady && user && !user.termsAcceptedAt) {
+  if (requiresTerms && !sessionError && authReady && user && !user.termsAcceptedAt) {
     return (
       <div className="flex min-h-screen flex-col">
         <SiteHeader />

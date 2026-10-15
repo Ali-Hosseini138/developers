@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 
-export function AdminTickets({ tickets: initialTickets, initialError }: { tickets: AdminSupportTicket[]; initialError: string }) {
+export function AdminTickets({ tickets: initialTickets, initialError, onTicketsChange, onErrorChange }: { tickets: AdminSupportTicket[]; initialError: string; onTicketsChange: (tickets: AdminSupportTicket[]) => void; onErrorChange: (error: string) => void }) {
   const [tickets, setTickets] = useState(initialTickets)
   const [error, setError] = useState(initialError)
   const [loading, setLoading] = useState(false)
@@ -22,8 +22,8 @@ export function AdminTickets({ tickets: initialTickets, initialError }: { ticket
       const payload = await response.json()
       if (response.status === 401) window.location.assign('/admin/login')
       if (!response.ok || !Array.isArray(payload.tickets)) throw new Error(ticketError(payload))
-      setTickets(payload.tickets); setError('')
-    } catch (error) { setError(error instanceof Error ? error.message : ticketError(null)) }
+      setTickets(payload.tickets); onTicketsChange(payload.tickets); setError(''); onErrorChange('')
+    } catch (error) { const message = error instanceof Error ? error.message : ticketError(null); setError(message); onErrorChange(message) }
     finally { setLoading(false) }
   }
   const q = query.trim().toLowerCase()
@@ -42,7 +42,8 @@ export function AdminTickets({ tickets: initialTickets, initialError }: { ticket
       <p className="mt-2 text-sm text-muted-foreground">{ticket.developer.name} · <span dir="ltr">{ticket.developer.email}</span> · تیکت #{ticket.id}</p>
       <TicketConversation {...ticket} />
       {ticket.status === 'unanswered' && <TicketReply ticket={ticket} onRefresh={refresh} onAnswered={updated => {
-        setTickets(current => [...current.filter(item => item.id !== updated.id && item.status === 'unanswered'), updated, ...current.filter(item => item.id !== updated.id && item.status === 'answered')])
+        const next = [...tickets.filter(item => item.id !== updated.id && item.status === 'unanswered'), updated, ...tickets.filter(item => item.id !== updated.id && item.status === 'answered')]
+        setTickets(next); onTicketsChange(next)
       }} />}
     </article>)}
   </section>

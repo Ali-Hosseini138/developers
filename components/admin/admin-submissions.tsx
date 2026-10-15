@@ -50,8 +50,8 @@ export function AdminSubmissions({
   const [kind, setKind] = useState<'all' | 'new' | 'update'>('all')
   const [expandedId, setExpandedId] = useState<number | null>(null)
   const [details, setDetails] = useState<Record<number, AdminSubmissionDetail>>({})
-  const [loadingId, setLoadingId] = useState<number | null>(null)
-  const [loadError, setLoadError] = useState('')
+  const [loadingIds, setLoadingIds] = useState<Record<number, boolean>>({})
+  const [loadErrors, setLoadErrors] = useState<Record<number, string>>({})
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase()
@@ -74,10 +74,10 @@ export function AdminSubmissions({
     }
 
     setExpandedId(item.id)
-    setLoadError('')
+    setLoadErrors(current => ({ ...current, [item.id]: '' }))
     if (details[item.id]) return
 
-    setLoadingId(item.id)
+    setLoadingIds(current => ({ ...current, [item.id]: true }))
     try {
       const response = await fetch(`/api/admin-hub/submissions/${item.id}`, { cache: 'no-store' })
       const payload = await response.json().catch(() => null)
@@ -85,9 +85,9 @@ export function AdminSubmissions({
       if (!response.ok) throw new Error(errorMessage(payload, 'دریافت جزئیات درخواست انجام نشد.'))
       setDetails((current) => ({ ...current, [item.id]: payload }))
     } catch (error) {
-      setLoadError(error instanceof Error ? error.message : 'دریافت جزئیات انجام نشد.')
+      setLoadErrors(current => ({ ...current, [item.id]: error instanceof Error ? error.message : 'دریافت جزئیات انجام نشد.' }))
     } finally {
-      setLoadingId(null)
+      setLoadingIds(current => ({ ...current, [item.id]: false }))
     }
   }
 
@@ -168,7 +168,7 @@ export function AdminSubmissions({
                       </div>
                     </div>
                     <Button type="button" variant="outline" size="sm" onClick={() => void toggle(item)} className="gap-2">
-                      {loadingId === item.id ? <Loader2 className="size-4 animate-spin" /> : expanded ? <ChevronUp className="size-4" /> : <ChevronDown className="size-4" />}
+                      {loadingIds[item.id] ? <Loader2 className="size-4 animate-spin" /> : expanded ? <ChevronUp className="size-4" /> : <ChevronDown className="size-4" />}
                       {expanded ? 'بستن جزئیات' : 'بررسی جزئیات'}
                     </Button>
                   </div>
@@ -176,10 +176,10 @@ export function AdminSubmissions({
 
                 {expanded && (
                   <div className="border-t border-border bg-muted/20 p-5">
-                    {loadingId === item.id && !detail ? (
+                    {loadingIds[item.id] && !detail ? (
                       <div className="py-10 text-center text-sm text-muted-foreground">در حال دریافت جزئیات...</div>
-                    ) : loadError && !detail ? (
-                      <p role="alert" className="rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive">{loadError}</p>
+                    ) : loadErrors[item.id] && !detail ? (
+                      <p role="alert" className="rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive">{loadErrors[item.id]}</p>
                     ) : detail ? (
                       <SubmissionDetailView detail={detail} canReviewSubmission={canReviewSubmission} onUpdate={updated => setDetails(current => ({ ...current, [updated.id]: updated }))} />
                     ) : null}

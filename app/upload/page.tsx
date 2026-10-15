@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { ArrowLeft, ArrowRight, Check, Loader2, Rocket, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { LoadFailure } from '@/components/load-failure'
 import { useStore } from '@/components/store-provider'
 import { FileDropzone } from '@/components/upload/file-dropzone'
 import { DeveloperCategorySelect } from '@/components/upload/developer-category-select'
@@ -25,14 +26,18 @@ const MAX_SCREENSHOTS = 10
 type ImageKind = 'icon' | 'banner' | 'background' | 'screenshot'
 
 export default function UploadPage() {
-  const { user, authReady, reloadDeveloperApps } = useStore()
+  const { user, authReady, sessionError, reloadDeveloperApps } = useStore()
   const router = useRouter()
 
   const [step, setStep] = useState(1)
+  const submitting = useRef(false)
+  const [submitted, setSubmitted] = useState(false)
   const [saving, setSaving] = useState(false)
   const [submitProgress, setSubmitProgress] = useState(0)
   const [submitStage, setSubmitStage] = useState('')
   const [errorMessage, setErrorMessage] = useState('')
+  const mediaReading = useRef(false)
+  const [mediaBusy, setMediaBusy] = useState(false)
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
 
   const [apkFile, setApkFile] = useState<File | null>(null)
@@ -74,8 +79,8 @@ export default function UploadPage() {
   const [changeLog, setChangeLog] = useState('')
 
   useEffect(() => {
-    if (authReady && !user) router.replace('/login?next=/upload')
-  }, [authReady, user, router])
+    if (authReady && !sessionError && !user) router.replace('/login?next=/upload')
+  }, [authReady, sessionError, user, router])
 
 
   const valid = useMemo(() => {
@@ -99,6 +104,7 @@ export default function UploadPage() {
   if (!authReady) {
     return <main className="mx-auto flex min-h-[40vh] max-w-5xl items-center justify-center px-4 py-10"><span className="text-sm text-muted-foreground">در حال بررسی حساب...</span></main>
   }
+  if (sessionError) return <LoadFailure message={sessionError} />
   if (!user) return null
 
   async function imageDimensions(file: File) {
@@ -161,9 +167,12 @@ export default function UploadPage() {
   }
 
   function previewFile(file: File, setter: (value: string) => void) {
-    const reader = new FileReader()
-    reader.onload = () => setter(String(reader.result))
-    reader.readAsDataURL(file)
+    return new Promise<void>((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onload = () => { setter(String(reader.result)); resolve() }
+      reader.onerror = () => reject(new Error('image_read_failed'))
+      reader.readAsDataURL(file)
+    })
   }
 
   function selectApk(file?: File) {
@@ -192,50 +201,61 @@ export default function UploadPage() {
   }
 
   async function selectSingleImage(file: File, kind: ImageKind) {
-    if (!(await validateImage(file, kind))) return
+    if (mediaReading.current || submitting.current) return
+    mediaReading.current = true; setMediaBusy(true)
+    try {
+      if (!(await validateImage(file, kind))) return
 
-    if (kind === 'icon') {
-      setIconFile(file)
-      previewFile(file, setIconPreview)
-    } else if (kind === 'banner') {
-      setBannerFile(file)
-      previewFile(file, setBannerPreview)
-    } else {
-      setBackgroundFile(file)
-      previewFile(file, setBackgroundPreview)
-    }
+      if (kind === 'icon') {
+        await previewFile(file, setIconPreview)
+        setIconFile(file)
+      } else if (kind === 'banner') {
+        await previewFile(file, setBannerPreview)
+        setBannerFile(file)
+      } else {
+        await previewFile(file, setBackgroundPreview)
+        setBackgroundFile(file)
+      }
+    } catch { setErrorMessage('خواندن تصویر انجام نشد؛ دوباره انتخاب کنید.') }
+    finally { mediaReading.current = false; setMediaBusy(false) }
   }
 
   async function selectScreenshots(files: File[]) {
-    const remaining = Math.max(0, MAX_SCREENSHOTS - screenshotFiles.length)
-    const candidates = files.slice(0, remaining)
-    if (!candidates.length) {
-      setErrorMessage('حداکثر ۱۰ تصویر محیط اپلیکیشن قابل ثبت است.')
-      return
-    }
+    if (mediaReading.current || submitting.current) return
+    mediaReading.current = true; setMediaBusy(true)
+    try {
+      const remaining = Math.max(0, MAX_SCREENSHOTS - screenshotFiles.length)
+      const candidates = files
+      if (!candidates.length) {
+        setErrorMessage('حداکثر ۱۰ تصویر محیط اپلیکیشن قابل ثبت است.')
+        return
+      }
 
-    const existingKeys = new Set(screenshotFiles.map((file) => `${file.name}:${file.size}:${file.lastModified}`))
-    const unique = candidates.filter((file) => {
-      const key = `${file.name}:${file.size}:${file.lastModified}`
-      if (existingKeys.has(key)) return false
-      existingKeys.add(key)
-      return true
-    })
+      const existingKeys = new Set(screenshotFiles.map((file) => `${file.name}:${file.size}:${file.lastModified}`))
+      const unique = candidates.filter((file) => {
+        const key = `${file.name}:${file.size}:${file.lastModified}`
+        if (existingKeys.has(key)) return false
+        existingKeys.add(key)
+        return true
+      })
 
-    for (const file of unique) {
-      if (!(await validateImage(file, 'screenshot'))) return
-    }
+      if (unique.length > remaining) { setErrorMessage('حداکثر ۱۰ تصویر محیط اپلیکیشن قابل ثبت است. تعداد فایل‌ها را کم کنید.'); return }
+      for (const file of unique) {
+        if (!(await validateImage(file, 'screenshot'))) return
+      }
 
-    const previews = await Promise.all(unique.map((file) => new Promise<string>((resolve, reject) => {
-      const reader = new FileReader()
-      reader.onload = () => resolve(String(reader.result))
-      reader.onerror = () => reject(new Error('image_read_failed'))
-      reader.readAsDataURL(file)
-    })))
+      const previews = await Promise.all(unique.map((file) => new Promise<string>((resolve, reject) => {
+        const reader = new FileReader()
+        reader.onload = () => resolve(String(reader.result))
+        reader.onerror = () => reject(new Error('image_read_failed'))
+        reader.readAsDataURL(file)
+      })))
 
-    setScreenshotFiles((current) => [...current, ...unique].slice(0, MAX_SCREENSHOTS))
-    setScreenshotPreviews((current) => [...current, ...previews].slice(0, MAX_SCREENSHOTS))
-    setErrorMessage('')
+      setScreenshotFiles((current) => [...current, ...unique].slice(0, MAX_SCREENSHOTS))
+      setScreenshotPreviews((current) => [...current, ...previews].slice(0, MAX_SCREENSHOTS))
+      setErrorMessage('')
+    } catch { setErrorMessage('خواندن تصاویر انجام نشد؛ دوباره انتخاب کنید.') }
+    finally { mediaReading.current = false; setMediaBusy(false) }
   }
 
   function removeScreenshot(index: number) {
@@ -244,7 +264,7 @@ export default function UploadPage() {
   }
 
   async function submitForReview() {
-    if (saving) return
+    if (submitting.current || submitted || mediaBusy) return
     setFieldErrors({})
     if (!requirementsValid || !name.trim() || !description.trim()) {
       setErrorMessage('اطلاعات و شرایط انتشار را کامل کنید.')
@@ -265,6 +285,7 @@ export default function UploadPage() {
       return
     }
 
+    submitting.current = true
     setSaving(true)
     setSubmitProgress(0)
     setSubmitStage('در حال ارسال فایل‌ها و اطلاعات...')
@@ -298,9 +319,10 @@ export default function UploadPage() {
         if (percent >= 100) setSubmitStage('آپلود کامل شد؛ درخواست در حال پردازش است...')
       })
 
+      setSubmitted(true)
       setSubmitProgress(100)
       setSubmitStage('درخواست با موفقیت ثبت شد')
-      await reloadDeveloperApps()
+      await reloadDeveloperApps().catch(() => {})
       await new Promise((resolve) => window.setTimeout(resolve, 400))
       router.push('/dashboard')
       router.refresh()
@@ -313,6 +335,7 @@ export default function UploadPage() {
       else if (errors.changeLog) setStep(4)
       setErrorMessage(developerHubErrorMessage(error, 'ارسال اپلیکیشن انجام نشد. دوباره تلاش کنید.'))
     } finally {
+      submitting.current = false
       setSaving(false)
     }
   }
@@ -341,6 +364,7 @@ export default function UploadPage() {
         ))}
       </div>
 
+      <fieldset disabled={saving || submitted || mediaBusy} className="min-w-0">
       <section className="mt-6 rounded-2xl border border-border bg-card p-6 sm:p-8">
         {step === 1 && (
           <div>
@@ -560,22 +584,23 @@ export default function UploadPage() {
           </div>
         )}
       </section>
+      </fieldset>
 
       <div className="mt-6 flex justify-between">
-        <Button variant="ghost" onClick={() => setStep((current) => Math.max(1, current - 1))} disabled={step === 1 || saving} className="gap-2">
+        <Button variant="ghost" onClick={() => setStep((current) => Math.max(1, current - 1))} disabled={step === 1 || saving || mediaBusy || submitted} className="gap-2">
           <ArrowRight className="size-4" />
           قبلی
         </Button>
 
         {step < steps.length ? (
-          <Button onClick={() => valid && setStep((current) => current + 1)} disabled={!valid || saving} className="gap-2">
+          <Button onClick={() => valid && setStep((current) => current + 1)} disabled={!valid || saving || mediaBusy || submitted} className="gap-2">
             گام بعدی
             <ArrowLeft className="size-4" />
           </Button>
         ) : (
-          <Button onClick={() => void submitForReview()} disabled={saving} className="gap-2">
+          <Button onClick={() => void submitForReview()} disabled={saving || submitted} className="gap-2">
             {saving ? <Loader2 className="size-4 animate-spin" /> : <Rocket className="size-4" />}
-            {saving ? 'در حال ارسال...' : 'ارسال برای بررسی'}
+            {saving ? 'در حال ارسال...' : submitted ? 'درخواست ثبت شد' : 'ارسال برای بررسی'}
           </Button>
         )}
       </div>
@@ -593,6 +618,7 @@ export default function UploadPage() {
         </div>
       )}
 
+      {mediaBusy && <p role="status" className="text-sm text-muted-foreground">در حال بررسی و خواندن تصاویر...</p>}
       {errorMessage && <p role="alert" className="mt-3 rounded-lg bg-destructive/10 px-3 py-2 text-center text-sm text-destructive">{errorMessage}</p>}
       {!valid && step < steps.length && <p className="mt-3 text-center text-xs text-muted-foreground">فیلدهای الزامی را کامل کنید.</p>}
     </main>

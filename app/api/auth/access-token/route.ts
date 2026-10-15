@@ -8,5 +8,5 @@ export async function GET() {
   return NextResponse.json({
     access,
     baseUrl: '/backend-api',
-  })
+  }, { headers: { 'Cache-Control': 'private, no-store' } })
 }

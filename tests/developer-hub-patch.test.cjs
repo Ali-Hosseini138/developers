@@ -37,7 +37,7 @@ async function runSave(mode, overrides = {}) {
   const code = ts.transpileModule(source.slice(start, source.indexOf('\n  return (', start)) + '\nsave({ preventDefault() {} })', { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText
   const result = { saved: false, warning: '', notice: '', error: '', calls: [] }
   const state = {
-    baseline: app, app, appId: '42', saving: false, hasInAppPayment: true, paymentCommitmentAccepted: false, removeIcon: false,
+    baseline: app, app, appId: '42', saving: false, submitting: { current: false }, mediaBusy: false, hasInAppPayment: true, paymentCommitmentAccepted: false, removeIcon: false,
     packageName: mode === 'noop' ? app.packageName : 'com.real.app', name: app.name, nameEn: '',
     tagline: app.tagline, taglineEn: '', description: app.description, descriptionEn: '',
     categoryId: '12', applicationType: '1', ageLimit: '0', supportsNetboxPayment: false,
@@ -45,6 +45,7 @@ async function runSave(mode, overrides = {}) {
     iconFile: null, bannerFile: null, backgroundFile: null, replacementScreenshots: [], FormData,
     changedDeveloperMetadata, unconfirmedDeveloperMetadata, developerMetadataLabels, appDescription: text => `این برنامه با ایرماوس قابل استفاده است\n${text.trim()}`,
     setFieldErrors() {}, setSaving() {}, setUploadProgress() {}, setBaseline() {},
+    setRemoveIcon() {}, setIconFile() {}, setBannerFile() {}, setBackgroundFile() {}, setReplacementScreenshots() {}, setReplacementPreviews() {}, setPaymentCommitmentAccepted() {},
     setErrorMessage(v) { result.error = v }, setSaved(v) { result.saved = v },
     setSaveNotice(v) { result.notice = v }, setSaveWarning(v) { result.warning = v },
     developerHubFieldErrors: () => ({}), developerHubErrorMessage: () => 'PATCH rejected',
@@ -145,4 +146,21 @@ test('expired verification session returns to login without claiming persistence
   const r = await runSave('success', { fetch: async () => ({ status: 401, ok: false }), window: { location: { assign: value => target = value } } })
   assert.equal(r.saved, false)
   assert.ok(target.startsWith('/login?next='))
+})
+
+test('non-TV edits require air-mouse compatibility before sending metadata', async () => {
+  const result = await runSave('success', { developedForAndroidTv: false, airMouseCompatible: false })
+  assert.equal(result.calls.length, 0)
+  assert.ok(result.error.includes('ایرماوس'))
+})
+test('successful media mutation clears pending file inputs even when readback is unavailable', async () => {
+  let cleared = 0
+  const result = await runSave('unavailable', {
+    bannerFile: new Blob(['png'], { type: 'image/png' }),
+    setIconFile(value) { if (value === null) cleared++ }, setBannerFile(value) { if (value === null) cleared++ },
+    setBackgroundFile(value) { if (value === null) cleared++ }, setReplacementScreenshots(value) { if (value.length === 0) cleared++ },
+  })
+  assert.equal(cleared, 4)
+  assert.equal(result.error, '')
+  assert.ok(result.warning)
 })

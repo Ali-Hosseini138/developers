@@ -16,6 +16,7 @@ export async function developerApi(path: string, init: RequestInit = {}) {
   const isFormData = typeof FormData !== 'undefined' && init.body instanceof FormData
   return fetch(`${DEVELOPER_API_BASE_URL}${path}`, {
     ...init,
+    signal: init.signal ?? AbortSignal.timeout(15000),
     headers: {
       ...(hasBody && !isFormData ? { 'Content-Type': 'application/json' } : {}),
       ...(init.headers || {}),
@@ -34,7 +35,11 @@ async function refreshDeveloperAccess() {
     body: JSON.stringify({ refresh }),
   })
   const payload = await response.json().catch(() => ({}))
-  if (!response.ok || typeof payload.access !== 'string') return null
+  if (!response.ok) {
+    if ([400, 401, 403].includes(response.status)) return null
+    throw new Error('token_refresh_unavailable')
+  }
+  if (typeof payload.access !== 'string' || !payload.access) throw new Error('token_refresh_invalid_response')
 
   store.set(ACCESS_COOKIE, payload.access, authCookieOptions(Number(payload.expiresIn || 1800)))
   return payload.access as string
@@ -73,6 +78,7 @@ export async function developerHubApi(path: string, init: RequestInit = {}) {
 
 export function copyBackendResponse(response: Response, payload: unknown) {
   const result = NextResponse.json(payload, { status: response.status })
+  result.headers.set('Cache-Control', 'private, no-store')
   const retryAfter = response.headers.get('Retry-After')
   if (retryAfter) result.headers.set('Retry-After', retryAfter)
   return result

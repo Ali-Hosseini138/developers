@@ -7,11 +7,7 @@ type AccessPayload = {
   baseUrl: string
 }
 
-let cachedAccess: AccessPayload | null = null
-
 async function getAccess(forceRefresh = false): Promise<AccessPayload> {
-  if (!forceRefresh && cachedAccess) return cachedAccess
-
   if (forceRefresh) {
     const response = await fetch('/api/auth/refresh', { method: 'POST' })
     if (!response.ok) throw backendError(await response.json().catch(() => null), response.status)
@@ -24,8 +20,7 @@ async function getAccess(forceRefresh = false): Promise<AccessPayload> {
     throw new Error('auth_required')
   }
 
-  cachedAccess = { access: payload.access, baseUrl: payload.baseUrl }
-  return cachedAccess
+  return { access: payload.access, baseUrl: payload.baseUrl }
 }
 
 function parseXhrPayload(xhr: XMLHttpRequest) {
@@ -68,6 +63,7 @@ async function sendMultipart(
     xhr.open(method, `${baseUrl}${path}`)
     xhr.setRequestHeader('Authorization', `Bearer ${access}`)
     xhr.responseType = 'text'
+    xhr.timeout = 10 * 60 * 1000
 
     xhr.upload.onprogress = (event) => {
       if (!event.lengthComputable || !onProgress) return
@@ -85,7 +81,8 @@ async function sendMultipart(
       reject(backendError(payload, xhr.status, xhr.getResponseHeader('Retry-After')))
     }
 
-    xhr.onerror = () => reject(new Error('network_error'))
+    xhr.onerror = () => reject(new Error('upload_result_unknown'))
+    xhr.ontimeout = () => reject(new Error('upload_result_unknown'))
     xhr.onabort = () => reject(new Error('upload_aborted'))
     xhr.send(formData)
   })
@@ -101,7 +98,6 @@ async function multipartWithRefresh(
     return await sendMultipart(method, path, formData, onProgress)
   } catch (error) {
     if ((error as any)?.status !== 401) throw error
-    cachedAccess = null
     try {
       return await sendMultipart(method, path, formData, onProgress, true)
     } catch (retryError) {
@@ -126,6 +122,7 @@ export function developerHubErrorMessage(error: unknown, fallback: string) {
   const payload = e?.payload
 
   if (e?.message === 'auth_required' || e?.status === 401) return 'نشست ورود شما منقضی شده است. دوباره وارد شوید.'
+  if (e?.message === 'upload_result_unknown') return 'نتیجه ارسال مشخص نیست. قبل از ارسال دوباره، داشبورد یا اطلاعات اپلیکیشن را تازه کنید تا درخواست تکراری ایجاد نشود.'
   if (e?.message === 'network_error') return 'ارتباط با سرویس برقرار نشد. دوباره تلاش کنید.'
   if (e?.message === 'file_too_large' || e?.status === 413) return 'حجم فایل از سقف مجاز سرور بیشتر است.'
   if (e?.status === 429) {
