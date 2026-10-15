@@ -132,7 +132,7 @@ function AppsTab({ myApps, cancelSubmission }: { myApps: ReturnType<typeof useSt
     if (app.status === 'published') return 'این اپ در فروشگاه منتشر شده است.'
     if (app.status === 'processing') return 'APK در بک‌اند در حال پردازش و بررسی فنی است.'
     if (app.status === 'pending') return 'پردازش فایل تمام شده و درخواست در صف بررسی نت‌استور است.'
-    if (app.status === 'parse_failed') return 'پردازش APK ناموفق بوده است. خطاها را بررسی و فایل جدید ارسال کنید.'
+    if (app.status === 'parse_failed') return 'آخرین APK ارسالی با خطا پردازش شده است. پس از اصلاح و ذخیره اطلاعات، APK را برای پردازش مجدد ارسال کنید.'
     if (app.status === 'rejected') return 'درخواست توسط تیم بررسی رد شده است؛ اطلاعات را اصلاح یا APK جدید ارسال کنید.'
     if (app.status === 'cancelled') return 'آخرین درخواست توسط شما لغو شده است.'
     return 'وضعیت اپ از بک‌اند دریافت شده است.'
@@ -214,6 +214,7 @@ function AppsTab({ myApps, cancelSubmission }: { myApps: ReturnType<typeof useSt
 
                   {(app.status === 'rejected' || app.status === 'parse_failed') && (app.rejectionReason || app.latestSubmissionErrors?.length) ? (
                     <div className="mt-3 rounded-lg border border-destructive/25 bg-destructive/5 px-3 py-2 text-sm">
+                      <p className="mb-2 text-xs font-medium">نتیجه آخرین ارسال APK؛ این پیام خطای ذخیره اطلاعات نیست.</p>
                       {app.rejectionReason && <p><span className="font-medium text-destructive">دلیل رد: </span>{app.rejectionReason}</p>}
                       {app.latestSubmissionErrors?.map((item) => <p key={item.code} className="mt-1"><span className="font-medium text-destructive">{item.code}: </span>{item.message}</p>)}
                     </div>
