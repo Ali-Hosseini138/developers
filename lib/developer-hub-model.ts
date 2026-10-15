@@ -24,6 +24,15 @@ export type DeveloperHubApp = {
   nameEn?: string
   shortDescription?: string
   longDescription?: string
+  shortDescriptionEn?: string
+  longDescriptionEn?: string
+  isAndroidTv?: boolean
+  isAirMouseCompatible?: boolean
+  hasInAppPayment?: boolean
+  paymentCommitmentAcceptedAt?: string | null
+  paymentDeadlineStartedAt?: string | null
+  paymentDeadlineAt?: string | null
+  paymentCompletedAt?: string | null
   categoryId?: number
   category?: { id: number; name: string; isValid?: boolean }
   applicationType?: number
@@ -61,6 +70,15 @@ export function mapDeveloperHubApp(row: DeveloperHubApp, developer = 'توسعه
     nameEn: row.nameEn || undefined,
     tagline: row.shortDescription || '',
     description: row.longDescription || '',
+    taglineEn: row.shortDescriptionEn || '',
+    descriptionEn: row.longDescriptionEn || '',
+    developedForAndroidTv: Boolean(row.isAndroidTv),
+    airMouseCompatible: Boolean(row.isAirMouseCompatible),
+    hasInAppPayment: Boolean(row.hasInAppPayment),
+    paymentCommitmentAcceptedAt: row.paymentCommitmentAcceptedAt,
+    paymentDeadlineStartedAt: row.paymentDeadlineStartedAt,
+    paymentDeadlineAt: row.paymentDeadlineAt,
+    paymentCompletedAt: row.paymentCompletedAt,
     category: ((row.category?.name || 'تکنولوژی و اینترنت') as StoreApp['category']),
     categoryId: row.categoryId ?? row.category?.id,
     applicationType: row.applicationType,

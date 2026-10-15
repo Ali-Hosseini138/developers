@@ -65,6 +65,10 @@ export interface StoreApp {
   netboxPaymentIntegrated?: boolean
   netboxPaymentGraceAccepted?: boolean
   netboxPaymentGraceDeadline?: string
+  paymentCommitmentAcceptedAt?: string | null
+  paymentDeadlineStartedAt?: string | null
+  paymentDeadlineAt?: string | null
+  paymentCompletedAt?: string | null
   developedForAndroidTv?: boolean
   airMouseCompatible?: boolean
   reviewReason?: string

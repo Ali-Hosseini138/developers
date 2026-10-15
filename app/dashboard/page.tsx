@@ -1,5 +1,7 @@
 'use client'
 
+import { PaymentCommitmentSummary } from '@/components/payment-commitment-summary'
+
 import { Suspense, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
@@ -208,6 +210,7 @@ function AppsTab({ myApps, cancelSubmission }: { myApps: ReturnType<typeof useSt
                     <span>آخرین تغییر: {app.updatedAt}</span>
                   </div>
                   <p className="mt-2 text-xs">{statusHelp(app)}</p>
+                  <PaymentCommitmentSummary app={app} />
 
                   {(app.status === 'rejected' || app.status === 'parse_failed') && (app.rejectionReason || app.latestSubmissionErrors?.length) ? (
                     <div className="mt-3 rounded-lg border border-destructive/25 bg-destructive/5 px-3 py-2 text-sm">

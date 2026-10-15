@@ -145,3 +145,18 @@ export function developerHubErrorMessage(error: unknown, fallback: string) {
 
   return fallback
 }
+
+export function developerHubFieldErrors(error: unknown): Record<string, string> {
+  const payload = (error as { payload?: unknown } | null)?.payload
+  if (!payload || typeof payload !== 'object') return {}
+  const messages = (value: unknown): string[] => {
+    if (typeof value === 'string') return [value]
+    if (Array.isArray(value)) return value.flatMap(messages)
+    if (value && typeof value === 'object') return Object.values(value).flatMap(messages)
+    return []
+  }
+  return Object.fromEntries(Object.entries(payload)
+    .filter(([field]) => !['statusCode', 'code', 'detail', 'message'].includes(field))
+    .map(([field, value]) => [field, messages(value).join(' — ')])
+    .filter(([, value]) => Boolean(value)))
+}
