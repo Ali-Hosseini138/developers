@@ -14,7 +14,7 @@ export function SiteFooter() {
               <img src="https://netstore.app/logo/netstore-logo-blue.svg" alt="لوگوی نت‌استور" className="h-9 w-auto" />
             </Link>
             <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
-              نت‌استور بستر انتشار، معرفی و دسترسی به اپلیکیشن‌های Android TV است.
+              نت استور تنها استور اختصاصی اندروید تی وی و مرجع امن دانلود اپلیکیشن، بازی و پلتفرم‌های پخش فیلم برای تلویزیون‌های اندرویدی و اندروید باکس است.
             </p>
             <div className="mt-4 flex flex-col gap-1 text-sm text-muted-foreground" dir="ltr">
               <span>info@netbox.info</span>
