@@ -44,6 +44,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [developerAppsError, setDeveloperAppsError] = useState('')
   const [publishedAppsLoading, setPublishedAppsLoading] = useState(true)
   const [publishedAppsError, setPublishedAppsError] = useState('')
+  const accountGeneration = useRef(0)
+  const logoutPending = useRef(false)
   const appGeneration = useRef(0)
   const ticketGeneration = useRef(0)
   const [ticketsError, setTicketsError] = useState('')
@@ -75,10 +77,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       for (let page = 1; ; page++) {
         const response = await fetch(`/api/developer-hub/apps?page=${page}&page_size=200`, { cache: 'no-store' })
         const payload = await response.json().catch(() => null)
+        if (generation !== appGeneration.current) return
         if (!response.ok) {
           if (response.status === 401) {
             setDeveloperApps([])
-            window.location.assign('/login?next=/dashboard')
+            if (!window.location.pathname?.startsWith('/admin')) window.location.assign('/login?next=/dashboard')
           }
           const message = ticketError(payload, 'دریافت اپلیکیشن‌ها انجام نشد. دوباره تلاش کنید.')
           const reference = typeof payload?.supportReference === 'string' ? ` کد پیگیری: ${payload.supportReference}` : ''
@@ -95,7 +98,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         detailedRows.push(...await Promise.all(rows.slice(index, index + 6).map(async (row: any) => {
           try {
             const response = await fetch(`/api/developer-hub/apps/${encodeURIComponent(String(row.id))}`, { cache: 'no-store' })
-            if (response.status === 401) window.location.assign('/login?next=/dashboard')
+            if (generation !== appGeneration.current) return row
+            if (response.status === 401 && !window.location.pathname?.startsWith('/admin')) window.location.assign('/login?next=/dashboard')
             if (!response.ok) throw new Error('app_detail_unavailable')
             const detail = await response.json()
             if (String(detail?.id) !== String(row.id)) throw new Error('app_detail_invalid')
@@ -119,8 +123,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     void loadPublishedApps()
 
     const loadBackendSession = async () => {
+      const generation = accountGeneration.current
       try {
         const response = await fetch('/api/auth/session', { cache: 'no-store' })
+        if (generation !== accountGeneration.current) return
 
         if (response.status !== 401 && !response.ok) throw new Error('session_unavailable')
         if (!response.ok) {
@@ -137,6 +143,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           const profileResponse = await fetch('/api/developer/profile', { cache: 'no-store' }).catch(() => null)
 
           const profilePayload = profileResponse?.ok ? await profileResponse.json().catch(() => null) : null
+          if (generation !== accountGeneration.current) return
           const nextUser = profilePayload?.profile || sessionUser
           setUser(nextUser)
           setAuthReady(true)
@@ -148,9 +155,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           setTickets([])
         }
       } catch {
+        if (generation !== accountGeneration.current) return
         setSessionError('بررسی نشست ورود انجام نشد؛ اتصال را بررسی و صفحه را دوباره بارگذاری کنید.')
       } finally {
-        setAuthReady(true)
+        if (generation === accountGeneration.current) setAuthReady(true)
       }
     }
 
@@ -172,26 +180,30 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   }, [reloadDeveloperApps])
 
   const updateProfile = useCallback(async (patch: Pick<User, 'name' | 'phone' | 'nationalId' | 'organization'>) => {
-    if (!user?.id) throw new Error('unauthorized')
+    if (!user?.id || logoutPending.current) throw new Error('unauthorized')
+    const generation = accountGeneration.current
     const response = await fetch('/api/developer/profile', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(patch),
     })
     const payload = await response.json().catch(() => null)
-    if (!response.ok) throw new Error(payload?.error || 'profile_update_failed')
+    if (generation !== accountGeneration.current) throw new Error('نشست حساب تغییر کرده است.')
+    if (!response.ok || String(payload?.profile?.id) !== String(user.id)) throw new Error(payload?.error || 'profile_update_failed')
     setUser(payload.profile)
   }, [user?.id])
 
   const acceptTerms = useCallback(async () => {
-    if (!user?.id) throw new Error('unauthorized')
+    if (!user?.id || logoutPending.current) throw new Error('unauthorized')
+    const generation = accountGeneration.current
     const response = await fetch('/api/developer/profile', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ acceptTerms: true }),
     })
     const payload = await response.json().catch(() => null)
-    if (!response.ok) throw new Error(payload?.error || 'terms_update_failed')
+    if (generation !== accountGeneration.current) throw new Error('نشست حساب تغییر کرده است.')
+    if (!response.ok || String(payload?.profile?.id) !== String(user.id)) throw new Error(payload?.error || 'terms_update_failed')
     setUser(payload.profile)
   }, [user?.id])
   const reloadTickets = useCallback(async () => {
@@ -200,6 +212,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     try {
       const response = await fetch('/api/developer/tickets', { cache: 'no-store' })
       const payload = await response.json()
+      if (generation !== ticketGeneration.current) return
       if (response.status === 401) window.location.assign('/login?next=/dashboard')
       if (!response.ok || !Array.isArray(payload.tickets)) throw new Error(ticketError(payload))
       if (generation === ticketGeneration.current) setTickets(payload.tickets)
@@ -207,23 +220,33 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const addTicket = useCallback(async (ticket: { subject: string; question: string }) => {
-    if (!user?.id) throw new Error('نشست ورود معتبر نیست.')
+    if (!user?.id || logoutPending.current) throw new Error('نشست ورود معتبر نیست.')
+    const generation = accountGeneration.current
     const response = await fetch('/api/developer/tickets', {
       method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(ticket),
     })
     const payload = await response.json().catch(() => null)
+    if (generation !== accountGeneration.current) throw new Error('نشست حساب تغییر کرده است.')
     if (response.status === 401) window.location.assign('/login?next=/dashboard')
     if (!response.ok || !payload?.id) throw new Error(ticketError(payload))
     ticketGeneration.current++
     setTickets(prev => [payload, ...prev])
   }, [user?.id])
-  const login = useCallback((u: User) => setUser(u), [])
+  const login = useCallback((u: User) => {
+    accountGeneration.current++; appGeneration.current++; ticketGeneration.current++
+    logoutPending.current = false
+    setDeveloperApps([]); setTickets([]); setSessionError(''); setTicketsError('')
+    setUser(u); setAuthReady(true)
+  }, [])
   const logout = useCallback(async () => {
+    const generation = ++accountGeneration.current
+    logoutPending.current = true
+    ticketGeneration.current++; appGeneration.current++
     try {
       await fetch('/api/auth/logout', { method: 'POST' })
     } finally {
-      ticketGeneration.current++
-      appGeneration.current++
+      if (generation !== accountGeneration.current) return
+      logoutPending.current = false
       setTicketsError('')
       setUser(null)
       setDeveloperApps([])

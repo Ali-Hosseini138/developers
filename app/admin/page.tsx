@@ -28,7 +28,8 @@ export default async function AdminPage() {
       const payload = await response.json()
       if (!Array.isArray(payload.results)) throw new Error('queue_invalid')
       submissions.push(...payload.results)
-      if (!payload.next || !payload.results.length) break
+      if (payload.next && (!payload.results.length || page >= 1000)) throw new Error('queue_invalid_pagination')
+      if (!payload.next) break
     }
   } catch {
     submissions.length = 0

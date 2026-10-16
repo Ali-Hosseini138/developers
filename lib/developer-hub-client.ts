@@ -15,9 +15,13 @@ async function getAccess(forceRefresh = false): Promise<AccessPayload> {
 
   const response = await fetch('/api/auth/access-token', { cache: 'no-store' })
   const payload = await response.json().catch(() => null)
-  if (!response.ok || !payload?.access || !payload?.baseUrl) {
+  if (!response.ok) {
     if (response.status === 401 && typeof window !== 'undefined') window.location.assign('/login?next=' + encodeURIComponent(window.location.pathname + window.location.search))
-    throw new Error('auth_required')
+    if (response.status === 401) throw new Error('auth_required')
+    throw backendError(payload, response.status, response.headers.get('Retry-After'))
+  }
+  if (typeof payload?.access !== 'string' || !payload.access || typeof payload.baseUrl !== 'string' || !payload.baseUrl) {
+    throw backendError({ detail: 'پاسخ سرویس دریافت توکن معتبر نیست. دوباره تلاش کنید.' }, 502)
   }
 
   return { access: payload.access, baseUrl: payload.baseUrl }
@@ -73,6 +77,7 @@ async function sendMultipart(
     xhr.onload = () => {
       const payload = parseXhrPayload(xhr)
       if (xhr.status >= 200 && xhr.status < 300) {
+        if (!payload || typeof payload !== 'object' || Array.isArray(payload)) { reject(new Error('upload_result_unknown')); return }
         onProgress?.(100)
         resolve(payload)
         return

@@ -82,7 +82,8 @@ export async function adminHubApi(path: string, init: RequestInit = {}) {
 
 export async function getAdminUser(): Promise<AdminUser | null> {
   const response = await adminHubApi('/api/v1/developer-hub/admin/auth/me/')
-  if (!response.ok) return null
+  if (response.status === 401 || response.status === 403) return null
+  if (!response.ok) throw new Error('admin_identity_unavailable')
   const payload = await response.json().catch(() => null)
   if (!payload?.isStaff && !payload?.isSuperuser) return null
   return payload as AdminUser
