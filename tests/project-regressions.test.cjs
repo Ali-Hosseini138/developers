@@ -292,3 +292,118 @@ test('dashboard exposes the backend error and tracking reference without losing 
   assert.ok(f.render().developerAppsError.includes('سرویس در دسترس نیست'))
   assert.ok(f.render().developerAppsError.includes('safe-reference'))
 })
+
+test('transient token-service failure is not reported as an expired upload session', async () => {
+  let uploads = 0, redirects = 0
+  const client = load('lib/developer-hub-client.ts', {}, {
+    fetch: async () => Response.json({ detail: 'سرویس موقتاً قطع است' }, { status: 502 }),
+    XMLHttpRequest: class { constructor() { uploads++ } },
+    window: { location: { assign() { redirects++ } } },
+  })
+  let failure
+  try { await client.postDeveloperHubMultipart('/api/v1/developer-hub/apps/', new FormData()) } catch (error) { failure = error }
+  assert.equal(failure.status, 502)
+  assert.equal(client.developerHubErrorMessage(failure, 'fallback'), 'سرویس موقتاً قطع است')
+  assert.equal(redirects, 0)
+  assert.equal(uploads, 0)
+})
+test('a successful HTTP upload without a valid JSON result is explicitly unconfirmed', async () => {
+  class XHR {
+    upload = {}; status = 200; responseText = '<html>proxy failure</html>'
+    open() {}; setRequestHeader() {}; send() { this.onload() }
+  }
+  const client = load('lib/developer-hub-client.ts', {}, { XMLHttpRequest: XHR, fetch: async () => Response.json({ access: 'token', baseUrl: '/backend-api' }) })
+  await assert.rejects(client.postDeveloperHubMultipart('/api/v1/developer-hub/apps/', new FormData()), /upload_result_unknown/)
+})
+test('access-token endpoint reports refresh transport errors as private JSON 502', async () => {
+  const route = load('app/api/auth/access-token/route.ts', {
+    'next/server': { NextResponse: Response }, '@/lib/developer-api': { getDeveloperAccessToken: async () => { throw new Error('timeout') } },
+  }).GET
+  const response = await route()
+  assert.equal(response.status, 502)
+  assert.equal(response.headers.get('Cache-Control'), 'private, no-store')
+  assert.ok((await response.json()).detail)
+})
+test('refresh endpoint rejects malformed success responses without setting access cookies', async () => {
+  for (const payload of [{}, { access: '' }, { access: 123 }]) {
+    let cookiesSet = 0
+    const route = load('app/api/auth/refresh/route.ts', {
+      'next/headers': { cookies: async () => ({ get: () => ({ value: 'refresh' }) }) },
+      'next/server': { NextResponse: { json: (body, init) => ({ status: init?.status || 200, body, cookies: { set() { cookiesSet++ } } }) } },
+      '@/lib/developer-api': { developerApi: async () => Response.json(payload), authCookieOptions: () => ({}) },
+    }).POST
+    assert.equal((await route()).status, 502)
+    assert.equal(cookiesSet, 0)
+  }
+})
+test('late profile and terms saves cannot restore a logged-out account', async () => {
+  for (const method of ['updateProfile', 'acceptTerms']) {
+    let release
+    const f = store(async path => path === '/api/developer/profile' ? new Promise(resolve => { release = resolve }) : Response.json({ ok: true }))
+    f.render().login({ id: 'alice', name: 'Alice' })
+    const value = f.render(), pending = value[method]({ name: 'Updated' })
+    await value.logout()
+    release(Response.json({ profile: { id: 'alice', name: 'Updated' } }))
+    await assert.rejects(pending, /نشست حساب تغییر/)
+    assert.equal(f.render().user, null)
+  }
+})
+test('late ticket creation cannot insert a previous account ticket after switching accounts', async () => {
+  let release
+  const f = store(async () => new Promise(resolve => { release = resolve }))
+  f.render().login({ id: 'alice', name: 'Alice' })
+  const pending = f.render().addTicket({ subject: 'S', question: 'Q' })
+  f.render().login({ id: 'bob', name: 'Bob' })
+  release(Response.json({ id: 42, subject: 'Alice ticket' }))
+  await assert.rejects(pending, /نشست حساب تغییر/)
+  assert.equal(f.render().user.id, 'bob')
+  assert.equal(f.render().tickets.length, 0)
+})
+test('late unauthorized app and ticket reads cannot redirect a newer account session', async () => {
+  for (const method of ['reloadDeveloperApps', 'reloadTickets']) {
+    let release
+    const f = store(async () => new Promise(resolve => { release = resolve }))
+    const pending = f.render()[method]()
+    f.render().login({ id: 'bob', name: 'Bob' })
+    release(Response.json({ detail: 'old token expired' }, { status: 401 }))
+    await pending
+    assert.equal(f.redirects.length, 0)
+    assert.equal(f.render().user.id, 'bob')
+  }
+})
+test('initial session response cannot replace a subsequently logged-in account', async () => {
+  let release
+  const f = store(async () => new Promise(resolve => { release = resolve }))
+  f.mount()
+  f.render().login({ id: 'bob', name: 'Bob' })
+  release(Response.json({ user: { id: 'alice', name: 'Alice' } }))
+  await flush()
+  assert.equal(f.render().user.id, 'bob')
+})
+test('submission read and decision transport failures return JSON without retrying mutations', async () => {
+  const files = [
+    ['app/api/developer-hub/submissions/[id]/route.ts','GET'],
+    ['app/api/admin-hub/submissions/[id]/route.ts','GET'],
+    ['app/api/developer-hub/submissions/[id]/cancel/route.ts','POST'],
+    ['app/api/admin-hub/submissions/[id]/approve/route.ts','POST'],
+    ['app/api/admin-hub/submissions/[id]/reject/route.ts','POST'],
+  ]
+  for (const [file, method] of files) {
+    let calls = 0
+    const api = async () => { calls++; throw new Error('timeout') }
+    const route = load(file, { 'next/server': { NextResponse: Response }, '@/lib/developer-api': { developerHubApi: api }, '@/lib/admin-auth': { adminHubApi: api } })[method]
+    const response = await route(new Request('https://local/api', { method, ...(method === 'POST' ? { body: '{}' } : {}) }), { params: Promise.resolve({ id: '42' }) })
+    assert.equal(response.status, 502)
+    assert.equal(calls, 1)
+    const payload = await response.json()
+    assert.ok(payload.detail)
+    if (method === 'POST') assert.ok(payload.detail.includes('قبل از تکرار'))
+  }
+})
+test('admin identity service outage is retryable instead of being classified as non-staff', async () => {
+  const lib = load('lib/admin-auth.ts', {
+    'next/headers': { cookies: async () => ({ get: () => ({ value: 'staff-token' }) }) },
+    '@/lib/developer-api': { developerApi: async () => Response.json({ detail: 'maintenance' }, { status: 503 }) },
+  })
+  await assert.rejects(lib.getAdminUser(), /admin_identity_unavailable/)
+})

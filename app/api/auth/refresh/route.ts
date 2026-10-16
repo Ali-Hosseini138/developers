@@ -1,6 +1,6 @@
 import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
-import { ACCESS_COOKIE, REFRESH_COOKIE, authCookieOptions, developerApi } from '@/lib/developer-api'
+import { ACCESS_COOKIE, REFRESH_COOKIE, authCookieOptions, developerApi, copyBackendResponse } from '@/lib/developer-api'
 
 export async function POST() {
   const store = await cookies()
@@ -13,9 +13,10 @@ export async function POST() {
       body: JSON.stringify({ refresh }),
     })
     const payload = await response.json().catch(() => ({}))
-    if (!response.ok || !payload.access) return NextResponse.json(payload, { status: response.status })
+    if (!response.ok) return copyBackendResponse(response, payload)
+    if (typeof payload.access !== 'string' || !payload.access) return NextResponse.json({ detail: 'پاسخ تمدید نشست معتبر نیست.' }, { status: 502 })
 
-    const result = NextResponse.json({ ok: true, expiresIn: payload.expiresIn ?? 1800 })
+    const result = NextResponse.json({ ok: true, expiresIn: payload.expiresIn ?? 1800 }, { headers: { 'Cache-Control': 'private, no-store' } })
     result.cookies.set(ACCESS_COOKIE, payload.access, authCookieOptions(Number(payload.expiresIn || 1800)))
     return result
   } catch {
