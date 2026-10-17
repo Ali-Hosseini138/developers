@@ -72,3 +72,52 @@ test('app contact fields are sent separately from the account login email', asyn
   assert.equal(result.sent.entries.developerWebsite, 'https://app.example.com')
   assert.equal(result.sent.entries.developerEmail, 'help@app.example.com')
 })
+
+test('one-month commitment sends accepted commitment without claiming implemented payment support', async () => {
+  const result = await create({ supportsNetboxPayment: false, paymentCommitmentAccepted: true })
+  assert.equal(result.sent.entries.hasInAppPayment, 'true')
+  assert.equal(result.sent.entries.supportsNetboxPayment, 'false')
+  assert.equal(result.sent.entries.paymentCommitmentAccepted, 'true')
+})
+
+test('both payment radio selections record consent directly without an extra checkbox', () => {
+  const source = fs.readFileSync('app/upload/page.tsx', 'utf8')
+  const names = [...source.matchAll(/const \[(\w+)[^\]]*\] = useState/g)].map(match => match[1])
+  let index = 0
+  const changed = {}
+  const mod = { exports: {} }
+  const react = { useState(initial) { const key = names[index++]; const value = { step: 3, hasInAppPayment: true, developedForAndroidTv: true }[key]; return [value === undefined ? initial : value, next => changed[key] = next] }, useRef: value => ({ current: value }), useMemo: fn => fn(), useEffect() {} }
+  const code = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX, esModuleInterop: true } }).outputText
+  vm.runInNewContext(code, { module: mod, exports: mod.exports, require: key => {
+    if (key === 'react') return react
+    if (key === 'react/jsx-runtime') return require(key)
+    if (key === 'next/navigation') return { useRouter: () => ({}) }
+    if (key === '@/components/store-provider') return { useStore: () => ({ user: { id: '91' }, authReady: true }) }
+    return new Proxy({}, { get: (_, name) => name === '__esModule' ? true : () => null })
+  } })
+  const nodes = []
+  function visit(node) { if (!node || typeof node !== 'object') return; if (Array.isArray(node)) return node.forEach(visit); nodes.push(node); visit(node.props?.children) }
+  visit(mod.exports.default())
+  const choices = nodes.filter(node => node.type === 'input' && node.props.name === 'payment-choice')
+  assert.equal(choices.length, 2)
+  assert.equal(nodes.filter(node => node.type === 'input' && node.props.type === 'checkbox').length, 0)
+  choices[0].props.onChange()
+  assert.equal(changed.supportsNetboxPayment, true)
+  assert.equal(changed.paymentCommitmentAccepted, true)
+  choices[1].props.onChange()
+  assert.equal(changed.supportsNetboxPayment, false)
+  assert.equal(changed.paymentCommitmentAccepted, true)
+})
+
+test('category selection returns its backend name alongside the numeric identifier', () => {
+  let index = 0, selected
+  const category = { id: 12, name: 'چندرسانه‌ای', parentId: null }
+  const component = load('components/upload/developer-category-select.tsx', {
+    react: { useState: value => [index++ === 0 ? [category] : value, () => {}], useEffect() {} },
+    '@/components/ui/button': { Button() {} },
+    '@/components/ui/select': { Select() {}, SelectTrigger() {}, SelectValue() {}, SelectContent() {}, SelectItem() {} },
+  })
+  const tree = component.DeveloperCategorySelect({ value: '', onChange: (id, name) => selected = { id, name } })
+  tree.props.children[0].props.onValueChange('12')
+  assert.deepEqual(selected, { id: '12', name: 'چندرسانه‌ای' })
+})

@@ -6,7 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 
 type Category = { id: number; name: string; parentId: number | null }
 
-export function DeveloperCategorySelect({ value, onChange }: { value: string; onChange: (value: string) => void }) {
+export function DeveloperCategorySelect({ value, onChange }: { value: string; onChange: (value: string, categoryName: string) => void }) {
   const [categories, setCategories] = useState<Category[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -31,7 +31,10 @@ export function DeveloperCategorySelect({ value, onChange }: { value: string; on
   }, [attempt])
 
   return <>
-    <Select value={value} onValueChange={(next) => next && onChange(next)} disabled={loading || Boolean(error) || categories.length === 0}>
+    <Select value={value} onValueChange={(next) => {
+      const category = categories.find((item) => String(item.id) === next)
+      if (category) onChange(String(category.id), category.name)
+    }} disabled={loading || Boolean(error) || categories.length === 0}>
       <SelectTrigger><SelectValue placeholder={loading ? 'در حال دریافت دسته‌بندی‌ها...' : 'انتخاب دسته‌بندی'} /></SelectTrigger>
       <SelectContent>{categories.map((category) => <SelectItem key={category.id} value={String(category.id)}>{category.name}</SelectItem>)}</SelectContent>
     </Select>
