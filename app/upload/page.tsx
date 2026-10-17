@@ -16,6 +16,7 @@ import { developerHubFieldErrors, developerHubErrorMessage, postDeveloperHubMult
 import Link from 'next/link'
 import { appDescription, shortAppDescription } from '@/lib/app-description'
 import { toFa } from '@/lib/format'
+import { validateUploadFields } from '@/lib/upload-validation'
 
 const steps = ['فایل APK', 'اطلاعات پایه', 'شرایط انتشار', 'اطلاعات نمایشی', 'بازبینی']
 const MAX_APK_SIZE = 300 * 1024 * 1024
@@ -83,23 +84,14 @@ export default function UploadPage() {
   }, [authReady, sessionError, user, router])
 
 
-  const valid = useMemo(() => {
-    if (step === 1) return Boolean(apkFile)
-    if (step === 2) {
-      return Boolean(
-        name.trim() &&
-        description.trim() &&
-        /^([A-Za-z][A-Za-z0-9_]*\.)+[A-Za-z][A-Za-z0-9_]*$/.test(packageName.trim()) &&
-        /^\d+$/.test(categoryId) &&
-        Number(categoryId) > 0 &&
-        /^\d+$/.test(ageLimit) &&
-        Number(ageLimit) >= 0 &&
-        Number(ageLimit) <= 99 && bannerFile && backgroundFile
-      )
-    }
-    if (step === 3) return requirementsValid
-    return true
-  }, [step, apkFile, name, description, packageName, categoryId, ageLimit, iconFile, bannerFile, backgroundFile, requirementsValid])
+  const [touchedFields, setTouchedFields] = useState<Record<string, boolean>>({})
+  const validation = useMemo(() => validateUploadFields({ apkFile, name, nameEn, description, descriptionEn, packageName, categoryId, applicationType, ageLimit, iconFile, bannerFile, backgroundFile, screenshotFiles, hasInAppPayment, paymentCommitmentAccepted, paymentChoice, developedForAndroidTv, airMouseCompatible, website, supportEmail, changeLog }), [apkFile, name, nameEn, description, descriptionEn, packageName, categoryId, applicationType, ageLimit, iconFile, bannerFile, backgroundFile, screenshotFiles, hasInAppPayment, paymentCommitmentAccepted, paymentChoice, developedForAndroidTv, airMouseCompatible, website, supportEmail, changeLog])
+  const valid = Object.keys(validation[step] || {}).length === 0
+  const clientErrors = Object.assign({}, ...Object.values(validation)) as Record<string, string>
+  function displayError(field: string) { return fieldErrors[field] || (touchedFields[field] ? clientErrors[field] : undefined) }
+
+  useEffect(() => { setFieldErrors({}) }, [apkFile, name, nameEn, description, descriptionEn, packageName, categoryId, applicationType, ageLimit, iconFile, bannerFile, backgroundFile, screenshotFiles, hasInAppPayment, paymentChoice, developedForAndroidTv, airMouseCompatible, website, supportEmail, changeLog])
+
 
   if (!authReady) {
     return <main className="mx-auto flex min-h-[40vh] max-w-5xl items-center justify-center px-4 py-10"><span className="text-sm text-muted-foreground">در حال بررسی حساب...</span></main>
@@ -266,6 +258,13 @@ export default function UploadPage() {
   async function submitForReview() {
     if (submitting.current || submitted || mediaBusy) return
     setFieldErrors({})
+    const invalidStep = [1, 2, 3, 4].find(current => Object.keys(validation[current] || {}).length > 0)
+    if (invalidStep) {
+      setTouchedFields(Object.fromEntries(Object.keys(clientErrors).map(field => [field, true])))
+      setStep(invalidStep)
+      setErrorMessage('فیلدهای مشخص‌شده را اصلاح کنید.')
+      return
+    }
     if (!requirementsValid || !name.trim() || !description.trim()) {
       setErrorMessage('اطلاعات و شرایط انتشار را کامل کنید.')
       return
@@ -334,7 +333,7 @@ export default function UploadPage() {
       if (errors.apkFile) setStep(1)
       else if (['name', 'nameEn', 'shortDescription', 'shortDescriptionEn', 'longDescription', 'longDescriptionEn', 'packageName', 'categoryId', 'applicationType', 'ageLimit', 'icon', 'banner', 'backgroundImage', 'screenshots'].some((field) => errors[field])) setStep(2)
       else if (['hasInAppPayment', 'paymentCommitmentAccepted', 'supportsNetboxPayment', 'isAndroidTv', 'isAirMouseCompatible'].some((field) => errors[field])) setStep(3)
-      else if (errors.changeLog) setStep(4)
+      else if (errors.changeLog || errors.developerWebsite || errors.developerEmail) setStep(4)
       setErrorMessage(developerHubErrorMessage(error, 'ارسال اپلیکیشن انجام نشد. دوباره تلاش کنید.'))
     } finally {
       submitting.current = false
@@ -366,7 +365,7 @@ export default function UploadPage() {
         ))}
       </div>
 
-      <fieldset disabled={saving || submitted || mediaBusy} className="min-w-0">
+      <fieldset disabled={saving || submitted || mediaBusy} className="min-w-0" onBlurCapture={(event) => { const field = event.target.closest<HTMLElement>('[data-field]')?.dataset.field; if (field) setTouchedFields(current => ({ ...current, [field]: true })) }}>
       <section className="mt-6 rounded-2xl border border-border bg-card p-6 sm:p-8">
         {step === 1 && (
           <div>
@@ -395,28 +394,28 @@ export default function UploadPage() {
         {step === 2 && (
           <div>
             <Header title="اطلاعات پایه" text="اطلاعات اصلی اپلیکیشن را وارد کنید." />
-            <Field error={fieldErrors.name} label="عنوان اپلیکیشن (فارسی)" required>
+            <Field name="name" error={displayError('name')} label="عنوان اپلیکیشن (فارسی)" required>
               <Input value={name} onChange={(event) => setName(event.target.value)} maxLength={255} />
               <p className="text-xs leading-6 text-muted-foreground">این عنوان زیر بنر نمایش داده می‌شود و کاربر اپلیکیشن شما را با این اسم خواهد شناخت.</p>
             </Field>
-            <Field error={fieldErrors.nameEn} label="عنوان اپلیکیشن (English) — اختیاری">
+            <Field name="nameEn" error={displayError('nameEn')} label="عنوان اپلیکیشن (English) — اختیاری">
               <Input value={nameEn} onChange={(event) => setNameEn(event.target.value)} maxLength={255} dir="ltr" />
             </Field>
-            <Field error={fieldErrors.longDescription} label="توضیحات (فارسی)" required>
+            <Field name="longDescription" error={displayError('longDescription')} label="توضیحات (فارسی)" required>
               <p className="text-xs text-muted-foreground">در صفحه جزئیات اپلیکیشن شما نمایش داده می‌شود.</p>
               <Textarea value={description} onChange={(event) => setDescription(event.target.value)} rows={6} maxLength={20000} />
             </Field>
-            <Field error={fieldErrors.longDescriptionEn} label="توضیحات (English) — اختیاری"><Textarea maxLength={20000} value={descriptionEn} onChange={(event) => setDescriptionEn(event.target.value)} dir="ltr" rows={6} /></Field>
-            <Field error={fieldErrors.packageName} label="Package Name" required>
+            <Field name="longDescriptionEn" error={displayError('longDescriptionEn')} label="توضیحات (English) — اختیاری"><Textarea maxLength={20000} value={descriptionEn} onChange={(event) => setDescriptionEn(event.target.value)} dir="ltr" rows={6} /></Field>
+            <Field name="packageName" error={displayError('packageName')} label="Package Name" required>
               <Input value={packageName} onChange={(event) => setPackageName(event.target.value.trim())} dir="ltr" maxLength={100} placeholder="com.company.app" />
             </Field>
 
             <div className="grid gap-4 sm:grid-cols-2">
-          <Field error={fieldErrors.categoryId} label="دسته‌بندی" required>
+          <Field name="categoryId" error={displayError('categoryId')} label="دسته‌بندی" required>
             <DeveloperCategorySelect value={categoryId} onChange={(id, name) => { setCategoryId(id); setCategoryName(name) }} />
           </Field>
 
-              <Field error={fieldErrors.applicationType} label="نوع اپلیکیشن" required>
+              <Field name="applicationType" error={displayError('applicationType')} label="نوع اپلیکیشن" required>
                 <Select value={applicationType} onValueChange={(value) => value && setApplicationType(value as '1' | '2')}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
@@ -426,7 +425,7 @@ export default function UploadPage() {
                 </Select>
               </Field>
 
-              <Field error={fieldErrors.ageLimit} label="محدودیت سنی" required>
+              <Field name="ageLimit" error={displayError('ageLimit')} label="محدودیت سنی" required>
                 <Select value={ageLimit} onValueChange={(value) => value && setAgeLimit(value)}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>{[['0', 'همه سنین'], ['7', '+۷'], ['12', '+۱۲'], ['15', '+۱۵'], ['18', '+۱۸']].map(([value, label]) => <SelectItem key={value} value={value}>{label}</SelectItem>)}</SelectContent>
@@ -465,7 +464,7 @@ export default function UploadPage() {
               />
             </div>
 
-            <Field error={fieldErrors.screenshots} label="تصاویر محیط اپلیکیشن">
+            <Field name="screenshots" error={displayError('screenshots')} label="تصاویر محیط اپلیکیشن">
               <FileDropzone
                 accept="image/png,image/jpeg"
                 label="افزودن تصویر محیط اپلیکیشن"
@@ -499,7 +498,7 @@ export default function UploadPage() {
           <div>
             <Header title="شرایط انتشار"  />
             <div className="mt-6 flex flex-col gap-6">
-              {['hasInAppPayment', 'paymentCommitmentAccepted', 'supportsNetboxPayment', 'isAndroidTv', 'isAirMouseCompatible'].map((field) => fieldErrors[field] && <p key={field} role="alert" className="text-sm text-destructive">{fieldErrors[field]}</p>)}
+              {['hasInAppPayment', 'paymentCommitmentAccepted', 'supportsNetboxPayment', 'isAndroidTv', 'isAirMouseCompatible'].map((field) => (fieldErrors[field] || validation[3][field]) && <p key={field} role="alert" className="text-sm text-destructive">{fieldErrors[field] || validation[3][field]}</p>)}
               <div className="rounded-2xl border border-border p-5">
                 <p className="font-semibold">آیا اپلیکیشن شما پرداخت یا خرید درون‌برنامه‌ای دارد؟</p>
                 <div className="mt-4 flex gap-2">
@@ -543,9 +542,9 @@ export default function UploadPage() {
         {step === 4 && (
           <div>
             <Header title="اطلاعات نمایشی" text="این اطلاعات در صفحه معرفی اپلیکیشن نمایش داده می‌شوند." />
-            <Field label="آدرس وبسایت"><Input value={website} onChange={(event) => setWebsite(event.target.value)} dir="ltr" type="url" placeholder="https://example.com" /></Field>
-            <Field label="ایمیل پشتیبانی"><Input value={supportEmail} onChange={(event) => setSupportEmail(event.target.value)} dir="ltr" type="email" placeholder="support@example.com" /></Field>
-            <Field error={fieldErrors.changeLog} label="توضیحات نسخه"><Textarea value={changeLog} onChange={(event) => setChangeLog(event.target.value)} rows={5} maxLength={5000} /></Field>
+            <Field name="developerWebsite" error={displayError('developerWebsite')} label="آدرس وبسایت — اختیاری"><Input value={website} onChange={(event) => setWebsite(event.target.value)} dir="ltr" type="url" placeholder="https://example.com" maxLength={2048} /><p className="text-xs text-muted-foreground">آدرس را کامل با http:// یا https:// وارد کنید؛ اگر وب‌سایت ندارید، خالی بگذارید.</p></Field>
+            <Field name="developerEmail" error={displayError('developerEmail')} label="ایمیل پشتیبانی — اختیاری"><Input value={supportEmail} onChange={(event) => setSupportEmail(event.target.value)} dir="ltr" type="email" placeholder="support@example.com" maxLength={254} /><p className="text-xs text-muted-foreground">مانند support@example.com؛ اگر ایمیل پشتیبانی ندارید، خالی بگذارید.</p></Field>
+            <Field name="changeLog" error={displayError('changeLog')} label="توضیحات نسخه"><Textarea value={changeLog} onChange={(event) => setChangeLog(event.target.value)} rows={5} maxLength={5000} /></Field>
           </div>
         )}
 
@@ -618,7 +617,7 @@ export default function UploadPage() {
 
       {mediaBusy && <p role="status" className="text-sm text-muted-foreground">در حال بررسی و خواندن تصاویر...</p>}
       {errorMessage && <p role="alert" className="mt-3 rounded-lg bg-destructive/10 px-3 py-2 text-center text-sm text-destructive">{errorMessage}</p>}
-      {!valid && step < steps.length && <p className="mt-3 text-center text-xs text-muted-foreground">فیلدهای الزامی را کامل کنید.</p>}
+      {!valid && step < steps.length && <p className="mt-3 text-center text-xs text-muted-foreground">فیلدهای الزامی یا نامعتبر این مرحله را اصلاح کنید.</p>}
     </main>
   )
 }
@@ -627,8 +626,8 @@ function Header({ title, text }: { title: string; text?: string }) {
   return <div><h2 className="text-xl font-bold">{title}</h2>{text && <p className="mt-1 text-sm text-muted-foreground">{text}</p>}</div>
 }
 
-function Field({ label, required, error, children }: { label: string; required?: boolean; error?: string; children: React.ReactNode }) {
-  return <div className="mt-5 flex flex-col gap-2"><Label>{label} {required && <span className="text-destructive">*</span>}</Label>{children}{error && <p role="alert" className="text-xs text-destructive">{error}</p>}</div>
+function Field({ name, label, required, error, children }: { name?: string; label: string; required?: boolean; error?: string; children: React.ReactNode }) {
+  return <div data-field={name} className="mt-5 flex flex-col gap-2"><Label>{label} {required && <span className="text-destructive">*</span>}</Label>{children}{error && <p role="alert" className="text-xs text-destructive">{error}</p>}</div>
 }
 
 function MediaField({
