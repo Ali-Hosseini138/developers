@@ -41,9 +41,9 @@ export function AdminConsole({
         <Button type="button" variant={tab === 'tickets' ? 'default' : 'ghost'} onClick={() => setTab('tickets')} className="shrink-0 gap-2">
           <MessageSquare className="size-4" />
           تیکت‌ها
-          {tickets.filter((ticket) => ticket.status === 'unanswered').length > 0 && (
+          {tickets.filter((ticket) => ticket.status === 'open' && !ticket.hasAdminReply).length > 0 && (
             <span className="rounded-full bg-destructive px-2 py-0.5 text-[10px] text-destructive-foreground">
-              {tickets.filter((ticket) => ticket.status === 'unanswered').length.toLocaleString('fa-IR')}
+              {tickets.filter((ticket) => ticket.status === 'open' && !ticket.hasAdminReply).length.toLocaleString('fa-IR')}
             </span>
           )}
         </Button>

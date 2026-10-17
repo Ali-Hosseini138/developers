@@ -20,6 +20,8 @@ export type DeveloperSubmission = {
 export type DeveloperHubApp = {
   id: number
   packageName: string
+  developerEmail?: string
+  developerWebsite?: string
   name: string
   nameEn?: string
   shortDescription?: string
@@ -67,6 +69,8 @@ export function mapDeveloperHubApp(row: DeveloperHubApp, developer = 'توسعه
   const latest = row.latestSubmission || row.submissions?.[0] || null
   return {
     id: String(row.id),
+    supportEmail: row.developerEmail || '',
+    website: row.developerWebsite || '',
     name: row.name || '',
     nameEn: row.nameEn || undefined,
     tagline: row.shortDescription || '',

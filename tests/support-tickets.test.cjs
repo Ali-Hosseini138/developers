@@ -47,11 +47,11 @@ test('both inboxes exhaust pagination, retain backend order and ignore external 
       paths.push(path)
       return Response.json({ results: [{ id: paths.length }], next: paths.length === 1 ? 'https://untrusted.example/steal' : null })
     })[kind]
-    const response = await route.GET(new Request('https://local/api?status=answered'))
+    const response = await route.GET(new Request('https://local/api?status=closed'))
     assert.deepEqual((await response.json()).tickets.map(ticket => ticket.id), [1, 2])
     assert.ok(paths.every(path => path.startsWith(`/api/v1/developer-hub/${kind === 'admin' ? 'admin/' : ''}tickets/`)))
     assert.ok(paths[1].includes('page=2'))
-    if (kind === 'admin') assert.ok(paths.every(path => path.includes('status=answered')))
+    if (kind === 'admin') assert.ok(paths.every(path => path.includes('status=closed')))
   }
 })
 test('inbox failure discards partial pages and preserves auth/error/Retry-After status', async () => {
@@ -66,7 +66,7 @@ test('inbox failure discards partial pages and preserves auth/error/Retry-After 
 })
 test('invalid inbox filter never reaches staff backend', async () => {
   const route = routes(async () => { throw new Error('must not call') }).admin
-  assert.equal((await route.GET(new Request('https://local/api?status=closed'))).status, 400)
+  assert.equal((await route.GET(new Request('https://local/api?status=unanswered'))).status, 400)
 })
 test('detail uses developer-scoped endpoint and forwards ownership not-found', async () => {
   let path
@@ -74,66 +74,78 @@ test('detail uses developer-scoped endpoint and forwards ownership not-found', a
   assert.equal(path, '/api/v1/developer-hub/tickets/42/')
   assert.equal(response.status, 404)
 })
-test('staff reply accepts 20,000 chars, sends only answer, and preserves single-answer conflict', async () => {
+test('staff reply uses body and allows repeated replies without changing subject or ownership', async () => {
+  const sent = []
+  const route = routes(async (path, init) => { sent.push({ path, ...JSON.parse(init.body) }); return Response.json({ id: 42, status: 'open' }) }).reply
+  for (let i = 0; i < 2; i++) assert.equal((await route.POST(body({ body: ' Reply ', answer: 'legacy', developer: 'other' }), params)).status, 200)
+  assert.deepEqual(sent[0], { path: '/api/v1/developer-hub/admin/tickets/42/reply/', body: 'Reply' })
+  assert.equal((await route.POST(body({ answer: 'legacy' }), params)).status, 400)
+  assert.equal((await route.POST(body({ body: '  ' }), params)).status, 400)
+})
+
+function actionRoutes(api, staff = false) {
+  return load(`app/api/${staff ? 'admin-hub' : 'developer'}/tickets/[id]/[action]/route.ts`, {
+    'next/server': next, '@/lib/developer-api': { developerHubApi: api, copyBackendResponse }, '@/lib/admin-auth': { adminHubApi: api },
+  })
+}
+test('developer follow-up stays on the same ticket and sends only the trimmed message body', async () => {
   let sent
-  const route = routes(async (path, init) => { sent = { path, ...JSON.parse(init.body) }; return Response.json({ code: 'ticket_already_answered' }, { status: 409 }) }).reply
-  const response = await route.POST(body({ answer: 'x'.repeat(20000), developer: 'other', action: 'close' }), params)
-  assert.equal(response.status, 409)
-  assert.equal((await response.json()).code, 'ticket_already_answered')
-  assert.equal(sent.path, '/api/v1/developer-hub/admin/tickets/42/reply/')
-  assert.deepEqual(Object.keys(sent), ['path', 'answer'])
-  assert.equal((await route.POST(body({ answer: 'x'.repeat(20001) }), params)).status, 400)
-  assert.equal((await route.POST(body({ answer: '  ' }), params)).status, 400)
+  const route = actionRoutes(async (path, init) => { sent = { path, ...JSON.parse(init.body) }; return Response.json({ id: 42 }) })
+  assert.equal((await route.POST(body({ body: ' follow up ', senderType: 'staff', developer: 999 }), { params: Promise.resolve({ id: '42', action: 'messages' }) })).status, 200)
+  assert.deepEqual(sent, { path: '/api/v1/developer-hub/tickets/42/messages/', body: 'follow up' })
 })
-test('follow-up is a new-ticket draft referencing original id and respecting subject length', () => {
-  const draft = helpers.followUpTicket({ id: 42, subject: 'x'.repeat(200) })
-  assert.equal(draft.subject.length, 200)
-  assert.ok(draft.subject.includes('#42'))
-  assert.ok(draft.question.includes('#42'))
-  assert.equal(draft.status, undefined)
+test('both roles close/reopen only scoped tickets; unknown actions never reach backend', async () => {
+  for (const staff of [false, true]) {
+    const sent = []
+    const route = actionRoutes(async (path, init) => { sent.push({ path, method: init.method }); return new Response(null, { status: 204 }) }, staff)
+    for (const action of ['close', 'reopen']) assert.equal((await route.POST({}, { params: Promise.resolve({ id: '42', action }) })).status, 204)
+    assert.deepEqual(sent.map(item => item.path), ['close', 'reopen'].map(action => `/api/v1/developer-hub/${staff ? 'admin/' : ''}tickets/42/${action}/`))
+    assert.equal((await route.POST({}, { params: Promise.resolve({ id: '42', action: 'delete' }) })).status, 400)
+    assert.equal(sent.length, 2)
+  }
 })
-// Exercise real component event handlers with a tiny hook runtime; no browser or real account mutations.
-function replyComponent(response, refresh = async () => {}) {
-  let states = [], index = 0, posted = 0, updated
-  const refs = []
+test('ticket lists support a plain array response as well as paginated responses', async () => {
+  assert.deepEqual(await (await helpers.loadTicketPages(async () => Response.json([{ id: 42 }]), '/tickets/')).json(), { tickets: [{ id: 42 }] })
+})
+
+// Exercise component handlers with hook state, including duplicate clicks and failed requests.
+function actionComponent(response, refresh = async () => {}) {
+  const states = [], refs = []
+  let index = 0, posted = 0, sent
   const react = {
     useState(value) { const id = index++; if (!(id in states)) states[id] = value; return [states[id], next => { states[id] = typeof next === 'function' ? next(states[id]) : next }] },
     useRef(value) { const id = index++; if (!refs[id]) refs[id] = { current: value }; return refs[id] },
   }
   const ui = new Proxy({}, { get: (_, key) => key })
-  const component = load('components/admin/admin-tickets.tsx', {
+  const component = load('components/ticket-actions.tsx', {
     react, 'react/jsx-runtime': { jsx: (type, props) => ({ type, props }), jsxs: (type, props) => ({ type, props }) },
-    '@/lib/support-tickets': helpers, '@/components/ticket-conversation': ui,
-    ...Object.fromEntries(['badge', 'button', 'input', 'textarea'].map(name => [`@/components/ui/${name}`, ui])),
-  }, { fetch: async () => { posted++; return response.clone() }, window: { location: { assign() {} } } }).TicketReply
-  const render = () => { index = 0; return component({ ticket: { id: 42, status: 'unanswered' }, onRefresh: refresh, onAnswered: ticket => updated = ticket }) }
-  const tree = render()
-  tree.props.children.find(child => child?.type === 'Textarea').props.onChange({ target: { value: 'my answer' } })
-  return { render, states, posted: () => posted, updated: () => updated }
+    '@/lib/support-tickets': helpers,
+    ...Object.fromEntries(['button', 'textarea'].map(name => [`@/components/ui/${name}`, ui])),
+  }, { fetch: async (path, init) => { posted++; sent = { path, ...JSON.parse(init.body) }; return response.clone() }, window: { location: { assign() {} } } }).TicketActions
+  const render = () => { index = 0; return component({ ticket: { id: 42, status: 'closed' }, staff: true, onRefresh: refresh }) }
+  const form = render().props.children[0]
+  form.props.children.find(child => child?.type === 'Textarea').props.onChange({ target: { value: 'my answer' } })
+  return { render, states, posted: () => posted, sent: () => sent }
 }
-test('reply UI keeps draft and never overwrites on conflict; refreshes authoritative inbox', async () => {
-  let refreshed = 0
-  const ui = replyComponent(Response.json({ code: 'ticket_already_answered' }, { status: 409 }), async () => { refreshed++ })
-  await ui.render().props.onSubmit({ preventDefault() {} })
-  assert.equal(refreshed, 1)
-  assert.equal(ui.updated(), undefined)
-  assert.equal(ui.states[0], 'my answer')
-  assert.ok(ui.states[2])
-})
-test('reply UI retains failed draft and blocks duplicate in-flight submits', async () => {
-  const ui = replyComponent(Response.json({ detail: 'try later' }, { status: 429 }))
-  const form = ui.render()
-  await Promise.all([form.props.onSubmit({ preventDefault() {} }), form.props.onSubmit({ preventDefault() {} })])
+test('failed message keeps the draft and blocks duplicate in-flight submits', async () => {
+  const ui = actionComponent(Response.json({ detail: 'try later' }, { status: 429 }))
+  const form = ui.render().props.children[0]
+  form.props.onSubmit({ preventDefault() {} }); form.props.onSubmit({ preventDefault() {} })
+  await new Promise(resolve => setImmediate(resolve))
   assert.equal(ui.posted(), 1)
   assert.equal(ui.states[0], 'my answer')
   assert.equal(ui.states[2], 'try later')
-  assert.equal(ui.updated(), undefined)
 })
-test('reply UI marks success answered, then reloads backend inbox', async () => {
+test('successful staff reply clears its draft, reloads messages and allows a second reply', async () => {
   let refreshed = 0
-  const ui = replyComponent(Response.json({ answer: 'saved answer', answeredAt: '2026-10-15T10:00:00Z' }), async () => { refreshed++ })
-  await ui.render().props.onSubmit({ preventDefault() {} })
-  assert.equal(ui.updated().status, 'answered')
-  assert.equal(ui.updated().answer, 'saved answer')
+  const ui = actionComponent(Response.json({ id: 99 }), async () => { refreshed++ })
+  ui.render().props.children[0].props.onSubmit({ preventDefault() {} })
+  await new Promise(resolve => setImmediate(resolve))
+  assert.equal(ui.states[0], '')
   assert.equal(refreshed, 1)
+  assert.deepEqual(ui.sent(), { path: '/api/admin-hub/tickets/42/reply', body: 'my answer' })
+  ui.render().props.children[0].props.children.find(child => child?.type === 'Textarea').props.onChange({ target: { value: 'second' } })
+  ui.render().props.children[0].props.onSubmit({ preventDefault() {} })
+  await new Promise(resolve => setImmediate(resolve))
+  assert.equal(refreshed, 2)
 })

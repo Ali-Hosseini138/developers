@@ -8,10 +8,6 @@ export function ticketError(payload: unknown, fallback = 'ارتباط با سر
   return fallback
 }
 
-export function followUpTicket(ticket: SupportTicket) {
-  return { subject: `پیگیری تیکت #${ticket.id}: ${ticket.subject}`.slice(0, 200), question: `در ادامه تیکت #${ticket.id}:\n` }
-}
-
 // Only request fixed backend paths; never follow a next URL with bearer credentials.
 export async function loadTicketPages(api: (path: string) => Promise<Response>, path: string): Promise<Response> {
   const tickets: unknown[] = []
@@ -19,6 +15,7 @@ export async function loadTicketPages(api: (path: string) => Promise<Response>, 
     const response = await api(`${path}${path.includes('?') ? '&' : '?'}page=${page}&page_size=200`)
     if (!response.ok) return response
     const payload = await response.json()
+    if (page === 1 && Array.isArray(payload)) return Response.json({ tickets: payload })
     if (!Array.isArray(payload.results) || (payload.next && !payload.results.length)) throw new Error('invalid_ticket_page')
     tickets.push(...payload.results)
     if (!payload.next) return Response.json({ tickets })

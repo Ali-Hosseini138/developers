@@ -94,22 +94,33 @@ export interface User {
   id?: string
   name: string
   email: string
+  accountType?: 'individual' | 'legal'
+  firstName?: string
+  lastName?: string
   phone?: string
   nationalId?: string
   organization?: string
   termsAcceptedAt?: string
 }
 
-export type TicketStatus = 'unanswered' | 'answered'
+export type TicketStatus = 'open' | 'closed'
+
+export interface TicketMessage {
+  id: string | number
+  senderType: 'developer' | 'staff'
+  senderName: string
+  body: string
+  createdAt: string
+}
 
 export interface SupportTicket {
   id: string | number
   subject: string
-  question: string
-  answer: string
+  question?: string
   status: TicketStatus
+  hasAdminReply: boolean
+  messages: TicketMessage[]
   createdAt: string
-  answeredAt: string | null
   updatedAt: string
 }
 

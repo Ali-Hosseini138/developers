@@ -279,6 +279,8 @@ function SubmissionDetailView({
             <Fact label="تکمیل پرداخت" value={paymentDate(detail.app.paymentCompletedAt)} />
             <Fact label="Netbox Payment" value={detail.app.supportsNetboxPayment ? 'پشتیبانی می‌کند' : 'پشتیبانی نمی‌کند'} />
             <Fact label="توسعه‌دهنده" value={detail.developer.name} />
+            <Fact label="ایمیل پشتیبانی اپ" value={detail.app.developerEmail || '—'} ltr />
+            <Fact label="وب‌سایت اپ" value={detail.app.developerWebsite || '—'} ltr />
             <Fact label="ایمیل توسعه‌دهنده" value={detail.developer.email} ltr />
             <Fact label="نوع حساب" value={detail.developer.accountType === 'legal' ? 'حقوقی' : 'حقیقی'} />
             <Fact label="شرکت" value={detail.developer.companyName || '—'} />

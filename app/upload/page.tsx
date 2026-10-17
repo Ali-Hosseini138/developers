@@ -75,7 +75,6 @@ export default function UploadPage() {
     (!hasInAppPayment || (paymentChoice !== null && paymentCommitmentAccepted)) &&
     (developedForAndroidTv || airMouseCompatible)
   // Display-only declarations are deliberately excluded from the multipart payload.
-  const displayOnlyFields = website.trim() || supportEmail.trim() ? ['وب‌سایت و ایمیل پشتیبانی'] : []
   const [changeLog, setChangeLog] = useState('')
 
   useEffect(() => {
@@ -292,6 +291,8 @@ export default function UploadPage() {
     setErrorMessage('')
 
     const formData = new FormData()
+    formData.append('developerEmail', supportEmail.trim())
+    formData.append('developerWebsite', website.trim())
     formData.append('packageName', packageName.trim())
     formData.append('name', name.trim())
     if (nameEn.trim()) formData.append('nameEn', nameEn.trim())
@@ -553,7 +554,6 @@ export default function UploadPage() {
         {step === 5 && (
           <div>
             <Header title="بازبینی اطلاعات" text="پس از ارسال، وضعیت بررسی در داشبورد نمایش داده می‌شود." />
-            {displayOnlyFields.length > 0 && <p role="status" className="my-4 rounded-xl border border-amber-500/30 bg-amber-500/5 p-4 text-sm leading-7">این اطلاعات فعلاً ذخیره نمی‌شوند: {displayOnlyFields.join('، ')}. با خروج از فرم یا بارگذاری مجدد صفحه، این اطلاعات حفظ نمی‌شوند.</p>}
             <div className="grid gap-3 text-sm">
               {[
                 ['فایل APK', apkName],

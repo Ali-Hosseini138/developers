@@ -35,6 +35,8 @@ export type AdminSubmissionDetail = {
   mainApkId: number | null
   canDecide: boolean
   app: {
+    developerEmail?: string
+    developerWebsite?: string
     id: number
     packageName: string
     name: string

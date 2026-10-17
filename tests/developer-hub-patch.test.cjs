@@ -38,7 +38,7 @@ async function runSave(mode, overrides = {}) {
   const result = { saved: false, warning: '', notice: '', error: '', calls: [] }
   const state = {
     baseline: app, app, appId: '42', saving: false, submitting: { current: false }, mediaBusy: false, hasInAppPayment: true, paymentCommitmentAccepted: false, removeIcon: false,
-    packageName: mode === 'noop' ? app.packageName : 'com.real.app', name: app.name, nameEn: '',
+    website: '', supportEmail: '', packageName: mode === 'noop' ? app.packageName : 'com.real.app', name: app.name, nameEn: '',
     tagline: app.tagline, taglineEn: '', description: app.description, descriptionEn: '',
     categoryId: '12', applicationType: '1', ageLimit: '0', supportsNetboxPayment: false,
     developedForAndroidTv: true, airMouseCompatible: false,
@@ -163,4 +163,12 @@ test('successful media mutation clears pending file inputs even when readback is
   assert.equal(cleared, 4)
   assert.equal(result.error, '')
   assert.ok(result.warning)
+})
+
+test('contact fields support sparse updates, clearing and persistence verification', () => {
+  const patch = changedDeveloperMetadata({ ...app, website: 'https://old.example', supportEmail: 'old@example.com' }, { ...fields, developerWebsite: '', developerEmail: 'new@example.com' })
+  assert.equal(patch.developerWebsite, '')
+  assert.equal(patch.developerEmail, 'new@example.com')
+  assert.equal(unconfirmedDeveloperMetadata(patch, { developerWebsite: '', developerEmail: 'new@example.com' }).length, 0)
+  assert.equal(unconfirmedDeveloperMetadata(patch, { developerWebsite: 'https://old.example', developerEmail: 'new@example.com' }).length, 1)
 })
