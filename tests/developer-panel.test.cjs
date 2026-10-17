@@ -27,7 +27,7 @@ async function create(overrides = {}) {
   const state = { ...description, saving: false, submitting: { current: false }, submitted: false, mediaBusy: false, setSubmitted() {}, requirementsValid: true, name: 'App', nameEn: '', website: '', supportEmail: '', description: 'Full description', descriptionEn: '',
     apkFile: file, iconFile: file, bannerFile: file, backgroundFile: file, screenshotFiles: [], packageName: 'com.real.app', categoryId: '12', applicationType: '1', ageLimit: '0',
     supportsNetboxPayment: true, hasInAppPayment: true, paymentCommitmentAccepted: true, developedForAndroidTv: false, airMouseCompatible: true, changeLog: '',
-    setFieldErrors() {}, setErrorMessage: value => error = value, setSaving() {}, setSubmitProgress() {}, setSubmitStage() {}, setStep() {},
+    validation: {}, clientErrors: {}, setTouchedFields() {}, setFieldErrors() {}, setErrorMessage: value => error = value, setSaving() {}, setSubmitProgress() {}, setSubmitStage() {}, setStep() {},
     FormData, window: { setTimeout: fn => fn() }, router: { push() {}, refresh() {} }, reloadDeveloperApps: async () => {},
     postDeveloperHubMultipart: async (path, form) => { sent = { path, entries: Object.fromEntries(form.entries()) } },
     developerHubErrorMessage: () => 'rejected', developerHubFieldErrors: () => ({}), ...overrides }
@@ -92,6 +92,7 @@ test('both payment radio selections record consent directly without an extra che
     if (key === 'react') return react
     if (key === 'react/jsx-runtime') return require(key)
     if (key === 'next/navigation') return { useRouter: () => ({}) }
+    if (key === '@/lib/upload-validation') return { validateUploadFields: () => ({ 1: {}, 2: {}, 3: {}, 4: {} }) }
     if (key === '@/components/store-provider') return { useStore: () => ({ user: { id: '91' }, authReady: true }) }
     return new Proxy({}, { get: (_, name) => name === '__esModule' ? true : () => null })
   } })
@@ -120,4 +121,11 @@ test('category selection returns its backend name alongside the numeric identifi
   const tree = component.DeveloperCategorySelect({ value: '', onChange: (id, name) => selected = { id, name } })
   tree.props.children[0].props.onValueChange('12')
   assert.deepEqual(selected, { id: '12', name: 'چندرسانه‌ای' })
+})
+
+test('final submission returns to the invalid contact step without uploading', async () => {
+  let step
+  const result = await create({ validation: { 4: { developerWebsite: 'invalid' } }, clientErrors: { developerWebsite: 'invalid' }, setStep: value => step = value })
+  assert.equal(step, 4)
+  assert.equal(result.sent, undefined)
 })
