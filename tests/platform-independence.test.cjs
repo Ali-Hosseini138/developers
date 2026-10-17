@@ -38,30 +38,17 @@ test('session refresh loads the backend identity and preserves cookies on profil
     else assert.equal(writes.length,0)
   }
 })
-test('catalog keeps only published metadata and every migrated media link resolves locally',()=>{
+test('public catalog starts empty without old test metadata or file references',()=>{
   const catalog=JSON.parse(fs.readFileSync('data/public-catalog.json'))
-  const media=JSON.parse(fs.readFileSync('data/legacy-public-media.json'))
-  assert.equal(catalog.apps.length,4)
-  for(const app of catalog.apps){
-    assert.equal(app.status,'published')
-    for(const privateKey of ['owner_id','ownerId','apk_path','apkPath','nationalId','identityNumber'])assert.equal(app[privateKey],undefined)
-    for(const url of [app.icon,app.banner,...app.screenshots].filter(Boolean)){
-      assert.ok(url.startsWith('/legacy-media/'))
-      assert.ok(fs.existsSync('public'+url))
-    }
-  }
-  for(const target of Object.values(media)){assert.ok(target.startsWith('/legacy-media/'));assert.ok(fs.existsSync('public'+target))}
+  assert.deepEqual(catalog.apps,[])
+  assert.equal(fs.existsSync('data/legacy-public-media.json'),false)
+  assert.equal(fs.existsSync('public/legacy-media'),false)
 })
-test('legacy file endpoint serves only the preserved public allowlist, never arbitrary files',async()=>{
-  const media=JSON.parse(fs.readFileSync('data/legacy-public-media.json'))
+test('retired file endpoint never reconnects to old storage or serves private files',async()=>{
   const route=load('app/api/blob-file/route.ts',{
-    '@/data/legacy-public-media.json':media,
-    'next/server':{NextResponse:{json:(body,init)=>Response.json(body,init),redirect:(url,status)=>new Response(null,{status,headers:{Location:String(url)}})}},
+    'next/server':{NextResponse:{json:(body,init)=>Response.json(body,init)}},
   })
-  for(const pathname of ['users/someone/private.apk','__proto__','../../etc/passwd'])assert.equal((await route.GET(new Request('https://panel.example/api/blob-file?pathname='+encodeURIComponent(pathname)))).status,404)
-  const [pathname,target]=Object.entries(media)[0]
-  const response=await route.GET(new Request('https://panel.example/api/blob-file?pathname='+encodeURIComponent(pathname)))
-  assert.equal(response.status,308);assert.equal(response.headers.get('location'),'https://panel.example'+target)
+  for(const pathname of ['users/someone/private.apk','__proto__','../../etc/passwd',''])assert.equal((await route.GET(new Request('https://panel.example/api/blob-file?pathname='+encodeURIComponent(pathname)))).status,404)
 })
 test('runtime sources and declared dependencies do not import retired platform services',()=>{
   function scan(dir){for(const entry of fs.readdirSync(dir,{withFileTypes:true})){const file=path.join(dir,entry.name);if(entry.isDirectory())scan(file);else if(/\.(tsx?|mjs)$/.test(file))assert.doesNotMatch(fs.readFileSync(file,'utf8'),/@supabase\/|@vercel\/(analytics|blob)|SUPABASE_SERVICE_ROLE_KEY|BLOB_READ_WRITE_TOKEN/,file)}}
