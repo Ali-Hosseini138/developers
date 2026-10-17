@@ -293,10 +293,6 @@ function SubmissionDetailView({
               دسته‌بندی این درخواست دیگر معتبر نیست؛ تأیید ممکن است در Recheck شکست بخورد.
             </p>
           )}
-          <div className="mt-4 rounded-lg bg-secondary/50 p-3">
-            <p className="text-xs text-muted-foreground">توضیح کوتاه</p>
-            <p className="mt-2 whitespace-pre-wrap text-sm leading-7">{detail.app.shortDescription || '—'}</p>
-          </div>
           <div className="mt-3 rounded-lg bg-secondary/50 p-3">
             <p className="text-xs text-muted-foreground">توضیحات</p>
             <p className="mt-2 whitespace-pre-wrap text-sm leading-7">{detail.app.longDescription || '—'}</p>
