@@ -32,10 +32,10 @@ test('every publication step validates its own fields and encoded description li
 test('contact step disables Next for invalid values and exposes the inline correction', () => {
   const source = fs.readFileSync('app/upload/page.tsx', 'utf8')
   const names = [...source.matchAll(/const \[(\w+)[^\]]*\] = useState/g)].map(match => match[1])
-  function render(website, supportEmail = '') {
+  function render(website, supportEmail = '', step = 4, applicationType = '1') {
     let index = 0
     const mocks = Object.fromEntries([...source.matchAll(/from '([^']+)'/g)].map(match => [match[1], new Proxy({}, { get: (_, key) => key === '__esModule' ? true : () => null })]))
-    mocks.react = { useState: initial => { const key = names[index++]; const value = { step: 4, website, supportEmail, touchedFields: { developerWebsite: true, developerEmail: true } }[key]; return [value === undefined ? initial : value, () => {}] }, useRef: value => ({ current: value }), useMemo: fn => fn(), useEffect() {} }
+    mocks.react = { useState: initial => { const key = names[index++]; const value = { step, applicationType, website, supportEmail, touchedFields: { developerWebsite: true, developerEmail: true } }[key]; return [value === undefined ? initial : value, () => {}] }, useRef: value => ({ current: value }), useMemo: fn => fn(), useEffect() {} }
     mocks['@/lib/upload-validation'] = { validateUploadFields }
     mocks['@/components/store-provider'] = { useStore: () => ({ user: { id: '91' }, authReady: true }) }
     const mod = { exports: {} }
@@ -44,6 +44,11 @@ test('contact step disables Next for invalid values and exposes the inline corre
     function visit(node) { if (!node || typeof node !== 'object') return; if (Array.isArray(node)) return node.forEach(visit); nodes.push(node); visit(node.props?.children) }
     visit(mod.exports.default())
     return nodes
+  }
+  for (const [value, label] of [['1', 'برنامه'], ['2', 'بازی']]) {
+    const nodes = render('', '', 2, value)
+    const select = nodes.find(node => node.props?.value === value && node.props?.onValueChange)
+    assert.equal(select.props.children[0].props.children.props.children, label)
   }
   for (const [website, email, disabled] of [['example.com', '', true], ['https://example.com', 'bad', true], ['https://example.com', 'support@example.com', false], ['', '', false]]) {
     const nodes = render(website, email)

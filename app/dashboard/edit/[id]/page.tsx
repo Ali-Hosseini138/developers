@@ -378,7 +378,7 @@ function EditAppForm({ app, reloadDeveloperApps }: { app: StoreApp; reloadDevelo
 
           <Field error={fieldErrors.applicationType} label="نوع اپلیکیشن">
             <Select value={applicationType} onValueChange={(value) => value && setApplicationType(value as '1' | '2')}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectTrigger><SelectValue>{applicationType === '2' ? 'بازی' : 'برنامه'}</SelectValue></SelectTrigger>
               <SelectContent>
                 <SelectItem value="1">برنامه</SelectItem>
                 <SelectItem value="2">بازی</SelectItem>
@@ -388,7 +388,7 @@ function EditAppForm({ app, reloadDeveloperApps }: { app: StoreApp; reloadDevelo
 
           <Field error={fieldErrors.ageLimit} label="محدودیت سنی">
             <Select value={ageLimit} onValueChange={(value) => value && setAgeLimit(value)}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectTrigger><SelectValue>{({ '0': 'همه سنین', '7': '+۷', '12': '+۱۲', '15': '+۱۵', '18': '+۱۸' } as Record<string, string>)[ageLimit] || 'انتخاب محدودیت سنی'}</SelectValue></SelectTrigger>
               <SelectContent>{[['0', 'همه سنین'], ['7', '+۷'], ['12', '+۱۲'], ['15', '+۱۵'], ['18', '+۱۸'], ...(!['0', '7', '12', '15', '18'].includes(ageLimit) ? [[ageLimit, ageLimit]] : [])].map(([value, label]) => <SelectItem key={value} value={value}>{label}</SelectItem>)}</SelectContent>
             </Select>
           </Field>

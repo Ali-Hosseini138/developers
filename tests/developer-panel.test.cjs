@@ -114,11 +114,12 @@ test('category selection returns its backend name alongside the numeric identifi
   let index = 0, selected
   const category = { id: 12, name: 'چندرسانه‌ای', parentId: null }
   const component = load('components/upload/developer-category-select.tsx', {
-    react: { useState: value => [index++ === 0 ? [category] : value, () => {}], useEffect() {} },
+    react: { useState: value => [index++ === 0 ? [category] : index === 2 ? false : value, () => {}], useEffect() {} },
     '@/components/ui/button': { Button() {} },
     '@/components/ui/select': { Select() {}, SelectTrigger() {}, SelectValue() {}, SelectContent() {}, SelectItem() {} },
   })
-  const tree = component.DeveloperCategorySelect({ value: '', onChange: (id, name) => selected = { id, name } })
+  const tree = component.DeveloperCategorySelect({ value: '12', onChange: (id, name) => selected = { id, name } })
+  assert.equal(tree.props.children[0].props.children[0].props.children.props.children, 'چندرسانه‌ای')
   tree.props.children[0].props.onValueChange('12')
   assert.deepEqual(selected, { id: '12', name: 'چندرسانه‌ای' })
 })

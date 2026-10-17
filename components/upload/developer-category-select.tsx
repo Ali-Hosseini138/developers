@@ -35,7 +35,7 @@ export function DeveloperCategorySelect({ value, onChange }: { value: string; on
       const category = categories.find((item) => String(item.id) === next)
       if (category) onChange(String(category.id), category.name)
     }} disabled={loading || Boolean(error) || categories.length === 0}>
-      <SelectTrigger><SelectValue placeholder={loading ? 'در حال دریافت دسته‌بندی‌ها...' : 'انتخاب دسته‌بندی'} /></SelectTrigger>
+      <SelectTrigger><SelectValue>{loading ? 'در حال دریافت دسته‌بندی‌ها...' : categories.find(category => String(category.id) === value)?.name || 'انتخاب دسته‌بندی'}</SelectValue></SelectTrigger>
       <SelectContent>{categories.map((category) => <SelectItem key={category.id} value={String(category.id)}>{category.name}</SelectItem>)}</SelectContent>
     </Select>
     {!loading && (error || categories.length === 0) && <div className="flex items-center gap-2 text-xs text-destructive" role="alert">
