@@ -29,7 +29,7 @@ fs.mkdirSync(root+'/.next/standalone/.next',{recursive:true})
 fs.cpSync(root+'/.next/static',root+'/.next/standalone/.next/static',{recursive:true})
 const log=fs.openSync(root+'/.next/independent-smoke.log','w')
 // Run after a standalone build using DEVELOPER_API_BASE_URL=http://127.0.0.1:4901.
-const app=spawn(process.execPath,[root+'/.next/standalone/server.js'],{cwd:root,env:{...Object.fromEntries(Object.entries(process.env).filter(([key])=>!/SUPABASE|VERCEL|BLOB_READ_WRITE_TOKEN/.test(key))),NODE_ENV:'production',PORT:'4902',HOSTNAME:'127.0.0.1',DEVELOPER_API_BASE_URL:'http://127.0.0.1:4901'},stdio:['ignore',log,log]})
+const app=spawn(process.execPath,[root+'/.next/standalone/server.js'],{cwd:root,env:{PATH:process.env.PATH,HOME:process.env.HOME,NODE_ENV:'production',PORT:'4902',HOSTNAME:'127.0.0.1',DEVELOPER_API_BASE_URL:'http://127.0.0.1:4901'},stdio:['ignore',log,log]})
 try {
  let ready=false
  for(let i=0;i<50;i++){try{const r=await fetch('http://127.0.0.1:4902/api/health');if(r.ok){ready=true;break}}catch{}await new Promise(r=>setTimeout(r,100))}
