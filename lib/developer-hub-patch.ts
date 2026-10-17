@@ -1,6 +1,8 @@
 import type { StoreApp } from '@/lib/types'
 
 export type DeveloperAppMetadata = {
+  developerEmail?: string
+  developerWebsite?: string
   packageName: string
   name: string
   nameEn: string
@@ -21,6 +23,7 @@ export type DeveloperAppMetadata = {
 const metadataValue = (value: unknown) => String(value ?? '').replace(/\r\n?/g, '\n').trim()
 
 export const developerMetadataLabels: Record<string, string> = {
+  developerEmail: 'ایمیل پشتیبانی', developerWebsite: 'وب‌سایت',
   hasInAppPayment: 'پرداخت درون‌برنامه‌ای', paymentCommitmentAccepted: 'پذیرش تعهد پرداخت',
   packageName: 'پکیج‌نیم', name: 'عنوان فارسی', nameEn: 'عنوان انگلیسی',
   shortDescription: 'خلاصه فارسی', shortDescriptionEn: 'خلاصه انگلیسی',
@@ -31,6 +34,7 @@ export const developerMetadataLabels: Record<string, string> = {
 
 export function changedDeveloperMetadata(app: StoreApp, next: DeveloperAppMetadata) {
   const previous: DeveloperAppMetadata = {
+    developerEmail: app.supportEmail || '', developerWebsite: app.website || '',
     packageName: app.packageName || '', name: app.name, nameEn: app.nameEn || '',
     shortDescription: app.tagline, shortDescriptionEn: app.taglineEn || '',
     longDescription: app.description, longDescriptionEn: app.descriptionEn || '',

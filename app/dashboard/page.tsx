@@ -15,7 +15,6 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { LoadFailure } from '@/components/load-failure'
 import { useStore } from '@/components/store-provider'
-import { followUpTicket } from '@/lib/support-tickets'
 import { toFa } from '@/lib/format'
 import { DeveloperSidebar } from '@/components/developer-sidebar'
 
@@ -317,14 +316,9 @@ function SupportTab({ subject, message, setSubject, setMessage, submitTicket, ti
     </form>
     <div className="rounded-2xl border border-border bg-card p-6">
       <div className="flex items-center justify-between gap-3"><h2 className="font-bold">تیکت‌های من</h2><Button variant="outline" disabled={loading} onClick={() => void refresh()}>{loading ? 'در حال دریافت...' : 'تازه‌سازی'}</Button></div>
-      <p className="mt-2 text-xs text-muted-foreground">هر تیکت یک پاسخ دارد؛ برای ادامه، تیکت جدید برای پیگیری ثبت کنید.</p>
+      <p className="mt-2 text-xs text-muted-foreground">برای پیگیری، پیام خود را در همان تیکت ارسال کنید.</p>
       {ticketsError && <p role="alert" className="mt-3 text-sm text-destructive">{ticketsError}</p>}
-      <div className="mt-4 flex flex-col gap-3">{tickets.length ? tickets.map(ticket => <DeveloperTicket key={ticket.id} ticket={ticket} onFollowUp={ticket => {
-        if (sending) return
-        if ((subject.trim() || message.trim()) && !window.confirm('متن فعلی فرم با پیگیری این تیکت جایگزین شود؟')) return
-        const draft = followUpTicket(ticket); setSubject(draft.subject); setMessage(draft.question)
-        document.getElementById('ticket-message')?.focus()
-      }} />) : !loading && !ticketsError ? <p className="py-12 text-center text-sm text-muted-foreground">هنوز تیکتی ثبت نکرده‌اید.</p> : null}</div>
+      <div className="mt-4 flex flex-col gap-3">{tickets.length ? tickets.map(ticket => <DeveloperTicket key={ticket.id} ticket={ticket} />) : !loading && !ticketsError ? <p className="py-12 text-center text-sm text-muted-foreground">هنوز تیکتی ثبت نکرده‌اید.</p> : null}</div>
     </div>
   </section>
 }

@@ -37,8 +37,8 @@ function TermsAcceptanceContent() {
       await acceptTerms()
       router.replace(next)
       router.refresh()
-    } catch {
-      setErrorMessage('ثبت پذیرش قوانین انجام نشد. دوباره تلاش کنید.')
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : 'ثبت پذیرش قوانین انجام نشد. دوباره تلاش کنید.')
     } finally {
       setSaving(false)
     }

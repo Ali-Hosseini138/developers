@@ -234,6 +234,7 @@ function EditAppForm({ app, reloadDeveloperApps }: { app: StoreApp; reloadDevelo
       developedForAndroidTv !== Boolean(baseline.developedForAndroidTv) ||
       airMouseCompatible !== Boolean(baseline.airMouseCompatible)
     const patch = changedDeveloperMetadata(baseline, {
+      developerEmail: supportEmail.trim(), developerWebsite: website.trim(),
       packageName, name, nameEn, shortDescription: tagline, shortDescriptionEn: taglineEn,
       longDescription: descriptionChanged ? appDescription(description, !developedForAndroidTv && airMouseCompatible) : description, longDescriptionEn: descriptionEn, categoryId,
       applicationType, ageLimit, supportsNetboxPayment,
@@ -508,7 +509,6 @@ function EditAppForm({ app, reloadDeveloperApps }: { app: StoreApp; reloadDevelo
         {mediaBusy && <p role="status" className="text-sm text-muted-foreground">در حال بررسی و خواندن تصاویر...</p>}
       {errorMessage && <p role="alert" className="rounded-lg bg-destructive/10 px-3 py-2 text-sm leading-7 text-destructive">{errorMessage}</p>}
 
-        <p role="status" className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-4 text-sm leading-7">وب‌سایت و ایمیل پشتیبانی فعلاً ذخیره نمی‌شوند. با خروج از فرم یا بارگذاری مجدد صفحه، تغییرات این فیلدها حفظ نمی‌شوند.</p>
 
         <Button type="submit" disabled={saving || mediaBusy} className="gap-2">
           {saving ? <Loader2 className="size-4 animate-spin" /> : <Save className="size-4" />}

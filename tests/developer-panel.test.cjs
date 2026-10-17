@@ -24,7 +24,7 @@ async function create(overrides = {}) {
   const code = ts.transpileModule(source.slice(start, source.indexOf('\n  return (', start)) + '\nsubmitForReview()', { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText
   let sent, error = ''
   const file = new Blob(['png'], { type: 'image/png' })
-  const state = { ...description, saving: false, submitting: { current: false }, submitted: false, mediaBusy: false, setSubmitted() {}, requirementsValid: true, name: 'App', nameEn: '', description: 'Full description', descriptionEn: '',
+  const state = { ...description, saving: false, submitting: { current: false }, submitted: false, mediaBusy: false, setSubmitted() {}, requirementsValid: true, name: 'App', nameEn: '', website: '', supportEmail: '', description: 'Full description', descriptionEn: '',
     apkFile: file, iconFile: file, bannerFile: file, backgroundFile: file, screenshotFiles: [], packageName: 'com.real.app', categoryId: '12', applicationType: '1', ageLimit: '0',
     supportsNetboxPayment: true, hasInAppPayment: true, paymentCommitmentAccepted: true, developedForAndroidTv: false, airMouseCompatible: true, changeLog: '',
     setFieldErrors() {}, setErrorMessage: value => error = value, setSaving() {}, setSubmitProgress() {}, setSubmitStage() {}, setStep() {},
@@ -65,4 +65,10 @@ test('accepted app upload is not reported as failed when dashboard reload is una
   const result = await create({ reloadDeveloperApps: async () => { throw new Error('offline') } })
   assert.ok(result.sent)
   assert.equal(result.error, '')
+})
+
+test('app contact fields are sent separately from the account login email', async () => {
+  const result = await create({ website: 'https://app.example.com', supportEmail: 'help@app.example.com' })
+  assert.equal(result.sent.entries.developerWebsite, 'https://app.example.com')
+  assert.equal(result.sent.entries.developerEmail, 'help@app.example.com')
 })

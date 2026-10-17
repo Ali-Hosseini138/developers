@@ -1,83 +1,30 @@
 import { NextResponse } from 'next/server'
-import { createAdminClient } from '@/lib/supabase/admin'
-import { getDeveloperIdentity } from '@/lib/developer-identity'
+import { developerHubApi, copyBackendResponse } from '@/lib/developer-api'
+import { mapDeveloperProfile } from '@/lib/developer-profile'
 
-export async function GET() {
-  const identity = await getDeveloperIdentity()
-  if (!identity) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
-
-  const supabase = createAdminClient()
-  const { data, error } = await supabase
-    .from('profiles')
-    .select('id, full_name, phone, national_id, organization, terms_accepted_at')
-    .eq('id', identity.id)
-    .maybeSingle()
-
-  if (error) return NextResponse.json({ error: 'profile_load_failed' }, { status: 500 })
-
-  return NextResponse.json({
-    profile: {
-      id: identity.id,
-      email: identity.email,
-      name: data?.full_name || identity.email.split('@')[0] || 'توسعه‌دهنده',
-      phone: data?.phone || '',
-      nationalId: data?.national_id || '',
-      organization: data?.organization || '',
-      termsAcceptedAt: data?.terms_accepted_at || null,
-    },
-  })
+async function forward(init: RequestInit = {}) {
+  try {
+    const response = await developerHubApi('/api/v1/developer-hub/profile/', init)
+    const payload = await response.json()
+    if (!response.ok) return copyBackendResponse(response, payload)
+    if (payload?.id == null || typeof payload.email !== 'string') return NextResponse.json({ detail: 'پاسخ پروفایل معتبر نیست.' }, { status: 502 })
+    return copyBackendResponse(response, { profile: mapDeveloperProfile(payload) })
+  } catch { return NextResponse.json({ detail: 'دریافت یا ذخیره پروفایل انجام نشد؛ دوباره تلاش کنید.' }, { status: 502 }) }
 }
 
+export async function GET() { return forward() }
+
 export async function PATCH(request: Request) {
-  const identity = await getDeveloperIdentity()
-  if (!identity) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
-
-  let body: Record<string, unknown>
-  try {
-    body = await request.json()
-  } catch {
-    return NextResponse.json({ error: 'invalid_json' }, { status: 400 })
+  let body
+  try { body = await request.json() } catch { return NextResponse.json({ detail: 'درخواست معتبر نیست.' }, { status: 400 }) }
+  if (!body || typeof body !== 'object' || Array.isArray(body)) return NextResponse.json({ detail: 'درخواست معتبر نیست.' }, { status: 400 })
+  const fields = ['accountType', 'firstName', 'lastName', 'mobile', 'identityNumber', 'companyName']
+  const patch: Record<string, string> = {}
+  for (const key of fields) {
+    if (!(key in body)) continue
+    if (typeof body[key] !== 'string') return NextResponse.json({ detail: 'مقدار فیلد معتبر نیست.' }, { status: 400 })
+    patch[key] = body[key].trim()
   }
-
-  const name = typeof body.name === 'string' ? body.name.trim() : undefined
-  const phone = typeof body.phone === 'string' ? body.phone.trim() : undefined
-  const nationalId = typeof body.nationalId === 'string' ? body.nationalId.trim() : undefined
-  const organization = typeof body.organization === 'string' ? body.organization.trim() : undefined
-  const acceptTerms = body.acceptTerms === true
-
-  if (name !== undefined && !name) {
-    return NextResponse.json({ error: 'name_required' }, { status: 400 })
-  }
-
-  if (nationalId && !/^\d{10,11}$/.test(nationalId)) {
-    return NextResponse.json({ error: 'invalid_national_id' }, { status: 400 })
-  }
-
-  const patch: Record<string, unknown> = { updated_at: new Date().toISOString() }
-  if (name !== undefined) patch.full_name = name
-  if (phone !== undefined) patch.phone = phone || null
-  if (nationalId !== undefined) patch.national_id = nationalId || null
-  if (organization !== undefined) patch.organization = organization || null
-  if (acceptTerms) patch.terms_accepted_at = new Date().toISOString()
-
-  const supabase = createAdminClient()
-  const { data, error } = await supabase
-    .from('profiles')
-    .upsert({ id: identity.id, ...patch }, { onConflict: 'id' })
-    .select('id, full_name, phone, national_id, organization, terms_accepted_at')
-    .single()
-
-  if (error) return NextResponse.json({ error: 'profile_update_failed' }, { status: 500 })
-
-  return NextResponse.json({
-    profile: {
-      id: identity.id,
-      email: identity.email,
-      name: data.full_name || identity.email.split('@')[0] || 'توسعه‌دهنده',
-      phone: data.phone || '',
-      nationalId: data.national_id || '',
-      organization: data.organization || '',
-      termsAcceptedAt: data.terms_accepted_at || null,
-    },
-  })
+  if (!Object.keys(patch).length) return NextResponse.json({ detail: 'فیلد قابل ویرایشی ارسال نشده است.' }, { status: 400 })
+  return forward({ method: 'PATCH', body: JSON.stringify(patch) })
 }
