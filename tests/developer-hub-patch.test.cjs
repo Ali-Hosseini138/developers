@@ -37,15 +37,15 @@ async function runSave(mode, overrides = {}) {
   const code = ts.transpileModule(source.slice(start, source.indexOf('\n  return (', start)) + '\nsave({ preventDefault() {} })', { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText
   const result = { saved: false, warning: '', notice: '', error: '', calls: [] }
   const state = {
-    baseline: app, app, appId: '42', saving: false, submitting: { current: false }, mediaBusy: false, hasInAppPayment: true, paymentCommitmentAccepted: false, removeIcon: false,
+    baseline: app, app, appId: '42', saving: false, submitting: { current: false }, mediaBusy: false, clearScreenshots: false, setClearScreenshots() {}, hasInAppPayment: true, paymentCommitmentAccepted: false, removeIcon: false,
     website: '', supportEmail: '', packageName: mode === 'noop' ? app.packageName : 'com.real.app', name: app.name, nameEn: '',
     tagline: app.tagline, taglineEn: '', description: app.description, descriptionEn: '',
     categoryId: '12', applicationType: '1', ageLimit: '0', supportsNetboxPayment: false,
     developedForAndroidTv: true, airMouseCompatible: false,
     iconFile: null, bannerFile: null, backgroundFile: null, replacementScreenshots: [], FormData,
-    changedDeveloperMetadata, unconfirmedDeveloperMetadata, developerMetadataLabels, appDescription: text => `این برنامه با ایرماوس قابل استفاده است\n${text.trim()}`,
+    changedDeveloperMetadata, unconfirmedDeveloperMetadata, developerMetadataLabels, shortAppDescription: text => text.trim().slice(0, 1000), appDescription: text => `این برنامه با ایرماوس قابل استفاده است\n${text.trim()}`,
     setFieldErrors() {}, setSaving() {}, setUploadProgress() {}, setBaseline() {},
-    setRemoveIcon() {}, setIconFile() {}, setBannerFile() {}, setBackgroundFile() {}, setReplacementScreenshots() {}, setReplacementPreviews() {}, setPaymentCommitmentAccepted() {},
+    setIconPreview() {}, setBannerPreview() {}, setBackgroundPreview() {}, setRemoveIcon() {}, setIconFile() {}, setBannerFile() {}, setBackgroundFile() {}, setReplacementScreenshots() {}, setReplacementPreviews() {}, setPaymentCommitmentAccepted() {},
     setErrorMessage(v) { result.error = v }, setSaved(v) { result.saved = v },
     setSaveNotice(v) { result.notice = v }, setSaveWarning(v) { result.warning = v },
     developerHubFieldErrors: () => ({}), developerHubErrorMessage: () => 'PATCH rejected',
@@ -136,9 +136,10 @@ test('payment edits send the new flag and commitment; acceptance is verified thr
   assert.equal(unconfirmedDeveloperMetadata({ hasInAppPayment: 'true', paymentCommitmentAccepted: 'true' }, { hasInAppPayment: true, paymentCommitmentAcceptedAt: '2026-10-15T12:00:00Z' }).length, 0)
   assert.equal(unconfirmedDeveloperMetadata({ paymentCommitmentAccepted: 'true' }, {}).length, 1)
 })
-test('removing the icon sends an explicit empty icon part', async () => {
+test('removing the icon sends the explicit removal flag', async () => {
   const r = await runSave('noop', { removeIcon: true })
-  assert.equal(Object.fromEntries(r.calls[0][2]).icon, '')
+  assert.equal(Object.fromEntries(r.calls[0][2]).removeIcon, 'true')
+  assert.equal(Object.fromEntries(r.calls[0][2]).icon, undefined)
 })
 
 test('expired verification session returns to login without claiming persistence', async () => {
@@ -171,4 +172,22 @@ test('contact fields support sparse updates, clearing and persistence verificati
   assert.equal(patch.developerEmail, 'new@example.com')
   assert.equal(unconfirmedDeveloperMetadata(patch, { developerWebsite: '', developerEmail: 'new@example.com' }).length, 0)
   assert.equal(unconfirmedDeveloperMetadata(patch, { developerWebsite: 'https://old.example', developerEmail: 'new@example.com' }).length, 1)
+})
+
+test('published app save verifies the proposed draft instead of the approved root listing', async () => {
+  const published = { ...app, isPublished: true }
+  const result = await runSave('success', { app: published, baseline: published, packageName: app.packageName, name: 'Proposed title', fetch: async () => ({ ok: true, json: async () => ({ id: 42, isPublished: true, name: app.name, hasDraft: true, draft: { name: 'Proposed title' } }) }) })
+  assert.equal(result.saved, true)
+  assert.ok(result.notice.includes('پیش‌نویس'))
+  assert.deepEqual(Object.fromEntries(result.calls[0][2]), { name: 'Proposed title' })
+})
+test('an approved root value cannot falsely confirm a missing published draft', () => {
+  assert.equal(unconfirmedDeveloperMetadata({ name: 'Title' }, { isPublished: true, name: 'Title', draft: null }).length, 1)
+  assert.equal(unconfirmedDeveloperMetadata({ name: 'Proposed' }, { isPublished: true, name: 'Current', draft: { name: 'Proposed' } }).length, 0)
+})
+test('screenshot deletion sends its own flag and never sends replacement files', async () => {
+  const result = await runSave('noop', { clearScreenshots: true })
+  const entries = Object.fromEntries(result.calls[0][2])
+  assert.equal(entries.clearScreenshots, 'true')
+  assert.equal(entries.screenshots, undefined)
 })

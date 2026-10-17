@@ -1,3 +1,5 @@
+import type { ListingChanges } from './listing-revisions'
+
 export type AdminHubUser = {
   id: number
   username: string
@@ -9,6 +11,8 @@ export type AdminHubUser = {
 }
 
 export type AdminSubmissionListItem = {
+  hasApk?: boolean
+  hasListingChanges?: boolean
   id: number
   kind: 'new' | 'update'
   status: 'uploaded' | 'parsing' | 'parse_failed' | 'pending_review' | 'approved' | 'rejected' | 'cancelled'
@@ -25,6 +29,10 @@ export type AdminSubmissionListItem = {
 }
 
 export type AdminSubmissionDetail = {
+  hasApk?: boolean
+  hasListingChanges?: boolean
+  apkUrl?: string | null
+  listingChanges?: ListingChanges | null
   id: number
   kind: 'new' | 'update'
   status: AdminSubmissionListItem['status']
