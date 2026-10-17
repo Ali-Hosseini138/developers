@@ -237,7 +237,6 @@ function AppsTab({ myApps, cancelSubmission }: { myApps: ReturnType<typeof useSt
                 </div>
 
                 <div className="flex flex-wrap items-center gap-2">
-                  {app.hasDraft && <Badge variant="outline">پیش‌نویس اطلاعات</Badge>}
                   {app.canEdit && (
                     <Button render={<Link href={`/dashboard/edit/${app.id}`} />} size="sm" variant="outline" className="gap-1">
                       <Pencil className="size-4" />
@@ -247,7 +246,7 @@ function AppsTab({ myApps, cancelSubmission }: { myApps: ReturnType<typeof useSt
                   {app.canSubmit && (
                     <Button render={<Link href={`/dashboard/version/${app.id}`} />} size="sm" className="gap-1">
                       <Plus className="size-4" />
-                      {app.isPublished && app.hasDraft ? 'ارسال تغییرات برای بررسی' : app.isPublished ? 'نسخه جدید' : 'ارسال APK جدید'}
+                      ارسال APK جدید
                     </Button>
                   )}
                   {app.latestSubmissionCanCancel && app.latestSubmissionId && (
