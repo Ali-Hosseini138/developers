@@ -226,6 +226,8 @@ test('admin detail loading and errors remain scoped to the selected submission',
   const requests = []
   const Component = load('components/admin/admin-submissions.tsx', {
     react: h.api, 'lucide-react': symbols,
+    '@/components/listing-changes': { ListingChanges: 'ListingChanges' },
+    '@/lib/listing-revisions': load('lib/listing-revisions.ts'),
     '@/lib/payment-deadline': { paymentDate: () => 'date' },
     '@/lib/developer-hub-client': { developerHubFieldErrors: () => ({}) },
     '@/lib/admin-hub-model': { adminSubmissionKindLabel: () => 'new', adminSubmissionStatusLabel: () => 'pending' },
