@@ -18,7 +18,8 @@ export async function PATCH(request: Request) {
   let body
   try { body = await request.json() } catch { return NextResponse.json({ detail: 'درخواست معتبر نیست.' }, { status: 400 }) }
   if (!body || typeof body !== 'object' || Array.isArray(body)) return NextResponse.json({ detail: 'درخواست معتبر نیست.' }, { status: 400 })
-  const fields = ['accountType', 'firstName', 'lastName', 'mobile', 'identityNumber', 'companyName']
+  if ('accountType' in body) return NextResponse.json({ detail: 'نوع حساب پس از ثبت‌نام قابل تغییر نیست.' }, { status: 400 })
+  const fields = ['firstName', 'lastName', 'mobile', 'identityNumber', 'companyName']
   const patch: Record<string, string> = {}
   for (const key of fields) {
     if (!(key in body)) continue

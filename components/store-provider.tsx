@@ -14,7 +14,7 @@ interface StoreContextValue {
   developerAppsError: string
   publishedAppsLoading: boolean
   publishedAppsError: string
-  updateProfile: (patch: Pick<User, 'accountType' | 'firstName' | 'lastName' | 'phone' | 'nationalId' | 'organization'>) => Promise<void>
+  updateProfile: (patch: Pick<User, 'firstName' | 'lastName' | 'phone' | 'nationalId' | 'organization'>) => Promise<void>
   acceptTerms: () => Promise<void>
   myApps: StoreApp[]
   reloadDeveloperApps: () => Promise<void>
@@ -166,13 +166,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     try { await reloadDeveloperApps() } catch { throw new Error('لغو درخواست ثبت شد، اما تازه‌سازی فهرست انجام نشد. دوباره ارسال نکنید؛ فهرست را تازه کنید.') }
   }, [reloadDeveloperApps])
 
-  const updateProfile = useCallback(async (patch: Pick<User, 'accountType' | 'firstName' | 'lastName' | 'phone' | 'nationalId' | 'organization'>) => {
+  const updateProfile = useCallback(async (patch: Pick<User, 'firstName' | 'lastName' | 'phone' | 'nationalId' | 'organization'>) => {
     if (!user?.id || logoutPending.current) throw new Error('unauthorized')
     const generation = accountGeneration.current
     const response = await fetch('/api/developer/profile', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ accountType: patch.accountType, firstName: patch.firstName, lastName: patch.lastName, mobile: patch.phone, identityNumber: patch.nationalId, companyName: patch.organization }),
+      body: JSON.stringify({ firstName: patch.firstName, lastName: patch.lastName, mobile: patch.phone, identityNumber: patch.nationalId, companyName: patch.organization }),
     })
     const payload = await response.json().catch(() => null)
     if (generation !== accountGeneration.current) throw new Error('نشست حساب تغییر کرده است.')

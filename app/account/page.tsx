@@ -13,7 +13,7 @@ import { useStore } from '@/components/store-provider'
 export default function AccountPage() {
   const { user, authReady, sessionError, updateProfile } = useStore()
   const router = useRouter()
-  const [accountType, setAccountType] = useState<'individual' | 'legal'>('individual')
+  const accountType = user?.accountType || 'individual'
   const [firstName, setFirstName] = useState('')
   const [lastName, setLastName] = useState('')
   const [phone, setPhone] = useState('')
@@ -26,7 +26,6 @@ export default function AccountPage() {
   useEffect(() => {
     if (authReady && !sessionError && !user) router.replace('/login?next=/account')
     else if (user) {
-      setAccountType(user.accountType || 'individual')
       setFirstName(user.firstName || '')
       setLastName(user.lastName || '')
       setPhone(user.phone || '')
@@ -46,7 +45,7 @@ export default function AccountPage() {
     setSaved(false)
     setErrorMessage('')
     try {
-      await updateProfile({ accountType, firstName: firstName.trim(), lastName: lastName.trim(), phone: asciiDigits(phone.trim()), nationalId: asciiDigits(nationalId.trim()), organization: accountType === 'legal' ? organization.trim() : '' })
+      await updateProfile({ firstName: firstName.trim(), lastName: lastName.trim(), phone: asciiDigits(phone.trim()), nationalId: asciiDigits(nationalId.trim()), organization: accountType === 'legal' ? organization.trim() : '' })
       setSaved(true)
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : 'ذخیره اطلاعات انجام نشد. دوباره تلاش کنید.')
@@ -63,7 +62,7 @@ export default function AccountPage() {
           <div><h1 className="text-2xl font-bold">اطلاعات کاربری</h1><p className="mt-1 text-sm text-muted-foreground">اطلاعات حساب توسعه‌دهنده شما</p></div>
         </div>
         <fieldset disabled={saving} className="grid gap-5 sm:grid-cols-2">
-          <div className="sm:col-span-2"><Label htmlFor="account-type">نوع حساب</Label><select id="account-type" value={accountType} onChange={e => { setAccountType(e.target.value as 'individual' | 'legal'); setSaved(false) }} className="mt-1.5 w-full rounded-lg border border-border bg-background p-2"><option value="individual">حقیقی</option><option value="legal">حقوقی</option></select></div>
+          <div className="sm:col-span-2"><Label htmlFor="account-type">نوع حساب</Label><Input id="account-type" value={accountType === 'legal' ? 'حقوقی' : 'حقیقی'} readOnly aria-describedby="account-type-help" className="mt-1.5 bg-secondary/50" /><p id="account-type-help" className="mt-2 text-xs text-muted-foreground">نوع حساب پس از ثبت‌نام قابل تغییر نیست.</p></div>
           <div><Label htmlFor="account-first-name">نام</Label><Input id="account-first-name" value={firstName} onChange={e => { setFirstName(e.target.value); setSaved(false) }} className="mt-1.5" required /></div>
           <div><Label htmlFor="account-last-name">نام خانوادگی</Label><Input id="account-last-name" value={lastName} onChange={e => { setLastName(e.target.value); setSaved(false) }} className="mt-1.5" required /></div>
           <div><Label htmlFor="account-email">ایمیل</Label><Input id="account-email" value={user.email} readOnly dir="ltr" className="mt-1.5 bg-secondary/50" /></div>

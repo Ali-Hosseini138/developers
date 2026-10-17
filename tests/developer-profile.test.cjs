@@ -30,8 +30,9 @@ test('profile uses backend JWT helper and maps account fields without changing s
 })
 test('profile PATCH only forwards editable camelCase fields and preserves validation errors', async () => {
   let sent
-  const response = await route(async (path, init) => { sent = JSON.parse(init.body); return Response.json({ identityNumber: ['Already registered'] }, { status: 400 }) }).PATCH({ json: async () => ({ ...profile, firstName: ' Sara ', email: 'attacker@example.com', acceptTerms: true, isActive: true }) })
-  assert.deepEqual(sent, { accountType: 'legal', firstName: 'Sara', lastName: 'Ahmadi', mobile: profile.mobile, identityNumber: profile.identityNumber, companyName: 'Example' })
+  const { accountType, ...editableProfile } = profile
+  const response = await route(async (path, init) => { sent = JSON.parse(init.body); return Response.json({ identityNumber: ['Already registered'] }, { status: 400 }) }).PATCH({ json: async () => ({ ...editableProfile, firstName: ' Sara ', email: 'attacker@example.com', acceptTerms: true, isActive: true }) })
+  assert.deepEqual(sent, { firstName: 'Sara', lastName: 'Ahmadi', mobile: profile.mobile, identityNumber: profile.identityNumber, companyName: 'Example' })
   assert.equal(response.status, 400)
   assert.deepEqual(await response.json(), { identityNumber: ['Already registered'] })
 })
@@ -40,3 +41,13 @@ test('read-only profile updates are rejected and backend outages never fabricate
   assert.equal((await handler.PATCH({ json: async () => ({ email: 'new@example.com', termsAcceptedAt: 'now' }) })).status, 400)
   assert.equal((await handler.GET()).status, 502)
 })
+
+for (const accountType of ['individual', 'legal']) {
+  test(`profile PATCH rejects account type ${accountType} without contacting backend`, async () => {
+    let calls = 0
+    const response = await route(async () => { calls++; return Response.json(profile) }).PATCH({ json: async () => ({ accountType, firstName: 'Sara' }) })
+    assert.equal(response.status, 400)
+    assert.equal((await response.json()).detail, 'نوع حساب پس از ثبت‌نام قابل تغییر نیست.')
+    assert.equal(calls, 0)
+  })
+}
