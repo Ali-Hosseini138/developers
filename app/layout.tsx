@@ -42,7 +42,8 @@ export default function RootLayout({
         <StoreProvider>
           <SiteChrome>{children}</SiteChrome>
         </StoreProvider>
-        {process.env.NODE_ENV === 'production' && <Analytics />}
+        {process.env.NODE_ENV === 'production' &&
+          process.env.DISABLE_VERCEL_ANALYTICS !== '1' && <Analytics />}
       </body>
     </html>
   )

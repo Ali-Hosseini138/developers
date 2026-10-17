@@ -6,6 +6,7 @@ const backendBase = (
 ).replace(/\/$/, '')
 
 const nextConfig = {
+  ...(process.env.SELF_HOSTED === '1' ? { output: 'standalone' } : {}),
   // Django API routes require their trailing slash. Avoid redirects that
   // strip it before proxying POST/PATCH multipart requests.
   skipTrailingSlashRedirect: true,
