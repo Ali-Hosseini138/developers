@@ -46,7 +46,7 @@ export function AdminSubmissions({
   canReviewSubmission: boolean
 }) {
   const [query, setQuery] = useState('')
-  const [status, setStatus] = useState<'all' | AdminSubmissionListItem['status']>('pending_review')
+  const [status, setStatus] = useState<'all' | AdminSubmissionListItem['status']>('all')
   const [kind, setKind] = useState<'all' | 'new' | 'update'>('all')
   const [expandedId, setExpandedId] = useState<number | null>(null)
   const [details, setDetails] = useState<Record<number, AdminSubmissionDetail>>({})
