@@ -266,17 +266,7 @@ export default function RulesPage() {
         ))}
       </div>
 
-      <section className="mt-10 rounded-2xl border border-border bg-card p-6">
-        <div className="flex items-start gap-3">
-          <ShieldCheck className="mt-1 size-5 shrink-0 text-primary" />
-          <div>
-            <h2 className="text-xl font-bold">پیش از ارسال برای بررسی</h2>
-            <p className="mt-2 text-sm leading-7 text-muted-foreground">
-              برنامه را حداقل روی یک Android TV یا Android TV Box واقعی تست کنید و مسیرهای ورود، پخش محتوا، Back، Home، Resume، جستجو، پرداخت و تمام گزینه‌های قابل Focus را بررسی کنید. اگر برنامه نیازمند حساب یا شرایط خاصی برای تست است، اطلاعات لازم را از طریق تیکت برای تیم بررسی ارسال کنید.
-            </p>
-          </div>
-        </div>
-      </section>
+
 
       <section className="mt-12 border-t border-border pt-10">
         <div>
