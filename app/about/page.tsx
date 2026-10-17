@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { ArrowRight, Mail, Phone } from 'lucide-react'
+import { ArrowRight } from 'lucide-react'
 
 export default function AboutPage() {
   return (
@@ -24,23 +24,6 @@ export default function AboutPage() {
             تمرکز نت‌استور روی اپلیکیشن‌هایی است که تجربه مناسبی روی صفحه تلویزیون ارائه می‌کنند. اپلیکیشن‌هایی که مستقیماً برای Android TV توسعه داده نشده‌اند نیز در صورت سازگاری مناسب با ماوس یا ایرماوس می‌توانند برای بررسی ارسال شوند.
           </p>
         </div>
-
-        <section id="support" className="mt-8 scroll-mt-24">
-          <h2 className="text-xl font-bold">ارتباط با پشتیبانی</h2>
-          <p className="mt-2 text-sm leading-7 text-muted-foreground">
-            توسعه‌دهندگان عضو پنل می‌توانند از بخش «پشتیبانی و تیکت» درخواست خود را پیگیری کنند. برای ارتباط عمومی نیز از راه‌های زیر استفاده کنید.
-          </p>
-          <div className="mt-4 grid gap-3 sm:grid-cols-2">
-            <a href="mailto:info@netbox.info" className="flex items-center gap-3 rounded-xl bg-secondary/60 p-4">
-              <Mail className="size-5 text-primary" />
-              <span dir="ltr">info@netbox.info</span>
-            </a>
-            <a href="tel:02182808606" className="flex items-center gap-3 rounded-xl bg-secondary/60 p-4">
-              <Phone className="size-5 text-primary" />
-              <span dir="ltr">۰۲۱ ۸۲۸۰ ۸۶۰۶</span>
-            </a>
-          </div>
-        </section>
       </div>
     </main>
   )
