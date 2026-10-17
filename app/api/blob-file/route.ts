@@ -1,59 +1,12 @@
-import { get } from '@vercel/blob'
 import { NextResponse } from 'next/server'
-import { getDeveloperIdentity } from '@/lib/developer-identity'
-import { createAdminClient } from '@/lib/supabase/admin'
+import publicMedia from '@/data/legacy-public-media.json'
 
 export async function GET(request: Request) {
-  const pathname = new URL(request.url).searchParams.get('pathname')
-  if (!pathname || !pathname.startsWith('users/')) {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
-  }
-
-  const identity = await getDeveloperIdentity()
-  const isOwnerPath = Boolean(identity && pathname.startsWith(`users/${identity.id}/`))
-
-  let isPublishedMedia = false
-  if (!isOwnerPath) {
-    const admin = createAdminClient()
-    const { data: publishedApps } = await admin
-      .from('apps')
-      .select('icon_path, banner_path, screenshot_paths')
-      .eq('status', 'published')
-
-    isPublishedMedia = Boolean((publishedApps || []).some((app: Record<string, any>) =>
-      app.icon_path === pathname ||
-      app.banner_path === pathname ||
-      (Array.isArray(app.screenshot_paths) && app.screenshot_paths.includes(pathname)),
-    ))
-  }
-
-  if (!isOwnerPath && !isPublishedMedia) {
-    return NextResponse.json({ error: identity ? 'Forbidden' : 'Unauthorized' }, { status: identity ? 403 : 401 })
-  }
-
-  const result = await get(pathname, {
-    access: 'private',
-    ifNoneMatch: request.headers.get('if-none-match') ?? undefined,
-  })
-
-  if (!result) return new NextResponse('Not found', { status: 404 })
-
-  const cacheControl = isPublishedMedia
-    ? 'public, max-age=300, s-maxage=3600, stale-while-revalidate=86400'
-    : 'private, no-cache'
-
-  if (result.statusCode === 304) {
-    return new NextResponse(null, {
-      status: 304,
-      headers: { ETag: result.blob.etag, 'Cache-Control': cacheControl },
-    })
-  }
-
-  return new NextResponse(result.stream, {
-    headers: {
-      'Content-Type': result.blob.contentType,
-      ETag: result.blob.etag,
-      'Cache-Control': cacheControl,
-    },
-  })
+  const pathname = new URL(request.url).searchParams.get('pathname') || ''
+  // Only previously published images were migrated to this public allowlist.
+  // Private APKs, drafts and identity documents are never served here.
+  const target = Object.prototype.hasOwnProperty.call(publicMedia, pathname)
+    ? publicMedia[pathname as keyof typeof publicMedia] : undefined
+  if (!target) return NextResponse.json({ detail: 'فایل عمومی یافت نشد.' }, { status: 404 })
+  return NextResponse.redirect(new URL(target, request.url), 308)
 }

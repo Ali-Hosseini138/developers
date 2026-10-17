@@ -1,12 +1,11 @@
 import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
 import { ACCESS_COOKIE, EMAIL_COOKIE, REFRESH_COOKIE, authCookieOptions, developerApi } from '@/lib/developer-api'
-import { OWNER_COOKIE, decodeDeveloperIdentity, encodeDeveloperIdentity, ensureDeveloperOwner } from '@/lib/developer-identity'
+import { mapDeveloperProfile } from '@/lib/developer-profile'
 
 export async function GET() {
   const store = await cookies()
   const refresh = store.get(REFRESH_COOKIE)?.value
-  const email = store.get(EMAIL_COOKIE)?.value || ''
 
   if (!refresh) return NextResponse.json({ authenticated: false }, { status: 401 })
 
@@ -24,27 +23,19 @@ export async function GET() {
     if (response.ok && (typeof payload.access !== 'string' || !payload.access)) return NextResponse.json({ detail: 'پاسخ سرویس نشست معتبر نیست.' }, { status: 502 })
     if (!response.ok || !payload.access) {
       const result = NextResponse.json({ authenticated: false }, { status: 401 })
-      for (const name of [ACCESS_COOKIE, REFRESH_COOKIE, EMAIL_COOKIE, OWNER_COOKIE]) {
+      for (const name of [ACCESS_COOKIE, REFRESH_COOKIE, EMAIL_COOKIE, 'developer_owner']) {
         result.cookies.set(name, '', { path: '/', maxAge: 0 })
       }
       return result
     }
 
-    const currentIdentity = decodeDeveloperIdentity(store.get(OWNER_COOKIE)?.value)
-    const identity = currentIdentity?.email === email ? currentIdentity : await ensureDeveloperOwner(email)
-
-    const result = NextResponse.json({
-      authenticated: true,
-      user: {
-        id: identity.id,
-        email,
-        name: email.split('@')[0] || 'توسعه‌دهنده',
-        termsAcceptedAt: new Date(0).toISOString(),
-      },
-    })
-    result.headers.set('Cache-Control', 'private, no-store')
+    const profileResponse = await developerApi('/api/v1/developer-hub/profile/', { headers: { Authorization: `Bearer ${payload.access}` } })
+    const profile = await profileResponse.json().catch(() => null)
+    if (!profileResponse.ok || profile?.id == null || typeof profile.email !== 'string') {
+      return NextResponse.json({ detail: 'دریافت اطلاعات حساب از سرویس انجام نشد؛ دوباره تلاش کنید.' }, { status: profileResponse.ok ? 502 : profileResponse.status, headers: { 'Cache-Control': 'private, no-store' } })
+    }
+    const result = NextResponse.json({ authenticated: true, user: mapDeveloperProfile(profile) }, { headers: { 'Cache-Control': 'private, no-store' } })
     result.cookies.set(ACCESS_COOKIE, payload.access, authCookieOptions(Number(payload.expiresIn || 1800)))
-    result.cookies.set(OWNER_COOKIE, encodeDeveloperIdentity(identity), authCookieOptions(7 * 24 * 60 * 60))
     return result
   } catch {
     return NextResponse.json({ authenticated: false }, { status: 502 })
