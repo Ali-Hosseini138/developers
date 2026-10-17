@@ -509,7 +509,7 @@ export default function UploadPage() {
                   <p className="text-sm leading-7">وضعیت پیاده‌سازی <Link href="/integrations/payment" target="_blank" rel="noopener noreferrer" className="text-primary underline">نت‌باکس پیمنت</Link> را انتخاب کنید.</p>
                   <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-border p-4 text-sm leading-7">
                     <input type="radio" name="payment-choice" checked={paymentChoice === 'implemented'} onChange={() => { setPaymentChoice('implemented'); setSupportsNetboxPayment(true); setPaymentCommitmentAccepted(true) }} className="mt-1 size-4" />
-                    <span>نت‌باکس پیمنت را پیاده‌سازی کرده‌ام.<span className="mt-1 block text-xs text-muted-foreground">مسئولیت تکمیل الزامات پرداخت را می‌پذیرم؛ اگر در بررسی نقصی مشخص شود، حداکثر تا یک ماه از اولین ارسال آن را برطرف می‌کنم.</span></span>
+                    <span>نت‌باکس پیمنت را پیاده‌سازی کرده‌ام.</span>
                   </label>
                   <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-border p-4 text-sm leading-7">
                     <input type="radio" name="payment-choice" checked={paymentChoice === 'commitment'} onChange={() => { setPaymentChoice('commitment'); setSupportsNetboxPayment(false); setPaymentCommitmentAccepted(true) }} className="mt-1 size-4" />
