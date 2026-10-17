@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { appDescription } from '@/lib/app-description'
+import { appDescription, shortAppDescription } from '@/lib/app-description'
 import { developerMetadataLabels, changedDeveloperMetadata, unconfirmedDeveloperMetadata } from '@/lib/developer-hub-patch'
 import { mapDeveloperHubApp } from '@/lib/developer-hub-model'
 import type { StoreApp } from '@/lib/types'
@@ -50,7 +50,7 @@ export default function EditAppPage() {
     return <main className="mx-auto max-w-3xl px-4 py-10 sm:px-6"><Link href="/dashboard" className="text-sm text-primary">بازگشت به داشبورد</Link><div className="mt-6 rounded-2xl border border-dashed border-border p-8 text-center text-sm text-muted-foreground">در حال حاضر ویرایش اطلاعات این اپلیکیشن مجاز نیست. </div></main>
   }
 
-  return <>{developerAppsError && <LoadFailure message={developerAppsError} retry={() => { void reloadDeveloperApps().catch(() => {}) }} />}<EditAppForm key={app.id} app={app} reloadDeveloperApps={reloadDeveloperApps} /></>
+  return <>{developerAppsError && <LoadFailure message={developerAppsError} retry={() => { void reloadDeveloperApps().catch(() => {}) }} />}<EditAppForm key={app.id} app={app.draft || app} reloadDeveloperApps={reloadDeveloperApps} /></>
 }
 
 function EditAppForm({ app, reloadDeveloperApps }: { app: StoreApp; reloadDeveloperApps: () => Promise<void> }) {
@@ -59,9 +59,9 @@ function EditAppForm({ app, reloadDeveloperApps }: { app: StoreApp; reloadDevelo
   const [saveWarning, setSaveWarning] = useState('')
   const [name, setName] = useState(app?.name || '')
   const [nameEn, setNameEn] = useState(app?.nameEn || '')
-  const [tagline] = useState(app?.tagline || '')
+  const tagline = baseline.tagline || ''
   const [description, setDescription] = useState(app?.description || '')
-  const [taglineEn] = useState(app?.taglineEn || '')
+  const taglineEn = baseline.taglineEn || ''
   const [descriptionEn, setDescriptionEn] = useState(app?.descriptionEn || '')
   const [website, setWebsite] = useState(app?.website || '')
   const [supportEmail, setSupportEmail] = useState(app?.supportEmail || '')
@@ -76,6 +76,7 @@ function EditAppForm({ app, reloadDeveloperApps }: { app: StoreApp; reloadDevelo
   const [hasInAppPayment, setHasInAppPayment] = useState(Boolean(app.hasInAppPayment))
   const [paymentCommitmentAccepted, setPaymentCommitmentAccepted] = useState(false)
   const [removeIcon, setRemoveIcon] = useState(false)
+  const [clearScreenshots, setClearScreenshots] = useState(false)
   const [iconFile, setIconFile] = useState<File | null>(null)
   const [bannerFile, setBannerFile] = useState<File | null>(null)
   const [backgroundFile, setBackgroundFile] = useState<File | null>(null)
@@ -96,6 +97,13 @@ function EditAppForm({ app, reloadDeveloperApps }: { app: StoreApp; reloadDevelo
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
 
   const appId = app.id
+  const unsavedChanges = Object.keys(changedDeveloperMetadata(baseline, {
+    developerEmail: supportEmail.trim(), developerWebsite: website.trim(), packageName, name, nameEn,
+    shortDescription: tagline, shortDescriptionEn: taglineEn, longDescription: description !== baseline.description || developedForAndroidTv !== Boolean(baseline.developedForAndroidTv) || airMouseCompatible !== Boolean(baseline.airMouseCompatible) ? appDescription(description, !developedForAndroidTv && airMouseCompatible) : description,
+    longDescriptionEn: descriptionEn, categoryId, applicationType, ageLimit, supportsNetboxPayment,
+    isAndroidTv: developedForAndroidTv, isAirMouseCompatible: airMouseCompatible,
+  })).length > 0 || hasInAppPayment !== Boolean(baseline.hasInAppPayment) || paymentCommitmentAccepted || removeIcon || clearScreenshots || Boolean(iconFile || bannerFile || backgroundFile || replacementScreenshots.length)
+
 
   async function imageDimensions(file: File) {
     if ('createImageBitmap' in window) {
@@ -235,7 +243,7 @@ function EditAppForm({ app, reloadDeveloperApps }: { app: StoreApp; reloadDevelo
       airMouseCompatible !== Boolean(baseline.airMouseCompatible)
     const patch = changedDeveloperMetadata(baseline, {
       developerEmail: supportEmail.trim(), developerWebsite: website.trim(),
-      packageName, name, nameEn, shortDescription: tagline, shortDescriptionEn: taglineEn,
+      packageName, name, nameEn, shortDescription: descriptionChanged ? shortAppDescription(description) : tagline, shortDescriptionEn: descriptionEn !== baseline.descriptionEn ? shortAppDescription(descriptionEn) : taglineEn,
       longDescription: descriptionChanged ? appDescription(description, !developedForAndroidTv && airMouseCompatible) : description, longDescriptionEn: descriptionEn, categoryId,
       applicationType, ageLimit, supportsNetboxPayment,
       isAndroidTv: developedForAndroidTv, isAirMouseCompatible: airMouseCompatible,
@@ -271,7 +279,7 @@ function EditAppForm({ app, reloadDeveloperApps }: { app: StoreApp; reloadDevelo
       setErrorMessage('محدودیت سنی باید عددی بین ۰ تا ۹۹ باشد.')
       return
     }
-    if (!Object.keys(patch).length && !removeIcon && !iconFile && !bannerFile && !backgroundFile && !replacementScreenshots.length) {
+    if (!Object.keys(patch).length && !removeIcon && !iconFile && !bannerFile && !backgroundFile && !replacementScreenshots.length && !clearScreenshots) {
       setSaveNotice('اطلاعات قابل ذخیره تغییری نکرده است.')
       return
     }
@@ -288,11 +296,12 @@ function EditAppForm({ app, reloadDeveloperApps }: { app: StoreApp; reloadDevelo
 
     const formData = new FormData()
     for (const [field, value] of Object.entries(patch)) formData.append(field, value)
-    if (removeIcon) formData.append('icon', '')
+    if (removeIcon) formData.append('removeIcon', 'true')
     else if (iconFile) formData.append('icon', iconFile)
     if (bannerFile) formData.append('banner', bannerFile)
     if (backgroundFile) formData.append('backgroundImage', backgroundFile)
-    replacementScreenshots.forEach((file) => formData.append('screenshots', file))
+    if (clearScreenshots) formData.append('clearScreenshots', 'true')
+    else replacementScreenshots.forEach((file) => formData.append('screenshots', file))
 
     try {
       const patched = await patchDeveloperHubMultipart(
@@ -302,8 +311,8 @@ function EditAppForm({ app, reloadDeveloperApps }: { app: StoreApp; reloadDevelo
       )
       setUploadProgress(100)
       setRemoveIcon(false); setIconFile(null); setBannerFile(null); setBackgroundFile(null)
-      setReplacementScreenshots([]); setReplacementPreviews([]); setPaymentCommitmentAccepted(false)
-      if (String(patched?.id) === appId) setBaseline(mapDeveloperHubApp(patched, app.developer))
+      setReplacementScreenshots([]); setReplacementPreviews([]); setClearScreenshots(false); setPaymentCommitmentAccepted(false)
+      if (String(patched?.id) === appId) { const mapped = mapDeveloperHubApp(patched, app.developer); const editable = mapped.draft || mapped; setBaseline(editable); setIconPreview(editable.icon || ''); setBannerPreview(editable.banner || ''); setBackgroundPreview(editable.backgroundImage || '') }
       // Read the listing back through the authenticated BFF before reporting success.
       let confirmed = false
       try {
@@ -312,7 +321,17 @@ function EditAppForm({ app, reloadDeveloperApps }: { app: StoreApp; reloadDevelo
         const detail = await response.json().catch(() => null)
         if (!response.ok || !detail || String(detail.id) !== appId) throw new Error('verification_unavailable')
         const missing = unconfirmedDeveloperMetadata(patch, detail)
-        setBaseline(mapDeveloperHubApp(detail, app.developer))
+        const proposal = detail.isPublished ? detail.draft : detail
+        if (app.isPublished && (!detail.hasDraft || !proposal)) missing.push('draft')
+        if (removeIcon && !(proposal?.removeIcon === true || proposal?.iconUrl === null)) missing.push('icon')
+        if (clearScreenshots && (!Array.isArray(proposal?.screenshots) || proposal.screenshots.length)) missing.push('screenshots')
+        if (iconFile && !proposal?.iconUrl) missing.push('icon')
+        if (bannerFile && !proposal?.bannerUrl) missing.push('banner')
+        if (backgroundFile && !proposal?.backgroundImageUrl) missing.push('backgroundImage')
+        if (replacementScreenshots.length && (!Array.isArray(proposal?.screenshots) || proposal.screenshots.length !== replacementScreenshots.length)) missing.push('screenshots')
+        const mapped = mapDeveloperHubApp(detail, app.developer)
+        const editable = mapped.draft || mapped
+        setBaseline(editable); setIconPreview(editable.icon || ''); setBannerPreview(editable.banner || ''); setBackgroundPreview(editable.backgroundImage || '')
         if (missing.length) {
           if ('packageName' in patch && !missing.includes('packageName')) {
             setSaveNotice(`Package Name «${detail.packageName}» ذخیره و دوباره تأیید شد.`)
@@ -322,7 +341,7 @@ function EditAppForm({ app, reloadDeveloperApps }: { app: StoreApp; reloadDevelo
         } else {
           confirmed = true
           setSaved(true)
-          setSaveNotice('packageName' in patch ? `Package Name «${detail.packageName}» ذخیره و دوباره تأیید شد.` : 'تغییرات ذخیره و دریافت دوباره اطلاعات تأیید شد.')
+          setSaveNotice(app.isPublished ? 'پیش‌نویس تغییرات ذخیره شد؛ اطلاعات فروشگاه تا تأیید کارشناس تغییر نمی‌کند.' : 'packageName' in patch ? `Package Name «${detail.packageName}» ذخیره و دوباره تأیید شد.` : 'تغییرات ذخیره و دریافت دوباره اطلاعات تأیید شد.')
         }
       } catch {
         setSaveWarning('درخواست ذخیره پذیرفته شد، اما خواندن دوباره اطلاعات برای تأیید انجام نشد. مقدارهای فرم حفظ شده‌اند؛ این پیام به معنی ردشدن ذخیره نیست.')
@@ -350,6 +369,7 @@ function EditAppForm({ app, reloadDeveloperApps }: { app: StoreApp; reloadDevelo
         <p className="text-sm font-semibold text-primary">ویرایش اطلاعات اپلیکیشن</p>
         <h1 className="mt-2 text-3xl font-bold">ویرایش {app.name}</h1>
         <p className="mt-2 text-sm leading-7 text-muted-foreground">اطلاعات و تصاویر اپلیکیشن خود را ویرایش کنید.</p>
+        {app.isPublished && <p className="mt-3 rounded-xl bg-primary/5 p-4 text-sm leading-7">تغییرات ابتدا به‌صورت پیش‌نویس ذخیره می‌شوند. سپس آن‌ها را برای بررسی ارسال کنید؛ نسخه فعلی فروشگاه تا تأیید کارشناس حفظ می‌شود.</p>}
       </div>
 
       <form onSubmit={save} onChange={() => { setSaved(false); setSaveNotice(''); setSaveWarning('') }} className="mt-8 flex flex-col gap-5 rounded-2xl border border-border bg-card p-6">
@@ -413,8 +433,8 @@ function EditAppForm({ app, reloadDeveloperApps }: { app: StoreApp; reloadDevelo
           <Field label="آدرس وبسایت"><Input value={website} onChange={(event) => setWebsite(event.target.value)} dir="ltr" type="url" /></Field>
           <Field label="ایمیل پشتیبانی"><Input value={supportEmail} onChange={(event) => setSupportEmail(event.target.value)} dir="ltr" type="email" /></Field>
         </div>
-        <p className="text-xs leading-6 text-muted-foreground">فایل APK از صفحه ویرایش تغییر نمی‌کند. برای انتشار APK جدید از بخش «نسخه جدید» استفاده کنید تا تاریخچه نسخه‌ها حفظ شود.</p>
-        <label className="flex items-center gap-3 text-sm"><input type="checkbox" checked={removeIcon} onChange={event => { setRemoveIcon(event.target.checked); if (event.target.checked) setIconFile(null) }} />حذف آیکون فعلی</label>
+        <p className="text-xs leading-6 text-muted-foreground">فایل APK از صفحه ویرایش تغییر نمی‌کند. پس از ذخیره پیش‌نویس می‌توانید تغییرات را بدون APK یا همراه APK جدید برای بررسی ارسال کنید تا تاریخچه نسخه‌ها حفظ شود.</p>
+        <label className="flex items-center gap-3 text-sm"><input type="checkbox" checked={removeIcon} onChange={event => { setRemoveIcon(event.target.checked); if (event.target.checked) setIconFile(null) }} />حذف آیکون توسعه‌دهنده از پیش‌نویس</label>
         <div className="grid gap-4 sm:grid-cols-2">
           <MediaField
             title="آیکون برنامه (مربع، حداقل ۱۲۸×۱۲۸)"
@@ -453,11 +473,12 @@ function EditAppForm({ app, reloadDeveloperApps }: { app: StoreApp; reloadDevelo
               label="انتخاب مجموعه جدید تصاویر محیط اپلیکیشن"
               hint="PNG یا JPEG — حداکثر ۱۰ فایل"
               multiple
-              onFiles={(files) => void chooseScreenshots(files)}
+              onFiles={(files) => { setClearScreenshots(false); void chooseScreenshots(files) }}
             />
           </div>
 
-          {replacementPreviews.length > 0 ? (
+          <label className="mt-3 flex items-center gap-3 text-sm"><input type="checkbox" checked={clearScreenshots} onChange={event => { setClearScreenshots(event.target.checked); if (event.target.checked) { setReplacementScreenshots([]); setReplacementPreviews([]) } }} />حذف همه تصاویر محیط اپلیکیشن از پیش‌نویس</label>
+          {clearScreenshots ? <p className="mt-2 text-xs text-muted-foreground">همه تصاویر محیط اپلیکیشن پس از تأیید حذف می‌شوند.</p> : replacementPreviews.length > 0 ? (
             <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3">
               {replacementPreviews.map((src, index) => (
                 <div key={src.slice(0, 48) + '-' + index} className="relative">
@@ -512,8 +533,12 @@ function EditAppForm({ app, reloadDeveloperApps }: { app: StoreApp; reloadDevelo
 
         <Button type="submit" disabled={saving || mediaBusy} className="gap-2">
           {saving ? <Loader2 className="size-4 animate-spin" /> : <Save className="size-4" />}
-          {saving ? 'در حال ذخیره...' : saved ? 'ذخیره شد' : 'ذخیره تغییرات'}
+          {saving ? 'در حال ذخیره...' : saved ? 'ذخیره شد' : app.isPublished ? 'ذخیره پیش‌نویس' : 'ذخیره تغییرات'}
         </Button>
+        {app.isPublished && baseline.hasDraft && app.canSubmit && <div className="rounded-xl border border-primary/20 bg-primary/5 p-4 text-sm leading-7">
+          <p>پیش‌نویس ذخیره‌شده آماده ارسال برای بررسی است؛ APK جدید اختیاری است.</p>
+          {unsavedChanges || saveWarning ? <p className="mt-2 text-muted-foreground">ابتدا تغییرات فرم را ذخیره و نتیجه ذخیره را تأیید کنید.</p> : <Button render={<Link href={`/dashboard/version/${app.id}`} />} className="mt-3">ادامه و ارسال تغییرات برای بررسی</Button>}
+        </div>}
         </fieldset>
       </form>
     </main>

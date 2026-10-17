@@ -8,6 +8,8 @@ import { Input } from '@/components/ui/input'
 import { paymentDate } from '@/lib/payment-deadline'
 import { developerHubFieldErrors } from '@/lib/developer-hub-client'
 import { Textarea } from '@/components/ui/textarea'
+import { ListingChanges } from '@/components/listing-changes'
+import { isListingOnlySubmission } from '@/lib/listing-revisions'
 import type { AdminSubmissionDetail, AdminSubmissionListItem } from '@/lib/admin-hub-model'
 import { adminSubmissionKindLabel, adminSubmissionStatusLabel } from '@/lib/admin-hub-model'
 
@@ -83,7 +85,7 @@ export function AdminSubmissions({
       const payload = await response.json().catch(() => null)
       if (response.status === 401) { window.location.assign('/admin/login'); return }
       if (!response.ok) throw new Error(errorMessage(payload, 'دریافت جزئیات درخواست انجام نشد.'))
-      setDetails((current) => ({ ...current, [item.id]: payload }))
+      setDetails((current) => ({ ...current, [item.id]: { ...payload, hasApk: payload.hasApk ?? item.hasApk, hasListingChanges: payload.hasListingChanges ?? item.hasListingChanges } }))
     } catch (error) {
       setLoadErrors(current => ({ ...current, [item.id]: error instanceof Error ? error.message : 'دریافت جزئیات انجام نشد.' }))
     } finally {
@@ -148,6 +150,7 @@ export function AdminSubmissions({
                         <h2 className="text-lg font-bold">{item.app.name}</h2>
                         <Badge variant={statusVariant(item.status)}>{adminSubmissionStatusLabel(item.status)}</Badge>
                         <Badge variant="outline">{adminSubmissionKindLabel(item.kind)}</Badge>
+                        {item.hasListingChanges && <Badge variant="secondary">{item.hasApk === false ? 'ویرایش اطلاعات بدون APK' : 'APK و اطلاعات'}</Badge>}
                         {item.hasWarnings && (
                           <span className="inline-flex items-center gap-1 text-xs text-amber-700">
                             <AlertTriangle className="size-3.5" /> {item.warningCount.toLocaleString('fa-IR')} هشدار
@@ -203,10 +206,13 @@ function SubmissionDetailView({
   detail: AdminSubmissionDetail
   canReviewSubmission: boolean
 }) {
+  const listingOnly = isListingOnlySubmission(detail)
+  const icons = detail.icons || { userIconUrl: null, extractedIconUrl: null, currentStoreIconUrl: null, availableSources: [] }
+  const issues = detail.issues || [], permissions = detail.permissions || [], decisions = detail.decisions || [], otherSubmissions = detail.otherSubmissions || []
   const [clientVariation, setClientVariation] = useState('')
   const [netboxUserOnly, setNetboxUserOnly] = useState(false)
   const [iconSource, setIconSource] = useState(
-    detail.kind === 'new' && detail.icons.availableSources.length === 1 ? detail.icons.availableSources[0] : '',
+    detail.kind === 'new' && icons.availableSources.length === 1 ? icons.availableSources[0] : '',
   )
   const [createUnknownPermissions, setCreateUnknownPermissions] = useState(false)
   const [reason, setReason] = useState('')
@@ -217,8 +223,8 @@ function SubmissionDetailView({
   const canApprove =
     canReviewSubmission &&
     detail.canDecide &&
-    ['ALL', 'NETBOX', 'GENERAL'].includes(clientVariation) &&
-    (detail.kind !== 'new' || detail.icons.availableSources.includes(iconSource as 'USER' | 'EXTRACTED'))
+    (listingOnly || (['ALL', 'NETBOX', 'GENERAL'].includes(clientVariation) &&
+    (detail.kind !== 'new' || icons.availableSources.includes(iconSource as 'USER' | 'EXTRACTED'))))
 
   async function decide(action: 'approve' | 'reject') {
     if (busy || !detail.canDecide || !canReviewSubmission || (action === 'approve' && !canApprove) || (action === 'reject' && !reason.trim())) return
@@ -228,7 +234,7 @@ function SubmissionDetailView({
 
     try {
       const body = action === 'approve'
-        ? {
+        ? listingOnly ? {} : {
             clientVariation,
             netboxUserOnly,
             ...(detail.kind === 'new' ? { iconSource } : {}),
@@ -262,13 +268,14 @@ function SubmissionDetailView({
   return (
     <div className="grid gap-6 xl:grid-cols-[1.25fr_0.75fr]">
       <div className="flex flex-col gap-5">
+        {detail.listingChanges && <ListingChanges changes={detail.listingChanges} />}
         <section className="rounded-xl border border-border bg-card p-5">
-          <h3 className="font-bold">اطلاعات اپلیکیشن</h3>
+          <h3 className="font-bold">{detail.listingChanges ? 'اطلاعات فعلی اپلیکیشن' : 'اطلاعات اپلیکیشن'}</h3>
           <div className="mt-4 grid gap-3 sm:grid-cols-2">
             <Fact label="عنوان" value={detail.app.name} />
             <Fact label="عنوان انگلیسی" value={detail.app.nameEn || '—'} />
             <Fact label="Package Name" value={detail.app.packageName} ltr />
-            <Fact label="دسته‌بندی" value={`${detail.app.category.name} (#${detail.app.category.id})`} />
+            <Fact label="دسته‌بندی" value={detail.app.category?.name || '—'} />
             <Fact label="نوع" value={detail.app.applicationType === 2 ? 'بازی' : 'برنامه'} />
             <Fact label="محدودیت سنی" value={String(detail.app.ageLimit)} />
             <Fact label="تعداد نصب فعلی" value={String(detail.installCount ?? 0)} />
@@ -288,7 +295,7 @@ function SubmissionDetailView({
             <Fact label="وضعیت حساب" value={detail.developer.isActive ? 'فعال' : 'غیرفعال'} />
             {detail.publishedApplication && <Fact label="اپلیکیشن فعلی استور" value={detail.publishedApplication.name + ' · ' + detail.publishedApplication.packageName} />}
           </div>
-          {!detail.app.category.isValid && (
+          {detail.app.category?.isValid === false && (
             <p className="mt-4 rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 text-sm text-amber-800">
               دسته‌بندی این درخواست دیگر معتبر نیست؛ تأیید ممکن است در Recheck شکست بخورد.
             </p>
@@ -313,9 +320,9 @@ function SubmissionDetailView({
             {detail.app.backgroundImageUrl && <MediaImage label="تصویر پس‌زمینه" src={detail.app.backgroundImageUrl} />}
           </div>
           <div className="mt-4 grid gap-3 sm:grid-cols-3">
-            {detail.icons.userIconUrl && <MediaImage label="آیکون توسعه‌دهنده" src={detail.icons.userIconUrl} square />}
-            {detail.icons.extractedIconUrl && <MediaImage label="آیکون استخراج‌شده" src={detail.icons.extractedIconUrl} square />}
-            {detail.icons.currentStoreIconUrl && <MediaImage label="آیکون فعلی استور" src={detail.icons.currentStoreIconUrl} square />}
+            {icons.userIconUrl && <MediaImage label="آیکون توسعه‌دهنده" src={icons.userIconUrl} square />}
+            {icons.extractedIconUrl && <MediaImage label="آیکون استخراج‌شده" src={icons.extractedIconUrl} square />}
+            {icons.currentStoreIconUrl && <MediaImage label="آیکون فعلی استور" src={icons.currentStoreIconUrl} square />}
           </div>
           {detail.app.screenshots.length > 0 && (
             <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3">
@@ -328,8 +335,9 @@ function SubmissionDetailView({
           )}
         </section>
 
-        <section className="rounded-xl border border-border bg-card p-5">
+        {!listingOnly && <section className="rounded-xl border border-border bg-card p-5">
           <h3 className="font-bold">گزارش پردازش APK</h3>
+          {detail.apkUrl && <a href={detail.apkUrl} target="_blank" rel="noreferrer" className="mt-3 inline-block text-sm text-primary">دریافت فایل APK درخواست</a>}
           {detail.parseReport ? (
             <div className="mt-4 grid gap-3 sm:grid-cols-2">
               <Fact label="Package Name فایل" value={detail.parseReport.packageName} ltr />
@@ -353,22 +361,22 @@ function SubmissionDetailView({
               <p className="mt-2 break-all font-mono text-xs" dir="ltr">{detail.parseReport.publicKey}</p>
             </div>
           )}
-        </section>
+        </section>}
 
-        {(detail.issues.length > 0 || detail.permissions.length > 0) && (
+        {(issues.length > 0 || permissions.length > 0) && (
           <section className="rounded-xl border border-border bg-card p-5">
             <h3 className="font-bold">خطاها، هشدارها و Permissionها</h3>
             <div className="mt-4 flex flex-col gap-2">
-              {detail.issues.map((issue) => (
+              {issues.map((issue) => (
                 <div key={issue.id} className={`rounded-lg border p-3 text-sm ${issue.severity === 'error' ? 'border-destructive/30 bg-destructive/5' : 'border-amber-500/30 bg-amber-500/5'}`}>
                   <span className="font-semibold" dir="ltr">{issue.code}</span>
                   <p className="mt-1 leading-7">{issue.message}</p>
                 </div>
               ))}
             </div>
-            {detail.permissions.length > 0 && (
+            {permissions.length > 0 && (
               <div className="mt-4 flex flex-wrap gap-2">
-                {detail.permissions.map((permission) => (
+                {permissions.map((permission) => (
                   <span key={permission.name} className={`rounded-full px-2.5 py-1 text-xs ${permission.isUnknown ? 'bg-amber-500/10 text-amber-800' : permission.isNew ? 'bg-primary/10 text-primary' : 'bg-secondary'}`} dir="ltr">
                     {permission.name}{permission.isNew ? ' · NEW' : ''}{permission.isUnknown ? ' · UNKNOWN' : ''}
                   </span>
@@ -378,11 +386,11 @@ function SubmissionDetailView({
           </section>
         )}
 
-        {(detail.decisions.length > 0 || detail.otherSubmissions.length > 0) && (
+        {(decisions.length > 0 || otherSubmissions.length > 0) && (
           <section className="rounded-xl border border-border bg-card p-5">
             <h3 className="font-bold">سابقه بررسی</h3>
             <div className="mt-4 flex flex-col gap-3">
-              {detail.decisions.map((decision) => (
+              {decisions.map((decision) => (
                 <div key={decision.id} className="rounded-lg bg-secondary/50 p-3 text-sm">
                   <div className="flex flex-wrap items-center gap-2">
                     <Badge variant="outline">{decision.decision === 'approved' ? 'تأیید' : 'رد'}</Badge>
@@ -392,7 +400,7 @@ function SubmissionDetailView({
                   {decision.reason && <p className="mt-2 whitespace-pre-wrap">{decision.reason}</p>}
                 </div>
               ))}
-              {detail.otherSubmissions.map((submission) => (
+              {otherSubmissions.map((submission) => (
                 <div key={submission.id} className="rounded-lg border border-border p-3 text-sm">
                   <span>درخواست #{submission.id.toLocaleString('fa-IR')} · {adminSubmissionKindLabel(submission.kind)}</span>
                   <span className="mr-2 text-xs text-muted-foreground">{faDate(submission.submittedAt)}</span>
@@ -418,6 +426,7 @@ function SubmissionDetailView({
           <section className="rounded-xl border border-primary/25 bg-card p-5">
             <h3 className="font-bold">تأیید و انتشار</h3>
             <div className="mt-4 flex flex-col gap-3">
+              {!listingOnly && <>
               <div>
                 <label className="text-sm font-medium">Client Variation</label>
                 <select
@@ -448,12 +457,12 @@ function SubmissionDetailView({
                     className="mt-1.5 h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
                   >
                     <option value="">انتخاب کنید</option>
-                    {detail.icons.availableSources.map((source) => (
+                    {icons.availableSources.map((source) => (
                       <option key={source} value={source}>{source === 'USER' ? 'آیکون توسعه‌دهنده' : 'آیکون استخراج‌شده از APK'}</option>
                     ))}
                   </select>
                   {fieldErrors.iconSource && <p role="alert" className="mt-2 text-xs text-destructive">{fieldErrors.iconSource}</p>}
-                  {detail.icons.availableSources.length === 0 && (
+                  {icons.availableSources.length === 0 && (
                     <p className="mt-2 text-xs text-destructive">هیچ آیکونی برای تأیید انتشار اولیه موجود نیست.</p>
                   )}
                 </div>
@@ -464,12 +473,14 @@ function SubmissionDetailView({
                   <input type="checkbox" checked={createUnknownPermissions} onChange={(event) => setCreateUnknownPermissions(event.target.checked)} className="mt-1" />
                   Permissionهای ناشناخته در استور ساخته و به اپلیکیشن متصل شوند:
                   <span className="block text-xs text-muted-foreground" dir="ltr">
-                    {detail.permissions.filter((permission) => permission.isUnknown).map((permission) => permission.name).join(', ')}
+                    {permissions.filter((permission) => permission.isUnknown).map((permission) => permission.name).join(', ')}
                   </span>
                 </label>
               )}
 
               {fieldErrors.createUnknownPermissions && <p role="alert" className="text-xs text-destructive">{fieldErrors.createUnknownPermissions}</p>}
+              </>}
+              {listingOnly && <p className="text-sm leading-7 text-muted-foreground">این درخواست فقط اطلاعات و تصاویر را تغییر می‌دهد و APK جدید ندارد.</p>}
               <Button type="button" disabled={!canApprove || busy !== null} onClick={() => void decide('approve')} className="gap-2">
                 {busy === 'approve' && <Loader2 className="size-4 animate-spin" />}
                 تأیید و انتشار

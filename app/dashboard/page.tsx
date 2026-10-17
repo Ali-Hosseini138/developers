@@ -220,7 +220,7 @@ function AppsTab({ myApps, cancelSubmission }: { myApps: ReturnType<typeof useSt
                   {Boolean(app.submissionHistory?.length) && <details className="mt-3 rounded-lg border border-border p-3 text-xs">
                     <summary className="cursor-pointer font-medium">تاریخچه ارسال‌ها</summary>
                     <ol className="mt-3 space-y-3">{app.submissionHistory!.map(submission => <li key={submission.id} className="rounded-lg bg-secondary/50 p-3 leading-6">
-                      <p>درخواست {toFa(submission.id)} · {submission.kind === 'new' ? 'انتشار اولیه' : 'نسخه جدید'} · {submission.statusDisplay}</p>
+                      <p>درخواست {toFa(submission.id)} · {submission.kind === 'new' ? 'انتشار اولیه' : 'نسخه جدید'} · {submission.statusDisplay}{submission.hasApk === false && submission.hasListingChanges ? ' · تغییر اطلاعات بدون APK' : submission.hasListingChanges ? ' · APK و اطلاعات' : ''}</p>
                       {submission.versionName && <p>نسخه: <span dir="ltr">{submission.versionName}</span></p>}
                       {([['ارسال', submission.submittedAt], ['نتیجه بررسی', submission.decidedAt], ['لغو', submission.cancelledAt]] as const).map(([label, value]) => value && <p key={label}>{label}: {new Date(value).toLocaleString('fa-IR', { timeZone: 'Asia/Tehran' })}</p>)}
                       {submission.rejectionReason && <p className="whitespace-pre-wrap text-destructive">دلیل رد: {submission.rejectionReason}</p>}
@@ -237,6 +237,7 @@ function AppsTab({ myApps, cancelSubmission }: { myApps: ReturnType<typeof useSt
                 </div>
 
                 <div className="flex flex-wrap items-center gap-2">
+                  {app.hasDraft && <Badge variant="outline">پیش‌نویس اطلاعات</Badge>}
                   {app.canEdit && (
                     <Button render={<Link href={`/dashboard/edit/${app.id}`} />} size="sm" variant="outline" className="gap-1">
                       <Pencil className="size-4" />
@@ -246,7 +247,7 @@ function AppsTab({ myApps, cancelSubmission }: { myApps: ReturnType<typeof useSt
                   {app.canSubmit && (
                     <Button render={<Link href={`/dashboard/version/${app.id}`} />} size="sm" className="gap-1">
                       <Plus className="size-4" />
-                      {app.isPublished ? 'نسخه جدید' : 'ارسال APK جدید'}
+                      {app.isPublished && app.hasDraft ? 'ارسال تغییرات برای بررسی' : app.isPublished ? 'نسخه جدید' : 'ارسال APK جدید'}
                     </Button>
                   )}
                   {app.latestSubmissionCanCancel && app.latestSubmissionId && (

@@ -3,6 +3,8 @@ import type { StoreApp } from '@/lib/types'
 export type DeveloperSubmission = {
   id: number
   appId: number
+  hasApk?: boolean
+  hasListingChanges?: boolean
   kind: 'new' | 'update'
   status: 'processing' | 'parse_failed' | 'pending_review' | 'approved' | 'rejected' | 'cancelled'
   statusDisplay: string
@@ -18,6 +20,8 @@ export type DeveloperSubmission = {
 }
 
 export type DeveloperHubApp = {
+  hasDraft?: boolean
+  draft?: Partial<Omit<DeveloperHubApp, 'draft'>> & { changedFields?: string[]; removeIcon?: boolean } | null
   id: number
   packageName: string
   developerEmail?: string
@@ -68,6 +72,9 @@ function normalizeStatus(app: DeveloperHubApp): StoreApp['status'] {
 export function mapDeveloperHubApp(row: DeveloperHubApp, developer = 'توسعه‌دهنده'): StoreApp {
   const latest = row.latestSubmission || row.submissions?.[0] || null
   return {
+    hasDraft: Boolean(row.hasDraft),
+    draftChangedFields: row.draft?.changedFields || [],
+    draft: row.draft ? mapDeveloperHubApp({ ...row, ...row.draft, id: row.id, packageName: row.packageName, isPublished: row.isPublished, canEdit: row.canEdit, canSubmit: row.canSubmit, hasDraft: row.hasDraft, ...(row.draft.removeIcon ? { iconUrl: null } : {}), draft: null }, developer) : null,
     id: String(row.id),
     supportEmail: row.developerEmail || '',
     website: row.developerWebsite || '',

@@ -25,6 +25,9 @@ export interface AppReview {
 }
 
 export interface StoreApp {
+  hasDraft?: boolean
+  draft?: StoreApp | null
+  draftChangedFields?: string[]
   id: string
   name: string
   nameEn?: string
@@ -76,7 +79,7 @@ export interface StoreApp {
   canEdit?: boolean
   canSubmit?: boolean
   isPublished?: boolean
-  submissionHistory?: Array<{ id: number; kind: 'new' | 'update'; statusDisplay: string; versionName: string | null; submittedAt: string; decidedAt: string | null; cancelledAt: string | null; rejectionReason: string | null }>
+  submissionHistory?: Array<{ id: number; kind: 'new' | 'update'; hasApk?: boolean; hasListingChanges?: boolean; statusDisplay: string; versionName: string | null; submittedAt: string; decidedAt: string | null; cancelledAt: string | null; rejectionReason: string | null }>
   latestSubmissionId?: string
   latestSubmissionStatus?: string
   latestSubmissionDisplay?: string

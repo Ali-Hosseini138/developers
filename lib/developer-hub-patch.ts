@@ -23,6 +23,7 @@ export type DeveloperAppMetadata = {
 const metadataValue = (value: unknown) => String(value ?? '').replace(/\r\n?/g, '\n').trim()
 
 export const developerMetadataLabels: Record<string, string> = {
+  draft: 'پیش‌نویس', icon: 'آیکون', banner: 'بنر', backgroundImage: 'تصویر پس‌زمینه', screenshots: 'تصاویر محیط اپلیکیشن',
   developerEmail: 'ایمیل پشتیبانی', developerWebsite: 'وب‌سایت',
   hasInAppPayment: 'پرداخت درون‌برنامه‌ای', paymentCommitmentAccepted: 'پذیرش تعهد پرداخت',
   packageName: 'پکیج‌نیم', name: 'عنوان فارسی', nameEn: 'عنوان انگلیسی',
@@ -53,9 +54,11 @@ export function changedDeveloperMetadata(app: StoreApp, next: DeveloperAppMetada
 
 // A successful PATCH is not enough to claim that a corrected package name persisted.
 export function unconfirmedDeveloperMetadata(patch: Record<string, string>, detail: Record<string, unknown>) {
+  const listing = detail.isPublished ? detail.draft as Record<string, unknown> | null : detail
+  if (!listing || typeof listing !== 'object') return Object.keys(patch)
   return Object.keys(patch).filter((key) => {
-    if (key === 'paymentCommitmentAccepted') return patch[key] === 'true' && !detail.paymentCommitmentAcceptedAt
-    const value = key === 'categoryId' ? detail.categoryId ?? (detail.category as { id?: unknown } | null)?.id : detail[key]
+    if (key === 'paymentCommitmentAccepted') return patch[key] === 'true' && !(listing.paymentCommitmentAcceptedAt || listing.paymentCommitmentAccepted === true)
+    const value = key === 'categoryId' ? listing.categoryId ?? (listing.category as { id?: unknown } | null)?.id : listing[key]
     return metadataValue(value) !== metadataValue(patch[key])
   })
 }

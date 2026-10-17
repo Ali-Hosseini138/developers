@@ -43,10 +43,13 @@ export default function NewVersionPage() {
   if (!app.canSubmit && !saved) return <main className="mx-auto max-w-2xl px-4 py-10 sm:px-6"><Link href="/dashboard" className="text-sm text-primary">بازگشت به داشبورد</Link><div className="mt-6 rounded-2xl border border-dashed border-border p-8 text-center text-sm text-muted-foreground">در حال حاضر امکان ارسال APK جدید برای این اپلیکیشن وجود ندارد؛ یک درخواست فعال در جریان است.</div></main>
 
   const appId = app.id
+  const canSubmit = app.canSubmit
+  const hasListingDraft = Boolean(app.isPublished && app.hasDraft)
 
   async function submit(event: React.FormEvent) {
     event.preventDefault()
-    if (!apkFile || !changes.trim() || submitting.current || saved) return
+    if ((!apkFile && !hasListingDraft) || changes.trim().length > 5000 || submitting.current || saved || !canSubmit) return
+    if (apkFile && (!apkFile.name.toLowerCase().endsWith('.apk') || apkFile.size <= 0 || apkFile.size > MAX_APK_SIZE)) { setErrorMessage('فایل APK معتبر و حداکثر ۳۰۰ مگابایت انتخاب کنید.'); return }
 
     submitting.current = true
     setSaving(true)
@@ -54,7 +57,7 @@ export default function NewVersionPage() {
     setErrorMessage('')
 
     const formData = new FormData()
-    formData.append('apkFile', apkFile)
+    if (apkFile) formData.append('apkFile', apkFile)
     if (changes.trim()) formData.append('changeLog', changes.trim())
 
     try {
@@ -86,20 +89,26 @@ export default function NewVersionPage() {
       </Link>
 
       <div className="mt-8">
-        <p className="text-sm font-semibold text-primary">{app.isPublished ? 'انتشار نسخه جدید' : 'ارسال مجدد APK'}</p>
+        <p className="text-sm font-semibold text-primary">{hasListingDraft ? 'ارسال تغییرات برای بررسی' : app.isPublished ? 'انتشار نسخه جدید' : 'ارسال مجدد APK'}</p>
         <h1 className="mt-2 text-3xl font-bold">{app.name}</h1>
         <p className="mt-2 text-sm leading-7 text-muted-foreground">
-          فایل APK نسخه جدید را برای بررسی ارسال کنید.
+          {hasListingDraft ? 'پیش‌نویس ذخیره‌شده برای بررسی ارسال می‌شود. در صورت نیاز می‌توانید APK جدید را نیز همراه آن بفرستید.' : 'فایل APK نسخه جدید را برای بررسی ارسال کنید.'}
         </p>
       </div>
 
+      {hasListingDraft && <section className="mt-6 rounded-2xl border border-primary/20 bg-primary/5 p-5 text-sm leading-7">
+        <h2 className="font-bold">تغییرات اطلاعات اپلیکیشن</h2>
+        <p className="mt-2">عنوان پیشنهادی: {app.draft?.name || app.name}</p>
+        <p>اطلاعات فعلی فروشگاه تا تأیید کارشناس حفظ می‌شود. برای ارسال این پیش‌نویس، APK جدید الزامی نیست.</p>
+        {app.canEdit && <Link href={`/dashboard/edit/${app.id}`} className="mt-3 inline-block font-semibold text-primary">بازبینی و ویرایش پیش‌نویس</Link>}
+      </section>}
       <form onSubmit={submit} className="mt-8 flex flex-col gap-5 rounded-2xl border border-border bg-card p-6">
         <fieldset disabled={saving || saved} className="contents">
         <div>
           <FileDropzone
             disabled={saving || saved}
             accept=".apk,application/vnd.android.package-archive"
-            label={app.isPublished ? 'فایل APK نسخه جدید' : 'فایل APK جدید'}
+            label={hasListingDraft ? 'فایل APK جدید — اختیاری' : app.isPublished ? 'فایل APK نسخه جدید' : 'فایل APK جدید'}
             hint="حداکثر حجم قابل قبول در این پنل ۳۰۰ مگابایت است."
             onFiles={(files) => {
               const file = files[0]
@@ -109,7 +118,7 @@ export default function NewVersionPage() {
                 setErrorMessage('فایل انتخاب‌شده باید با پسوند APK باشد.')
                 return
               }
-              if (file.size > MAX_APK_SIZE) {
+              if (file.size <= 0 || file.size > MAX_APK_SIZE) {
                 setApkFile(null)
                 setErrorMessage('حجم فایل APK نباید بیشتر از ۳۰۰ مگابایت باشد.')
                 return
@@ -119,8 +128,9 @@ export default function NewVersionPage() {
             }}
           />
           <p className="mt-2 text-center text-xs text-muted-foreground">
-            {apkFile ? `${apkFile.name} — ${(apkFile.size / 1024 / 1024).toFixed(1)} MB` : 'فایل APK را انتخاب کنید.'}
+            {apkFile ? `${apkFile.name} — ${(apkFile.size / 1024 / 1024).toFixed(1)} MB` : hasListingDraft ? 'بدون APK، فقط پیش‌نویس اطلاعات برای بررسی ارسال می‌شود.' : 'فایل APK را انتخاب کنید.'}
           </p>
+          {apkFile && hasListingDraft && <Button type="button" variant="ghost" size="sm" onClick={() => setApkFile(null)}>لغو انتخاب APK؛ ارسال فقط اطلاعات</Button>}
         </div>
 
         <div>
@@ -132,7 +142,7 @@ export default function NewVersionPage() {
         </div>
 
         <div>
-          <Label htmlFor="changes">تغییرات نسخه <Badge variant="secondary">اجباری</Badge></Label>
+          <Label htmlFor="changes">شرح تغییرات <Badge variant="secondary">اختیاری</Badge></Label>
           <Textarea
             id="changes"
             value={changes}
@@ -140,7 +150,6 @@ export default function NewVersionPage() {
             placeholder="ویژگی‌های جدید، رفع مشکلات و تغییرات این نسخه را بنویسید..."
             className="mt-1.5 min-h-40"
             maxLength={5000}
-            required
           />
         </div>
 
@@ -154,7 +163,7 @@ export default function NewVersionPage() {
             <div className="flex items-center justify-between gap-4 text-sm">
               <span className="flex items-center gap-2 font-medium">
                 {uploadProgress >= 100 ? <Check className="size-4 text-primary" /> : <Loader2 className="size-4 animate-spin text-primary" />}
-                {uploadProgress >= 100 ? 'فایل APK آپلود شد؛ در حال ثبت درخواست...' : 'در حال آپلود فایل APK...'}
+                {!apkFile ? 'در حال ارسال پیش‌نویس برای بررسی...' : uploadProgress >= 100 ? 'فایل APK آپلود شد؛ در حال ثبت درخواست...' : 'در حال آپلود فایل APK...'}
               </span>
               <span className="font-bold text-primary" dir="ltr">{toFa(uploadProgress)}٪</span>
             </div>
@@ -167,9 +176,9 @@ export default function NewVersionPage() {
 
         {errorMessage && <p role="alert" className="rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive">{errorMessage}</p>}
 
-        <Button type="submit" disabled={saving || saved || !apkFile || !changes.trim()} className="gap-2">
+        <Button type="submit" disabled={saving || saved || (!apkFile && !hasListingDraft) || changes.trim().length > 5000} className="gap-2">
           {saving ? <Loader2 className="size-4 animate-spin" /> : saved ? <Check className="size-4" /> : <UploadCloud className="size-4" />}
-          {saving ? 'در حال ثبت...' : saved ? 'درخواست ثبت شد' : app.isPublished ? 'ارسال نسخه برای بررسی' : 'ارسال APK جدید'}
+          {saving ? 'در حال ثبت...' : saved ? 'درخواست ثبت شد' : hasListingDraft ? 'ارسال تغییرات برای بررسی' : app.isPublished ? 'ارسال نسخه برای بررسی' : 'ارسال APK جدید'}
         </Button>
         </fieldset>
       </form>
