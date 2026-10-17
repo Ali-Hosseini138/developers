@@ -20,7 +20,7 @@ function session(apiResponse) {
     'next/headers': { cookies: async () => ({ get: name => ({ value: name === 'refresh' ? 'valid-refresh' : name === 'email' ? 'dev@example.com' : 'signed' }) }) },
     'next/server': { NextResponse: { json: (body, init) => ({ status: init?.status || 200, body, headers: new Headers(init?.headers), cookies: { set: (...args) => mutations.push(args) } }) } },
     '@/lib/developer-api': { developerApi: async () => apiResponse.clone(), ACCESS_COOKIE: 'access', EMAIL_COOKIE: 'email', REFRESH_COOKIE: 'refresh', authCookieOptions: () => ({ httpOnly: true }) },
-    '@/lib/developer-identity': { OWNER_COOKIE: 'owner', decodeDeveloperIdentity: () => ({ id: '42', email: 'dev@example.com' }), encodeDeveloperIdentity: () => 'signed' },
+    '@/lib/developer-profile': { mapDeveloperProfile: value => ({ ...value, id: String(value.id) }) },
   }).GET
   return { handler, mutations }
 }
@@ -110,7 +110,6 @@ function store(fetcher) {
   const model = load('lib/developer-hub-model.ts')
   const provider = load('components/store-provider.tsx', { react: h.api,
     '@/lib/support-tickets': load('lib/support-tickets.ts'), '@/lib/developer-hub-model': model,
-    '@/lib/supabase/client': { createClient: () => ({ from: () => ({ select: () => ({ eq: () => ({ order: async () => ({ data: [], error: null }) }) }) }) }) },
   }, { fetch: fetcher, window: { location: { assign: value => redirects.push(value) }, setInterval() {}, clearInterval() {} } }).StoreProvider
   const render = () => { h.begin(); return provider({ children: null }).props.value }
   return { render, mount() { render(); for (const effect of h.effects()) effect() }, redirects }

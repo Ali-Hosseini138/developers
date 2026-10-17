@@ -21,16 +21,6 @@ const nextConfig = {
       },
     ]
   },
-  async headers() {
-    return [
-      {
-        source: '/backend-api/:path*',
-        headers: [
-          { key: 'x-vercel-enable-rewrite-caching', value: '0' },
-        ],
-      },
-    ]
-  },
 }
 
 export default nextConfig

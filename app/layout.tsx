@@ -1,4 +1,3 @@
-import { Analytics } from '@vercel/analytics/next'
 import type { Metadata, Viewport } from 'next'
 import { Vazirmatn, JetBrains_Mono } from 'next/font/google'
 import { StoreProvider } from '@/components/store-provider'
@@ -42,8 +41,6 @@ export default function RootLayout({
         <StoreProvider>
           <SiteChrome>{children}</SiteChrome>
         </StoreProvider>
-        {process.env.NODE_ENV === 'production' &&
-          process.env.DISABLE_VERCEL_ANALYTICS !== '1' && <Analytics />}
       </body>
     </html>
   )

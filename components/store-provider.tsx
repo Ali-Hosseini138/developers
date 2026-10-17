@@ -1,7 +1,6 @@
 'use client'
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
-import { createClient } from '@/lib/supabase/client'
 import type { StoreApp, SupportTicket, User } from '@/lib/types'
 import { ticketError } from '@/lib/support-tickets'
 import { mapDeveloperHubApp } from '@/lib/developer-hub-model'
@@ -30,9 +29,6 @@ interface StoreContextValue {
 
 const StoreContext = createContext<StoreContextValue | null>(null)
 
-function mapApp(row: Record<string, any>): StoreApp {
-  return { id: row.id, name: row.name, nameEn: row.name_en || undefined, tagline: row.tagline || '', taglineEn: row.tagline_en || undefined, description: row.description || '', descriptionEn: row.description_en || undefined, category: row.category || 'تکنولوژی و اینترنت', icon: row.icon_path ? `/api/blob-file?pathname=${encodeURIComponent(row.icon_path)}` : row.icon_url || '/placeholder.svg', banner: row.banner_path ? `/api/blob-file?pathname=${encodeURIComponent(row.banner_path)}` : row.banner_url || undefined, screenshots: (row.screenshot_paths || []).map((path: string) => `/api/blob-file?pathname=${encodeURIComponent(path)}`), developer: row.owner_name || 'توسعه‌دهنده', ownerId: row.owner_id || undefined, status: row.status || 'draft', version: '', price: 0, rating: 0, downloads: 0, platforms: [], tags: [], updatedAt: new Date(row.updated_at).toLocaleDateString('fa-IR'), reviews: [], website: row.website || undefined, supportEmail: row.support_email || undefined, packageName: row.package_name || undefined, ageRestriction: row.age_restriction || undefined, hasInAppPayment: Boolean(row.has_in_app_payment), netboxPaymentIntegrated: Boolean(row.netbox_payment_integrated), netboxPaymentGraceAccepted: Boolean(row.netbox_payment_grace_accepted), netboxPaymentGraceDeadline: row.netbox_payment_grace_deadline || undefined, developedForAndroidTv: row.developed_for_android_tv !== false, airMouseCompatible: Boolean(row.air_mouse_compatible), reviewReason: row.review_reason || undefined, reviewedAt: row.reviewed_at || undefined, apkName: row.apk_name || undefined, apkSize: row.apk_size ? `${(Number(row.apk_size) / 1024 / 1024).toFixed(1)} مگابایت` : undefined, apkPath: row.apk_path || undefined, iconPath: row.icon_path || undefined, bannerPath: row.banner_path || undefined, screenshotPaths: row.screenshot_paths || [] }
-}
 
 export function StoreProvider({ children }: { children: ReactNode }) {
   const [apps, setApps] = useState<StoreApp[]>([])
@@ -54,15 +50,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const loadPublishedApps = useCallback(async () => {
     setPublishedAppsLoading(true)
     try {
-      const { data, error } = await createClient()
-        .from('apps')
-        .select('*')
-        .eq('status', 'published')
-        .order('updated_at', { ascending: false })
-
-      if (error || !data) throw new Error('published_apps_unavailable')
-      const rows = data as Record<string, any>[]
-      setApps(rows.map(mapApp))
+      const response = await fetch('/api/catalog', { cache: 'no-store' })
+      const payload = await response.json()
+      if (!response.ok || !Array.isArray(payload.apps)) throw new Error('published_apps_unavailable')
+      setApps(payload.apps)
       setPublishedAppsError('')
     } catch { setPublishedAppsError('دریافت اطلاعات فروشگاه انجام نشد.') }
     finally { setPublishedAppsLoading(false) }
@@ -140,12 +131,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         const sessionUser = payload.user ?? null
 
         if (sessionUser?.id) {
-          const profileResponse = await fetch('/api/developer/profile', { cache: 'no-store' }).catch(() => null)
-
-          const profilePayload = profileResponse?.ok ? await profileResponse.json().catch(() => null) : null
-          if (generation !== accountGeneration.current) return
-          if (!profilePayload?.profile) throw new Error('profile_unavailable')
-          const nextUser = profilePayload.profile
+          const nextUser = sessionUser
           setUser(nextUser)
           setAuthReady(true)
 

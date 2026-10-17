@@ -133,12 +133,7 @@ function AuthFormInner({ mode }: { mode: 'login' | 'signup' }) {
           : extractError(payload) || 'ورود انجام نشد.')
         return
       }
-      login({
-        id: payload.user?.id,
-        name: payload.user?.name || normalizedEmail.split('@')[0] || 'توسعه‌دهنده',
-        email: payload.user?.email || normalizedEmail,
-        termsAcceptedAt: new Date().toISOString(),
-      })
+      login(payload.user)
       window.location.assign(next)
     } catch {
       setErrorMessage('ارتباط با سرویس احراز هویت برقرار نشد. دوباره تلاش کنید.')

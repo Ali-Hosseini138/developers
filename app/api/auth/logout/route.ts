@@ -1,7 +1,6 @@
 import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
 import { ACCESS_COOKIE, EMAIL_COOKIE, REFRESH_COOKIE, developerApi } from '@/lib/developer-api'
-import { OWNER_COOKIE } from '@/lib/developer-identity'
 
 export async function POST() {
   const store = await cookies()
@@ -19,7 +18,7 @@ export async function POST() {
   }
 
   const result = NextResponse.json({ ok: true })
-  for (const name of [ACCESS_COOKIE, REFRESH_COOKIE, EMAIL_COOKIE, OWNER_COOKIE]) {
+  for (const name of [ACCESS_COOKIE, REFRESH_COOKIE, EMAIL_COOKIE, 'developer_owner']) {
     result.cookies.set(name, '', { path: '/', maxAge: 0 })
   }
   return result

@@ -24,12 +24,7 @@ test('standalone is opt-in and Django upload rewrites keep their trailing slash'
 
 test('self-host configuration fails closed without printing credential values', async () => {
   const { validateSelfhostEnv } = await import(pathToFileURL(resolve('scripts/check-selfhost-env.mjs')))
-  const valid = {
-    NEXT_PUBLIC_SUPABASE_URL: 'https://example.supabase.co',
-    NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: 'public-key',
-    SUPABASE_SERVICE_ROLE_KEY: 'private-secret',
-    DEVELOPER_API_BASE_URL: 'https://backend.example',
-  }
+  const valid = { DEVELOPER_API_BASE_URL: 'https://backend.example' }
   assert.deepEqual(validateSelfhostEnv(valid), [])
   for (const value of ['http://backend.example', 'https://backend.example/', 'https://u:secret@backend.example', 'https://backend.example/api', 'https://backend.example?q=1', 'https://backend.example#x', 'https://backend.example;\ninvalid']) {
     const errors = validateSelfhostEnv({ ...valid, DEVELOPER_API_BASE_URL: value })
