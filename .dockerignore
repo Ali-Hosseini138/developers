@@ -1,0 +1,11 @@
+node_modules
+.next
+.git
+.vercel
+.env
+.env.*
+backups
+*.bundle
+supabase/.temp
+tsconfig.tsbuildinfo
+next-env.d.ts
