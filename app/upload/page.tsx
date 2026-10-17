@@ -49,6 +49,7 @@ export default function UploadPage() {
   const [description, setDescription] = useState('')
   const [packageName, setPackageName] = useState('')
   const [categoryId, setCategoryId] = useState('')
+  const [categoryName, setCategoryName] = useState('')
   const [applicationType, setApplicationType] = useState<'1' | '2'>('1')
   const [ageLimit, setAgeLimit] = useState('0')
 
@@ -412,7 +413,7 @@ export default function UploadPage() {
 
             <div className="grid gap-4 sm:grid-cols-2">
           <Field error={fieldErrors.categoryId} label="دسته‌بندی" required>
-            <DeveloperCategorySelect value={categoryId} onChange={setCategoryId} />
+            <DeveloperCategorySelect value={categoryId} onChange={(id, name) => { setCategoryId(id); setCategoryName(name) }} />
           </Field>
 
               <Field error={fieldErrors.applicationType} label="نوع اپلیکیشن" required>
@@ -508,17 +509,14 @@ export default function UploadPage() {
                 {hasInAppPayment && <div className="mt-4 space-y-3">
                   <p className="text-sm leading-7">وضعیت پیاده‌سازی <Link href="/integrations/payment" target="_blank" rel="noopener noreferrer" className="text-primary underline">نت‌باکس پیمنت</Link> را انتخاب کنید.</p>
                   <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-border p-4 text-sm leading-7">
-                    <input type="radio" name="payment-choice" checked={paymentChoice === 'implemented'} onChange={() => { setPaymentChoice('implemented'); setSupportsNetboxPayment(true); setPaymentCommitmentAccepted(false) }} className="mt-1 size-4" />
-                    <span>نت‌باکس پیمنت را پیاده‌سازی کرده‌ام.</span>
+                    <input type="radio" name="payment-choice" checked={paymentChoice === 'implemented'} onChange={() => { setPaymentChoice('implemented'); setSupportsNetboxPayment(true); setPaymentCommitmentAccepted(true) }} className="mt-1 size-4" />
+                    <span>نت‌باکس پیمنت را پیاده‌سازی کرده‌ام.<span className="mt-1 block text-xs text-muted-foreground">مسئولیت تکمیل الزامات پرداخت را می‌پذیرم؛ اگر در بررسی نقصی مشخص شود، حداکثر تا یک ماه از اولین ارسال آن را برطرف می‌کنم.</span></span>
                   </label>
                   <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-border p-4 text-sm leading-7">
-                    <input type="radio" name="payment-choice" checked={paymentChoice === 'commitment'} onChange={() => { setPaymentChoice('commitment'); setSupportsNetboxPayment(false); setPaymentCommitmentAccepted(false) }} className="mt-1 size-4" />
+                    <input type="radio" name="payment-choice" checked={paymentChoice === 'commitment'} onChange={() => { setPaymentChoice('commitment'); setSupportsNetboxPayment(false); setPaymentCommitmentAccepted(true) }} className="mt-1 size-4" />
                     <span>متعهد می‌شوم حداکثر تا یک ماه از اولین ارسال، نت‌باکس پیمنت را پیاده‌سازی کنم.</span>
                   </label>
-                  {paymentChoice && <label className="flex cursor-pointer items-start gap-3 text-sm leading-7">
-                    <input type="checkbox" checked={paymentCommitmentAccepted} onChange={event => setPaymentCommitmentAccepted(event.target.checked)} className="mt-1 size-4" />
-                    <span>{paymentChoice === 'implemented' ? 'مسئولیت تکمیل الزامات پرداخت را می‌پذیرم؛ اگر در بررسی نقصی مشخص شود، حداکثر تا یک ماه از اولین ارسال آن را برطرف می‌کنم.' : 'تعهد یک‌ماهه از زمان اولین ارسال اپلیکیشن را می‌پذیرم.'}</span>
-                  </label>}
+
                 </div>}
               </div>
 
@@ -560,12 +558,12 @@ export default function UploadPage() {
                 ['عنوان فارسی', name],
                 ['عنوان انگلیسی', nameEn || '—'],
                 ['Package Name', packageName],
-                ['Category ID', categoryId],
-                ['نوع', applicationType === '2' ? 'بازی' : 'برنامه'],
+                ['دسته‌بندی', categoryName || 'انتخاب نشده'],
+                ['نوع اپلیکیشن', applicationType === '2' ? 'بازی' : 'برنامه'],
                 ['محدودیت سنی', ageLimit],
                 ['توضیحات انگلیسی', descriptionEn || '—'],
                 ['پرداخت درون‌برنامه‌ای', hasInAppPayment ? 'دارد' : 'ندارد'],
-                ['Netbox Payment', supportsNetboxPayment ? 'پشتیبانی می‌شود' : 'پشتیبانی نمی‌شود'],
+                ['نت‌باکس پیمنت', !hasInAppPayment ? 'نیاز ندارد' : supportsNetboxPayment ? 'پیاده‌سازی شده' : 'متعهد به پیاده‌سازی تا یک ماه'],
                 ['تعهد یک‌ماهه از اولین ارسال', hasInAppPayment && paymentCommitmentAccepted ? 'پذیرفته شده' : 'نیاز ندارد'],
                 ['نسخه مخصوص Android TV', developedForAndroidTv ? 'بله' : 'خیر — قابل استفاده با ایرماوس/ماوس'],
                 ['وبسایت', website || '—'],
