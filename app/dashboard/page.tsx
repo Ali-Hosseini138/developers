@@ -143,10 +143,12 @@ function AppsTab({ myApps, cancelSubmission }: { myApps: ReturnType<typeof useSt
     return 'وضعیت فعلی اپلیکیشن نمایش داده شده است.'
   }
 
-  const statusVariant = (status?: string): 'default' | 'secondary' | 'outline' => {
-    if (status === 'published') return 'default'
-    if (status === 'processing' || status === 'pending') return 'secondary'
-    return 'outline'
+  const statusTone = (status?: string) => {
+    if (status === 'published') return 'border-green-600/30 bg-green-50 text-green-800 dark:border-green-400/30 dark:bg-green-950/40 dark:text-green-300'
+    if (status === 'rejected') return 'border-red-600/30 bg-red-50 text-red-800 dark:border-red-400/30 dark:bg-red-950/40 dark:text-red-300'
+    if (status === 'parse_failed') return 'border-orange-600/30 bg-orange-50 text-orange-800 dark:border-orange-400/30 dark:bg-orange-950/40 dark:text-orange-300'
+    if (status === 'processing' || status === 'pending') return 'border-blue-600/30 bg-blue-50 text-blue-800 dark:border-blue-400/30 dark:bg-blue-950/40 dark:text-blue-300'
+    return 'border-border bg-secondary/50 text-muted-foreground'
   }
 
   async function cancel(appId: string, submissionId: string) {
@@ -207,7 +209,7 @@ function AppsTab({ myApps, cancelSubmission }: { myApps: ReturnType<typeof useSt
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
                     <h3 className="truncate font-semibold">{app.name}</h3>
-                    <Badge variant={statusVariant(app.status)}>{statusLabel(app)}</Badge>
+                    <Badge variant="outline" className={statusTone(app.status)}>{statusLabel(app)}</Badge>
                   </div>
                   <p className="mt-1 line-clamp-1 text-xs text-muted-foreground">{app.tagline}</p>
                   <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
@@ -215,7 +217,7 @@ function AppsTab({ myApps, cancelSubmission }: { myApps: ReturnType<typeof useSt
                     {app.isPublished && <span>نصب فعلی: {toFa(app.downloads)}</span>}
                     <span>آخرین تغییر: {app.updatedAt}</span>
                   </div>
-                  <p className="mt-2 text-xs">{statusHelp(app)}</p>
+                  <p className={`mt-2 rounded-lg border px-3 py-2 text-xs leading-6 ${statusTone(app.status)}`}>{statusHelp(app)}</p>
                   <PaymentCommitmentSummary app={app} />
                   {Boolean(app.submissionHistory?.length) && <details className="mt-3 rounded-lg border border-border p-3 text-xs">
                     <summary className="cursor-pointer font-medium">تاریخچه ارسال‌ها</summary>
@@ -228,10 +230,10 @@ function AppsTab({ myApps, cancelSubmission }: { myApps: ReturnType<typeof useSt
                   </details>}
 
                   {(app.status === 'rejected' || app.status === 'parse_failed') && (app.rejectionReason || app.latestSubmissionErrors?.length) ? (
-                    <div className="mt-3 rounded-lg border border-destructive/25 bg-destructive/5 px-3 py-2 text-sm">
+                    <div className={`mt-3 rounded-lg border px-3 py-2 text-sm ${statusTone(app.status)}`}>
                       <p className="mb-2 text-xs font-medium">نتیجه آخرین ارسال APK؛ این پیام خطای ذخیره اطلاعات نیست.</p>
-                      {app.rejectionReason && <p><span className="font-medium text-destructive">دلیل رد: </span>{app.rejectionReason}</p>}
-                      {app.latestSubmissionErrors?.map((item) => <p key={item.code} className="mt-1"><span className="font-medium text-destructive">{item.code}: </span>{item.message}</p>)}
+                      {app.rejectionReason && <p><span className="font-medium">دلیل رد: </span>{app.rejectionReason}</p>}
+                      {app.latestSubmissionErrors?.map((item) => <p key={item.code} className="mt-1"><span className="font-medium">{item.code}: </span>{item.message}</p>)}
                     </div>
                   ) : null}
                 </div>
