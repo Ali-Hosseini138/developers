@@ -130,7 +130,7 @@ function AuthFormInner({ mode }: { mode: 'login' | 'signup' }) {
         for (const [key, value] of Object.entries(registration)) {
           if (value !== null) form.append(key, String(value))
         }
-        form.append('ceoNationalCard', ceoNationalCard!)
+        form.append('identity_document_image', ceoNationalCard!)
         body = form
       }
       const response = await fetch('/api/auth/register', {

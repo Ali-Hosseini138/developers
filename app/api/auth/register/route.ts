@@ -5,11 +5,11 @@ export async function POST(request: Request) {
     let body: string | FormData
     if (request.headers.get('content-type')?.startsWith('multipart/form-data')) {
       const form = await request.formData()
-      const cards = form.getAll('ceoNationalCard')
+      const cards = form.getAll('identity_document_image')
       const card = cards[0]
       if (cards.length !== 1 || !card || typeof card === 'string' || form.get('accountType') !== 'legal' ||
           !['image/png', 'image/jpeg'].includes(card.type) || card.size === 0 || card.size > 2 * 1024 * 1024) {
-        return Response.json({ ceoNationalCard: ['تصویر کارت ملی مدیرعامل باید PNG یا JPEG غیرخالی و حداکثر ۲ مگابایت باشد و فقط برای شخص حقوقی ارسال شود.'] }, { status: 400 })
+        return Response.json({ identity_document_image: ['تصویر کارت ملی مدیرعامل باید PNG یا JPEG غیرخالی و حداکثر ۲ مگابایت باشد و فقط برای شخص حقوقی ارسال شود.'] }, { status: 400 })
       }
       body = form
     } else {
