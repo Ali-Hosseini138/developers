@@ -10,6 +10,7 @@ import { Label } from '@/components/ui/label'
 import { asciiDigits } from '@/lib/input-normalization'
 import { safeInternalPath } from '@/lib/safe-navigation'
 import { useStore } from '@/components/store-provider'
+import { FileDropzone } from '@/components/upload/file-dropzone'
 
 type AccountType = 'individual' | 'legal'
 const signupSteps = ['اطلاعات ورود', 'نوع حساب', 'اطلاعات هویتی', 'شماره موبایل']
@@ -215,12 +216,19 @@ function AuthFormInner({ mode }: { mode: 'login' | 'signup' }) {
               <div className="mt-5 grid gap-4 sm:grid-cols-2"><div><Label htmlFor="name">{accountType === 'legal' ? 'نام نماینده' : 'نام'}</Label><Input id="name" value={name} onChange={(e) => setName(e.target.value)} className="mt-1.5 h-11" /></div><div><Label htmlFor="lastName">{accountType === 'legal' ? 'نام خانوادگی نماینده' : 'نام خانوادگی'}</Label><Input id="lastName" value={lastName} onChange={(e) => setLastName(e.target.value)} className="mt-1.5 h-11" /></div></div>
               <div className="mt-5"><Label htmlFor="nationalId">{accountType === 'legal' ? 'شناسه ملی شرکت' : 'کد ملی'}</Label><Input id="nationalId" value={nationalId} onChange={(e) => setNationalId(asciiDigits(e.target.value).replace(/\D/g, ''))} dir="ltr" inputMode="numeric" className="mt-1.5 h-11 text-left" maxLength={accountType === 'legal' ? 11 : 10} /></div>
               {accountType === 'legal' && <div className="mt-5">
-                <Label htmlFor="ceo-national-card">تصویر کارت ملی مدیرعامل <span className="text-muted-foreground">(اختیاری)</span></Label>
-                <Input id="ceo-national-card" type="file" accept="image/png,image/jpeg" disabled={loading} aria-describedby="ceo-national-card-help" aria-invalid={Boolean(ceoNationalCardError)} className="mt-1.5" onChange={(event) => { selectCeoNationalCard(event.target.files?.[0]); event.currentTarget.value = '' }} />
-                <p id="ceo-national-card-help" className="mt-2 text-xs text-muted-foreground">تصویر واضح و خوانا؛ PNG یا JPEG، حداکثر ۲ مگابایت.</p>
+                <Label>تصویر کارت ملی مدیرعامل <span className="text-muted-foreground">(اختیاری)</span></Label>
+                <div className="mt-3">
+                  <FileDropzone
+                    accept="image/png,image/jpeg"
+                    label={ceoNationalCard ? 'جایگزینی تصویر کارت ملی مدیرعامل' : 'افزودن تصویر کارت ملی مدیرعامل'}
+                    hint="تصویر را اینجا رها کنید یا برای انتخاب کلیک کنید؛ PNG یا JPEG، حداکثر ۲ مگابایت."
+                    disabled={loading}
+                    onFiles={(files) => selectCeoNationalCard(files[0])}
+                  />
+                </div>
                 {ceoNationalCardError && <p role="alert" className="mt-2 text-xs text-destructive">{ceoNationalCardError}</p>}
-                {ceoNationalCard && <div className="mt-3 rounded-xl border border-border p-3">
-                  {ceoNationalCardPreview && <img src={ceoNationalCardPreview} alt="پیش‌نمایش کارت ملی مدیرعامل" className="max-h-48 max-w-full rounded-lg object-contain" />}
+                {ceoNationalCard && <div className="mt-3 rounded-xl border border-border p-4">
+                  {ceoNationalCardPreview && <img src={ceoNationalCardPreview} alt="پیش‌نمایش کارت ملی مدیرعامل" className="max-h-64 w-full rounded-lg object-contain" />}
                   <p className="mt-2 break-all text-xs text-muted-foreground">{ceoNationalCard.name}</p>
                   <Button type="button" variant="ghost" size="sm" disabled={loading} onClick={() => { setCeoNationalCard(null); setCeoNationalCardError('') }} className="mt-2 text-destructive">حذف تصویر</Button>
                 </div>}
