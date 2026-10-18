@@ -1,6 +1,6 @@
 'use client'
 
-import { Suspense, useMemo, useState } from 'react'
+import { Suspense, useEffect, useMemo, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { ArrowLeft, ArrowRight, Building2, Check, Eye, EyeOff, Loader2, UserRound } from 'lucide-react'
@@ -45,6 +45,9 @@ function AuthFormInner({ mode }: { mode: 'login' | 'signup' }) {
   const [lastName, setLastName] = useState('')
   const [organization, setOrganization] = useState('')
   const [nationalId, setNationalId] = useState('')
+  const [ceoNationalCard, setCeoNationalCard] = useState<File | null>(null)
+  const [ceoNationalCardPreview, setCeoNationalCardPreview] = useState('')
+  const [ceoNationalCardError, setCeoNationalCardError] = useState('')
   const [phone, setPhone] = useState('')
   const [email, setEmail] = useState(searchParams.get('email') || '')
   const [password, setPassword] = useState('')
@@ -54,6 +57,23 @@ function AuthFormInner({ mode }: { mode: 'login' | 'signup' }) {
   const [resending, setResending] = useState(false)
   const [errorMessage, setErrorMessage] = useState('')
   const [successMessage, setSuccessMessage] = useState('')
+
+  useEffect(() => {
+    if (!ceoNationalCard) { setCeoNationalCardPreview(''); return }
+    const preview = URL.createObjectURL(ceoNationalCard)
+    setCeoNationalCardPreview(preview)
+    return () => URL.revokeObjectURL(preview)
+  }, [ceoNationalCard])
+
+  function selectCeoNationalCard(file?: File) {
+    if (!file) return
+    if (!['image/png', 'image/jpeg'].includes(file.type) || file.size === 0 || file.size > 2 * 1024 * 1024) {
+      setCeoNationalCardError('تصویر PNG یا JPEG غیرخالی با حجم حداکثر ۲ مگابایت انتخاب کنید.')
+      return
+    }
+    setCeoNationalCardError('')
+    setCeoNationalCard(file)
+  }
 
   const isSignup = mode === 'signup'
   const registered = searchParams.get('registered') === '1'
@@ -92,20 +112,31 @@ function AuthFormInner({ mode }: { mode: 'login' | 'signup' }) {
     if (!accountType || !stepValid) return setErrorMessage('اطلاعات ثبت‌نام را کامل کنید.')
     setLoading(true)
     try {
+      const registration = {
+        accountType,
+        email: normalizedEmail,
+        password,
+        firstName: name.trim(),
+        lastName: lastName.trim(),
+        identityNumber: nationalId.trim(),
+        mobile: normalizedPhone || null,
+        companyName: accountType === 'legal' ? organization.trim() : '',
+        termsAccepted: true,
+      }
+      let body: string | FormData = JSON.stringify(registration)
+      const hasCard = accountType === 'legal' && ceoNationalCard
+      if (hasCard) {
+        const form = new FormData()
+        for (const [key, value] of Object.entries(registration)) {
+          if (value !== null) form.append(key, String(value))
+        }
+        form.append('ceoNationalCard', ceoNationalCard!)
+        body = form
+      }
       const response = await fetch('/api/auth/register', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          accountType,
-          email: normalizedEmail,
-          password,
-          firstName: name.trim(),
-          lastName: lastName.trim(),
-          identityNumber: nationalId.trim(),
-          mobile: normalizedPhone || null,
-          companyName: accountType === 'legal' ? organization.trim() : '',
-          termsAccepted: true,
-        }),
+        ...(hasCard ? {} : { headers: { 'Content-Type': 'application/json' } }),
+        body,
       })
       const payload = await response.json().catch(() => ({}))
       if (!response.ok) return setErrorMessage(extractError(payload) || 'ثبت‌نام انجام نشد. اطلاعات را بررسی کنید.')
@@ -183,6 +214,17 @@ function AuthFormInner({ mode }: { mode: 'login' | 'signup' }) {
               {accountType === 'legal' && <div className="mt-6"><Label htmlFor="organization">نام شرکت یا سازمان</Label><Input id="organization" value={organization} onChange={(e) => setOrganization(e.target.value)} className="mt-1.5 h-11" autoComplete="organization" /></div>}
               <div className="mt-5 grid gap-4 sm:grid-cols-2"><div><Label htmlFor="name">{accountType === 'legal' ? 'نام نماینده' : 'نام'}</Label><Input id="name" value={name} onChange={(e) => setName(e.target.value)} className="mt-1.5 h-11" /></div><div><Label htmlFor="lastName">{accountType === 'legal' ? 'نام خانوادگی نماینده' : 'نام خانوادگی'}</Label><Input id="lastName" value={lastName} onChange={(e) => setLastName(e.target.value)} className="mt-1.5 h-11" /></div></div>
               <div className="mt-5"><Label htmlFor="nationalId">{accountType === 'legal' ? 'شناسه ملی شرکت' : 'کد ملی'}</Label><Input id="nationalId" value={nationalId} onChange={(e) => setNationalId(asciiDigits(e.target.value).replace(/\D/g, ''))} dir="ltr" inputMode="numeric" className="mt-1.5 h-11 text-left" maxLength={accountType === 'legal' ? 11 : 10} /></div>
+              {accountType === 'legal' && <div className="mt-5">
+                <Label htmlFor="ceo-national-card">تصویر کارت ملی مدیرعامل <span className="text-muted-foreground">(اختیاری)</span></Label>
+                <Input id="ceo-national-card" type="file" accept="image/png,image/jpeg" disabled={loading} aria-describedby="ceo-national-card-help" aria-invalid={Boolean(ceoNationalCardError)} className="mt-1.5" onChange={(event) => { selectCeoNationalCard(event.target.files?.[0]); event.currentTarget.value = '' }} />
+                <p id="ceo-national-card-help" className="mt-2 text-xs text-muted-foreground">تصویر واضح و خوانا؛ PNG یا JPEG، حداکثر ۲ مگابایت.</p>
+                {ceoNationalCardError && <p role="alert" className="mt-2 text-xs text-destructive">{ceoNationalCardError}</p>}
+                {ceoNationalCard && <div className="mt-3 rounded-xl border border-border p-3">
+                  {ceoNationalCardPreview && <img src={ceoNationalCardPreview} alt="پیش‌نمایش کارت ملی مدیرعامل" className="max-h-48 max-w-full rounded-lg object-contain" />}
+                  <p className="mt-2 break-all text-xs text-muted-foreground">{ceoNationalCard.name}</p>
+                  <Button type="button" variant="ghost" size="sm" disabled={loading} onClick={() => { setCeoNationalCard(null); setCeoNationalCardError('') }} className="mt-2 text-destructive">حذف تصویر</Button>
+                </div>}
+              </div>}
             </div>}
 
             {signupStep === 4 && <div>
