@@ -578,7 +578,7 @@ export default function UploadPage() {
         {step === 5 && (
           <div>
             <Header title="بازبینی اطلاعات" text="پس از ارسال، وضعیت بررسی در داشبورد نمایش داده می‌شود و نتیجه بررسی انتشار از طریق ایمیل هم به شما اطلاع داده خواهد شد." />
-            <div className="grid gap-3 text-sm">
+            <div className="grid min-w-0 grid-cols-1 gap-3 text-sm">
               {[
                 ['فایل APK', apkName],
                 ['عنوان فارسی', name],
@@ -601,9 +601,9 @@ export default function UploadPage() {
                 ['آیکون', iconFile?.name || '—'],
                 ['تصاویر محیط اپلیکیشن', `${toFa(screenshotFiles.length)} تصویر`],
               ].map(([label, value]) => (
-                <div key={label} className="flex justify-between gap-4 rounded-xl bg-secondary/60 p-4">
-                  <span className="text-muted-foreground">{label}</span>
-                  <span className="font-medium" dir={label === 'Package Name' ? 'ltr' : 'rtl'}>{value}</span>
+                <div key={label} className="flex min-w-0 flex-col gap-2 rounded-xl bg-secondary/60 p-4 sm:flex-row sm:justify-between sm:gap-4">
+                  <span className="shrink-0 text-muted-foreground sm:max-w-48">{label}</span>
+                  <span className="min-w-0 whitespace-pre-wrap font-medium [overflow-wrap:anywhere]" dir={label === 'Package Name' ? 'ltr' : 'rtl'}>{value}</span>
                 </div>
               ))}
             </div>
