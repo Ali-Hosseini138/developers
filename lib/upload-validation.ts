@@ -30,7 +30,7 @@ type UploadFields = {
   iconFile: { size: number; type: string } | null; screenshotFiles: Array<{ size: number; type: string }>
   hasInAppPayment: boolean | null; paymentCommitmentAccepted: boolean; paymentChoice: string | null
   developedForAndroidTv: boolean | null; airMouseCompatible: boolean
-  website: string; supportEmail: string; changeLog: string
+  website: string; supportEmail: string
 }
 
 export function validateUploadFields(v: UploadFields): Record<number, Record<string, string>> {
@@ -60,6 +60,5 @@ export function validateUploadFields(v: UploadFields): Record<number, Record<str
   if (v.developedForAndroidTv === null) errors[3].isAndroidTv = 'وضعیت سازگاری با Android TV را مشخص کنید.'
   if (v.developedForAndroidTv === false && !v.airMouseCompatible) errors[3].isAirMouseCompatible = 'سازگاری کامل با ماوس یا ایرماوس را تأیید کنید.'
   errors[4] = contactFieldErrors(v.website, v.supportEmail)
-  if (v.changeLog.trim().length > 5000) errors[4].changeLog = 'توضیحات نسخه باید حداکثر ۵۰۰۰ نویسه باشد.'
   return errors
 }

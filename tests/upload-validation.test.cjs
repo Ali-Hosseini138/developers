@@ -8,7 +8,7 @@ function load(path, mocks = {}) {
 }
 const { validateUploadFields, contactFieldErrors } = load('lib/upload-validation.ts', { './app-description': load('lib/app-description.ts') })
 const image = { size: 1024, type: 'image/png' }
-const fields = { apkFile: { name: 'app.apk', size: 1024 }, name: 'برنامه', nameEn: '', description: 'توضیحات برنامه', descriptionEn: '', packageName: 'com.example.app', categoryId: '12', applicationType: '1', ageLimit: '0', bannerFile: image, backgroundFile: image, iconFile: null, screenshotFiles: [], hasInAppPayment: false, paymentChoice: null, paymentCommitmentAccepted: false, developedForAndroidTv: true, airMouseCompatible: false, website: '', supportEmail: '', changeLog: '' }
+const fields = { apkFile: { name: 'app.apk', size: 1024 }, name: 'برنامه', nameEn: '', description: 'توضیحات برنامه', descriptionEn: '', packageName: 'com.example.app', categoryId: '12', applicationType: '1', ageLimit: '0', bannerFile: image, backgroundFile: image, iconFile: null, screenshotFiles: [], hasInAppPayment: false, paymentChoice: null, paymentCommitmentAccepted: false, developedForAndroidTv: true, airMouseCompatible: false, website: '', supportEmail: '' }
 test('optional blank contacts and valid full URLs and emails are accepted', () => {
   for (const website of ['', 'https://example.com', 'http://example.com/path?q=1', 'https://مثال.ایران', 'https://192.168.1.2']) assert.equal(Object.keys(contactFieldErrors(website, 'support@example.com')).length, 0)
   assert.equal(Object.keys(contactFieldErrors('', '')).length, 0)
@@ -22,11 +22,10 @@ test('invalid URLs and emails fail before advancing the contact step', () => {
   assert.ok(errors[4].developerEmail)
 })
 test('every publication step validates its own fields and encoded description limit', () => {
-  const errors = validateUploadFields({ ...fields, apkFile: null, name: '', nameEn: 'x'.repeat(256), description: 'x'.repeat(20000), developedForAndroidTv: false, airMouseCompatible: true, descriptionEn: 'x'.repeat(20001), packageName: 'bad name', categoryId: '', applicationType: '3', ageLimit: '-1', bannerFile: null, backgroundFile: null, iconFile: { size: 3 * 1024 * 1024, type: 'image/png' }, screenshotFiles: Array(11).fill(image), hasInAppPayment: true, paymentChoice: null, changeLog: 'x'.repeat(5001) })
+  const errors = validateUploadFields({ ...fields, apkFile: null, name: '', nameEn: 'x'.repeat(256), description: 'x'.repeat(20000), developedForAndroidTv: false, airMouseCompatible: true, descriptionEn: 'x'.repeat(20001), packageName: 'bad name', categoryId: '', applicationType: '3', ageLimit: '-1', bannerFile: null, backgroundFile: null, iconFile: { size: 3 * 1024 * 1024, type: 'image/png' }, screenshotFiles: Array(11).fill(image), hasInAppPayment: true, paymentChoice: null })
   assert.ok(errors[1].apkFile)
   for (const key of ['name', 'nameEn', 'longDescription', 'longDescriptionEn', 'packageName', 'categoryId', 'applicationType', 'ageLimit', 'banner', 'backgroundImage', 'icon', 'screenshots']) assert.ok(errors[2][key], key)
   assert.ok(errors[3].paymentCommitmentAccepted)
-  assert.ok(errors[4].changeLog)
 })
 
 test('contact step disables Next for invalid values and exposes the inline correction', () => {

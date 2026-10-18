@@ -77,7 +77,6 @@ export default function UploadPage() {
     (!hasInAppPayment || (paymentChoice !== null && paymentCommitmentAccepted)) &&
     (developedForAndroidTv || airMouseCompatible)
   // Display-only declarations are deliberately excluded from the multipart payload.
-  const [changeLog, setChangeLog] = useState('')
 
   useEffect(() => {
     if (authReady && !sessionError && !user) router.replace('/login?next=/upload')
@@ -85,12 +84,12 @@ export default function UploadPage() {
 
 
   const [touchedFields, setTouchedFields] = useState<Record<string, boolean>>({})
-  const validation = useMemo(() => validateUploadFields({ apkFile, name, nameEn, description, descriptionEn, packageName, categoryId, applicationType, ageLimit, iconFile, bannerFile, backgroundFile, screenshotFiles, hasInAppPayment, paymentCommitmentAccepted, paymentChoice, developedForAndroidTv, airMouseCompatible, website, supportEmail, changeLog }), [apkFile, name, nameEn, description, descriptionEn, packageName, categoryId, applicationType, ageLimit, iconFile, bannerFile, backgroundFile, screenshotFiles, hasInAppPayment, paymentCommitmentAccepted, paymentChoice, developedForAndroidTv, airMouseCompatible, website, supportEmail, changeLog])
+  const validation = useMemo(() => validateUploadFields({ apkFile, name, nameEn, description, descriptionEn, packageName, categoryId, applicationType, ageLimit, iconFile, bannerFile, backgroundFile, screenshotFiles, hasInAppPayment, paymentCommitmentAccepted, paymentChoice, developedForAndroidTv, airMouseCompatible, website, supportEmail }), [apkFile, name, nameEn, description, descriptionEn, packageName, categoryId, applicationType, ageLimit, iconFile, bannerFile, backgroundFile, screenshotFiles, hasInAppPayment, paymentCommitmentAccepted, paymentChoice, developedForAndroidTv, airMouseCompatible, website, supportEmail])
   const valid = Object.keys(validation[step] || {}).length === 0
   const clientErrors = Object.assign({}, ...Object.values(validation)) as Record<string, string>
   function displayError(field: string) { return fieldErrors[field] || (touchedFields[field] ? clientErrors[field] : undefined) }
 
-  useEffect(() => { setFieldErrors({}) }, [apkFile, name, nameEn, description, descriptionEn, packageName, categoryId, applicationType, ageLimit, iconFile, bannerFile, backgroundFile, screenshotFiles, hasInAppPayment, paymentChoice, developedForAndroidTv, airMouseCompatible, website, supportEmail, changeLog])
+  useEffect(() => { setFieldErrors({}) }, [apkFile, name, nameEn, description, descriptionEn, packageName, categoryId, applicationType, ageLimit, iconFile, bannerFile, backgroundFile, screenshotFiles, hasInAppPayment, paymentChoice, developedForAndroidTv, airMouseCompatible, website, supportEmail])
 
 
   if (!authReady) {
@@ -319,7 +318,6 @@ export default function UploadPage() {
     if (iconFile) formData.append('icon', iconFile)
     screenshotFiles.forEach((file) => formData.append('screenshots', file))
     formData.append('apkFile', apkFile)
-    if (changeLog.trim()) formData.append('changeLog', changeLog.trim())
 
     try {
       await postDeveloperHubMultipart('/api/v1/developer-hub/apps/', formData, (percent) => {
@@ -340,7 +338,7 @@ export default function UploadPage() {
       if (errors.apkFile) setStep(1)
       else if (['name', 'nameEn', 'shortDescription', 'shortDescriptionEn', 'longDescription', 'longDescriptionEn', 'packageName', 'categoryId', 'applicationType', 'ageLimit', 'icon', 'banner', 'backgroundImage', 'screenshots'].some((field) => errors[field])) setStep(2)
       else if (['hasInAppPayment', 'paymentCommitmentAccepted', 'supportsNetboxPayment', 'isAndroidTv', 'isAirMouseCompatible'].some((field) => errors[field])) setStep(3)
-      else if (errors.changeLog || errors.developerWebsite || errors.developerEmail) setStep(4)
+      else if (errors.developerWebsite || errors.developerEmail) setStep(4)
       setErrorMessage(developerHubErrorMessage(error, 'ارسال اپلیکیشن انجام نشد. دوباره تلاش کنید.'))
     } finally {
       submitting.current = false
@@ -551,7 +549,6 @@ export default function UploadPage() {
             <Header title="اطلاعات نمایشی" text="این اطلاعات در صفحه معرفی اپلیکیشن نمایش داده می‌شوند." />
             <Field name="developerWebsite" error={displayError('developerWebsite')} label="آدرس وبسایت — اختیاری"><Input value={website} onChange={(event) => setWebsite(event.target.value)} dir="ltr" type="url" placeholder="https://example.com" maxLength={2048} /><p className="text-xs text-muted-foreground">آدرس را کامل با http:// یا https:// وارد کنید؛ اگر وب‌سایت ندارید، خالی بگذارید.</p></Field>
             <Field name="developerEmail" error={displayError('developerEmail')} label="ایمیل پشتیبانی — اختیاری"><Input value={supportEmail} onChange={(event) => setSupportEmail(event.target.value)} dir="ltr" type="email" placeholder="support@example.com" maxLength={254} /><p className="text-xs text-muted-foreground">مانند support@example.com؛ اگر ایمیل پشتیبانی ندارید، خالی بگذارید.</p></Field>
-            <Field name="changeLog" error={displayError('changeLog')} label="توضیحات نسخه"><Textarea value={changeLog} onChange={(event) => setChangeLog(event.target.value)} rows={5} maxLength={5000} /></Field>
           </div>
         )}
 
