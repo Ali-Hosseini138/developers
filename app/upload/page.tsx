@@ -99,6 +99,13 @@ export default function UploadPage() {
   if (sessionError) return <LoadFailure message={sessionError} />
   if (!user) return null
 
+  function navigateToStep(nextStep: number) {
+    if (saving || submitted || mediaBusy || mediaReading.current || submitting.current || nextStep === step) return
+    setErrorMessage('')
+    setFieldErrors({})
+    setStep(nextStep)
+  }
+
   async function imageDimensions(file: File) {
     if ('createImageBitmap' in window) {
       const bitmap = await createImageBitmap(file)
@@ -356,7 +363,7 @@ export default function UploadPage() {
           <button
             key={title}
             type="button"
-            onClick={() => index + 1 < step && setStep(index + 1)}
+            onClick={() => index + 1 < step && navigateToStep(index + 1)}
             className={`flex items-center gap-2 rounded-xl px-3 py-2 text-sm ${index + 1 === step ? 'bg-primary text-primary-foreground' : index + 1 < step ? 'bg-primary/10 text-primary' : 'text-muted-foreground'}`}
           >
             <span className="flex size-6 items-center justify-center rounded-full border border-current text-xs">{index + 1 < step ? <Check className="size-3.5" /> : toFa(index + 1)}</span>
@@ -584,13 +591,13 @@ export default function UploadPage() {
       </fieldset>
 
       <div className="mt-6 flex justify-between">
-        <Button variant="ghost" onClick={() => setStep((current) => Math.max(1, current - 1))} disabled={step === 1 || saving || mediaBusy || submitted} className="gap-2">
+        <Button variant="ghost" onClick={() => navigateToStep(Math.max(1, step - 1))} disabled={step === 1 || saving || mediaBusy || submitted} className="gap-2">
           <ArrowRight className="size-4" />
           قبلی
         </Button>
 
         {step < steps.length ? (
-          <Button onClick={() => valid && setStep((current) => current + 1)} disabled={!valid || saving || mediaBusy || submitted} className="gap-2">
+          <Button onClick={() => valid && navigateToStep(step + 1)} disabled={!valid || saving || mediaBusy || submitted} className="gap-2">
             گام بعدی
             <ArrowLeft className="size-4" />
           </Button>
