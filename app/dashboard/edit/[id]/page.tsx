@@ -71,6 +71,7 @@ function EditAppForm({ app, reloadDeveloperApps }: { app: StoreApp; reloadDevelo
   const [ageLimit, setAgeLimit] = useState(String(app?.ageLimit ?? 0))
   const [developedForAndroidTv, setDevelopedForAndroidTv] = useState(Boolean(app?.developedForAndroidTv))
   const [airMouseCompatible, setAirMouseCompatible] = useState(Boolean(app?.airMouseCompatible))
+  const [supportsSso, setSupportsSso] = useState(Boolean(app.supportsSso))
   const [supportsNetboxPayment, setSupportsNetboxPayment] = useState(Boolean(app?.supportsNetboxPayment))
 
   const [hasInAppPayment, setHasInAppPayment] = useState(Boolean(app.hasInAppPayment))
@@ -100,7 +101,7 @@ function EditAppForm({ app, reloadDeveloperApps }: { app: StoreApp; reloadDevelo
   const unsavedChanges = Object.keys(changedDeveloperMetadata(baseline, {
     developerEmail: supportEmail.trim(), developerWebsite: website.trim(), packageName, name, nameEn,
     shortDescription: tagline, shortDescriptionEn: taglineEn, longDescription: description !== baseline.description || developedForAndroidTv !== Boolean(baseline.developedForAndroidTv) || airMouseCompatible !== Boolean(baseline.airMouseCompatible) ? appDescription(description, !developedForAndroidTv && airMouseCompatible) : description,
-    longDescriptionEn: descriptionEn, categoryId, applicationType, ageLimit, supportsNetboxPayment,
+    longDescriptionEn: descriptionEn, categoryId, applicationType, ageLimit, supportsNetboxPayment, supportsSso,
     isAndroidTv: developedForAndroidTv, isAirMouseCompatible: airMouseCompatible,
   })).length > 0 || hasInAppPayment !== Boolean(baseline.hasInAppPayment) || paymentCommitmentAccepted || removeIcon || clearScreenshots || Boolean(iconFile || bannerFile || backgroundFile || replacementScreenshots.length)
 
@@ -245,7 +246,7 @@ function EditAppForm({ app, reloadDeveloperApps }: { app: StoreApp; reloadDevelo
       developerEmail: supportEmail.trim(), developerWebsite: website.trim(),
       packageName, name, nameEn, shortDescription: descriptionChanged ? shortAppDescription(description) : tagline, shortDescriptionEn: descriptionEn !== baseline.descriptionEn ? shortAppDescription(descriptionEn) : taglineEn,
       longDescription: descriptionChanged ? appDescription(description, !developedForAndroidTv && airMouseCompatible) : description, longDescriptionEn: descriptionEn, categoryId,
-      applicationType, ageLimit, supportsNetboxPayment,
+      applicationType, ageLimit, supportsNetboxPayment, supportsSso,
       isAndroidTv: developedForAndroidTv, isAirMouseCompatible: airMouseCompatible,
     })
 
@@ -414,7 +415,11 @@ function EditAppForm({ app, reloadDeveloperApps }: { app: StoreApp; reloadDevelo
           </Field>
         </div>
 
-        {['supportsNetboxPayment', 'hasInAppPayment', 'paymentCommitmentAccepted', 'isAndroidTv', 'isAirMouseCompatible'].map((field) => fieldErrors[field] && <p key={field} role="alert" className="text-sm text-destructive">{fieldErrors[field]}</p>)}
+        {['supportsSso', 'supportsNetboxPayment', 'hasInAppPayment', 'paymentCommitmentAccepted', 'isAndroidTv', 'isAirMouseCompatible'].map((field) => fieldErrors[field] && <p key={field} role="alert" className="text-sm text-destructive">{fieldErrors[field]}</p>)}
+        <div className="rounded-xl border border-border p-4 text-sm leading-7">
+          <label className="flex items-start gap-3"><input type="checkbox" checked={supportsSso} onChange={event => setSupportsSso(event.target.checked)} className="mt-2" />ورود یکپارچه با نت‌باکس را پیاده‌سازی کرده‌ام.</label>
+          <Link href="/integrations/sso" target="_blank" rel="noopener noreferrer" className="mt-2 inline-block text-primary underline">راهنمای پیاده‌سازی ورود یکپارچه</Link>
+        </div>
         <PaymentCommitmentSummary app={app} />
         <div className="rounded-xl border border-border p-4 text-sm leading-7">
           <label className="flex items-center gap-3"><input type="checkbox" checked={hasInAppPayment} onChange={event => { setHasInAppPayment(event.target.checked); setPaymentCommitmentAccepted(false); if (!event.target.checked) setSupportsNetboxPayment(false) }} />این اپلیکیشن پرداخت درون‌برنامه‌ای دارد.</label>

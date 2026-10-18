@@ -8,7 +8,7 @@ function load(path, mocks = {}) {
 }
 const { validateUploadFields, contactFieldErrors } = load('lib/upload-validation.ts', { './app-description': load('lib/app-description.ts') })
 const image = { size: 1024, type: 'image/png' }
-const fields = { apkFile: { name: 'app.apk', size: 1024 }, name: 'برنامه', nameEn: '', description: 'توضیحات برنامه', descriptionEn: '', packageName: 'com.example.app', categoryId: '12', applicationType: '1', ageLimit: '0', bannerFile: image, backgroundFile: image, iconFile: null, screenshotFiles: [], hasInAppPayment: false, paymentChoice: null, paymentCommitmentAccepted: false, developedForAndroidTv: true, airMouseCompatible: false, website: '', supportEmail: '' }
+const fields = { apkFile: { name: 'app.apk', size: 1024 }, name: 'برنامه', nameEn: '', description: 'توضیحات برنامه', descriptionEn: '', packageName: 'com.example.app', categoryId: '12', applicationType: '1', ageLimit: '0', bannerFile: image, backgroundFile: image, iconFile: null, screenshotFiles: [], requiresLogin: false, ssoChoice: null, hasInAppPayment: false, paymentChoice: null, paymentCommitmentAccepted: false, developedForAndroidTv: true, airMouseCompatible: false, website: '', supportEmail: '' }
 test('optional blank contacts and valid full URLs and emails are accepted', () => {
   for (const website of ['', 'https://example.com', 'http://example.com/path?q=1', 'https://مثال.ایران', 'https://192.168.1.2']) assert.equal(Object.keys(contactFieldErrors(website, 'support@example.com')).length, 0)
   assert.equal(Object.keys(contactFieldErrors('', '')).length, 0)
@@ -54,5 +54,15 @@ test('contact step disables Next for invalid values and exposes the inline corre
     const next = nodes.find(node => Array.isArray(node.props?.children) && node.props.children.some(child => typeof child === 'string' && child.includes('گام بعدی')))
     assert.equal(next.props.disabled, disabled, website + ' / ' + email)
     if (website === 'example.com') assert.ok(nodes.find(node => node.props?.name === 'developerWebsite').props.error.includes('https://'))
+  }
+})
+
+test('login declaration requires an answer and either implementation or one-month commitment', () => {
+  for (const [requiresLogin, ssoChoice, valid] of [
+    [null, null, false], [true, null, false], [true, 'invalid', false],
+    [false, null, true], [true, 'implemented', true], [true, 'commitment', true],
+  ]) {
+    const errors = validateUploadFields({ ...fields, requiresLogin, ssoChoice })
+    assert.equal(Object.keys(errors[3]).length === 0, valid, JSON.stringify({ requiresLogin, ssoChoice }))
   }
 })

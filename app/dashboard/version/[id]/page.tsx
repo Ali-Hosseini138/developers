@@ -70,7 +70,7 @@ export default function NewVersionPage() {
       setSaved(true)
       await reloadDeveloperApps().catch(() => {})
       window.setTimeout(() => {
-        router.push('/dashboard')
+        router.push('/dashboard?submitted=1')
         router.refresh()
       }, 650)
     } catch (error) {
@@ -155,7 +155,7 @@ export default function NewVersionPage() {
 
         <div className="flex items-start gap-3 rounded-xl bg-secondary/60 p-4 text-sm leading-7 text-muted-foreground">
           <FileArchive className="mt-1 size-4 shrink-0 text-primary" />
-          پس از ارسال، وضعیت بررسی در داشبورد نمایش داده می‌شود.
+          پس از ارسال، وضعیت بررسی در داشبورد نمایش داده می‌شود و نتیجه بررسی انتشار از طریق ایمیل هم به شما اطلاع داده خواهد شد.
         </div>
 
         {saving && (
@@ -173,6 +173,8 @@ export default function NewVersionPage() {
             <p className="mt-2 text-xs text-muted-foreground">تا پایان آپلود این صفحه را نبندید.</p>
           </div>
         )}
+
+        {saved && <p role="status" className="rounded-xl border border-primary/20 bg-primary/5 p-4 text-sm leading-7">درخواست شما برای بررسی ثبت شد. نتیجه بررسی انتشار از طریق ایمیل هم به شما اطلاع داده خواهد شد.</p>}
 
         {errorMessage && <p role="alert" className="rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive">{errorMessage}</p>}
 

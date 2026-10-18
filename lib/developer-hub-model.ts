@@ -43,6 +43,7 @@ export type DeveloperHubApp = {
   category?: { id: number; name: string; isValid?: boolean }
   applicationType?: number
   ageLimit?: number
+  supportsSso?: boolean
   supportsNetboxPayment?: boolean
   iconUrl?: string | null
   bannerUrl?: string | null
@@ -95,6 +96,7 @@ export function mapDeveloperHubApp(row: DeveloperHubApp, developer = 'توسعه
     categoryId: row.categoryId ?? row.category?.id,
     applicationType: row.applicationType,
     ageLimit: row.ageLimit,
+    supportsSso: Boolean(row.supportsSso),
     supportsNetboxPayment: Boolean(row.supportsNetboxPayment),
     icon: row.iconUrl || '/placeholder.svg',
     banner: row.bannerUrl || undefined,

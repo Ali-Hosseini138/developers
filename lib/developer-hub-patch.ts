@@ -13,6 +13,7 @@ export type DeveloperAppMetadata = {
   categoryId: string
   applicationType: string
   ageLimit: string
+  supportsSso?: boolean
   supportsNetboxPayment: boolean
   isAndroidTv: boolean
   isAirMouseCompatible: boolean
@@ -30,7 +31,7 @@ export const developerMetadataLabels: Record<string, string> = {
   shortDescription: 'خلاصه فارسی', shortDescriptionEn: 'خلاصه انگلیسی',
   longDescription: 'توضیحات فارسی', longDescriptionEn: 'توضیحات انگلیسی',
   categoryId: 'دسته‌بندی', applicationType: 'نوع اپلیکیشن', ageLimit: 'محدودیت سنی',
-  supportsNetboxPayment: 'نت‌باکس پیمنت', isAndroidTv: 'سازگاری Android TV', isAirMouseCompatible: 'سازگاری ایرماوس',
+  supportsSso: 'ورود یکپارچه با نت‌باکس', supportsNetboxPayment: 'نت‌باکس پیمنت', isAndroidTv: 'سازگاری Android TV', isAirMouseCompatible: 'سازگاری ایرماوس',
 }
 
 export function changedDeveloperMetadata(app: StoreApp, next: DeveloperAppMetadata) {
@@ -41,6 +42,7 @@ export function changedDeveloperMetadata(app: StoreApp, next: DeveloperAppMetada
     longDescription: app.description, longDescriptionEn: app.descriptionEn || '',
     categoryId: app.categoryId ? String(app.categoryId) : '',
     applicationType: app.applicationType === 2 ? '2' : '1', ageLimit: String(app.ageLimit ?? 0),
+    supportsSso: Boolean(app.supportsSso),
     supportsNetboxPayment: Boolean(app.supportsNetboxPayment),
     isAndroidTv: Boolean(app.developedForAndroidTv), isAirMouseCompatible: Boolean(app.airMouseCompatible),
   }

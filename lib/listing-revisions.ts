@@ -12,7 +12,7 @@ const aliases: Record<string, string> = {
   long_description: 'longDescription', long_description_en: 'longDescriptionEn',
   short_description: 'shortDescription', short_description_en: 'shortDescriptionEn',
   category_id: 'categoryId', category: 'categoryId', application_type: 'applicationType', age_limit: 'ageLimit',
-  supports_netbox_payment: 'supportsNetboxPayment', has_in_app_payment: 'hasInAppPayment',
+  supports_sso: 'supportsSso', supports_netbox_payment: 'supportsNetboxPayment', has_in_app_payment: 'hasInAppPayment',
   payment_commitment_accepted: 'paymentCommitmentAccepted', is_android_tv: 'isAndroidTv', is_air_mouse_compatible: 'isAirMouseCompatible',
   icon: 'iconUrl', icon_url: 'iconUrl', banner: 'bannerUrl', banner_url: 'bannerUrl',
   background_image: 'backgroundImageUrl', backgroundImage: 'backgroundImageUrl', background_image_url: 'backgroundImageUrl',
@@ -21,7 +21,7 @@ const aliases: Record<string, string> = {
 export const listingFieldLabels: Record<string, string> = {
   name: 'عنوان فارسی', nameEn: 'عنوان انگلیسی', developerEmail: 'ایمیل پشتیبانی', developerWebsite: 'وب‌سایت',
   longDescription: 'توضیحات فارسی', longDescriptionEn: 'توضیحات انگلیسی', categoryId: 'دسته‌بندی',
-  applicationType: 'نوع اپلیکیشن', ageLimit: 'محدودیت سنی', supportsNetboxPayment: 'نت‌باکس پیمنت',
+  applicationType: 'نوع اپلیکیشن', ageLimit: 'محدودیت سنی', supportsNetboxPayment: 'نت‌باکس پیمنت', supportsSso: 'ورود یکپارچه با نت‌باکس',
   hasInAppPayment: 'پرداخت درون‌برنامه‌ای', paymentCommitmentAccepted: 'پذیرش تعهد پرداخت',
   isAndroidTv: 'مخصوص Android TV', isAirMouseCompatible: 'سازگاری ایرماوس',
   iconUrl: 'آیکون', bannerUrl: 'بنر', backgroundImageUrl: 'تصویر پس‌زمینه', screenshots: 'تصاویر محیط اپلیکیشن',

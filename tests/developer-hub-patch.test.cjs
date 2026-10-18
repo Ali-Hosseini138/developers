@@ -10,7 +10,7 @@ const mod = { exports: {} }
 vm.runInNewContext(output, { module: mod, exports: mod.exports })
 const { changedDeveloperMetadata, unconfirmedDeveloperMetadata, developerMetadataLabels } = mod.exports
 const app = { id: '42', name: 'App', packageName: 'com.guessed.app', tagline: 'Short', description: 'Long', categoryId: 12, applicationType: 1, ageLimit: 0, supportsNetboxPayment: false, developedForAndroidTv: true, airMouseCompatible: false, hasInAppPayment: true }
-const fields = { packageName: app.packageName, name: app.name, nameEn: '', shortDescription: app.tagline, shortDescriptionEn: '', longDescription: app.description, longDescriptionEn: '', categoryId: '12', applicationType: '1', ageLimit: '0', supportsNetboxPayment: false, isAndroidTv: true, isAirMouseCompatible: false }
+const fields = { packageName: app.packageName, name: app.name, nameEn: '', shortDescription: app.tagline, shortDescriptionEn: '', longDescription: app.description, longDescriptionEn: '', categoryId: '12', applicationType: '1', ageLimit: '0', supportsSso: false, supportsNetboxPayment: false, isAndroidTv: true, isAirMouseCompatible: false }
 
 test('correcting a package name sends only that field; unrelated and immutable payment fields stay out', () => {
   const patch = changedDeveloperMetadata(app, { ...fields, packageName: 'com.real.app' })
@@ -40,7 +40,7 @@ async function runSave(mode, overrides = {}) {
     baseline: app, app, appId: '42', saving: false, submitting: { current: false }, mediaBusy: false, clearScreenshots: false, setClearScreenshots() {}, hasInAppPayment: true, paymentCommitmentAccepted: false, removeIcon: false,
     website: '', supportEmail: '', packageName: mode === 'noop' ? app.packageName : 'com.real.app', name: app.name, nameEn: '',
     tagline: app.tagline, taglineEn: '', description: app.description, descriptionEn: '',
-    categoryId: '12', applicationType: '1', ageLimit: '0', supportsNetboxPayment: false,
+    categoryId: '12', applicationType: '1', ageLimit: '0', supportsSso: false, supportsNetboxPayment: false,
     developedForAndroidTv: true, airMouseCompatible: false,
     iconFile: null, bannerFile: null, backgroundFile: null, replacementScreenshots: [], FormData,
     changedDeveloperMetadata, unconfirmedDeveloperMetadata, developerMetadataLabels, shortAppDescription: text => text.trim().slice(0, 1000), appDescription: text => `این برنامه با ایرماوس قابل استفاده است\n${text.trim()}`,
@@ -190,4 +190,11 @@ test('screenshot deletion sends its own flag and never sends replacement files',
   const entries = Object.fromEntries(result.calls[0][2])
   assert.equal(entries.clearScreenshots, 'true')
   assert.equal(entries.screenshots, undefined)
+})
+
+test('SSO metadata updates remain sparse and verify true/false against the proposed draft', () => {
+  assert.equal(JSON.stringify(changedDeveloperMetadata(app, { ...fields, supportsSso: true })), JSON.stringify({ supportsSso: 'true' }))
+  assert.equal(JSON.stringify(changedDeveloperMetadata({ ...app, supportsSso: true }, { ...fields, supportsSso: false })), JSON.stringify({ supportsSso: 'false' }))
+  assert.equal(unconfirmedDeveloperMetadata({ supportsSso: 'false' }, { isPublished: true, supportsSso: true, draft: { supportsSso: false } }).length, 0)
+  assert.equal(unconfirmedDeveloperMetadata({ supportsSso: 'true' }, { isPublished: true, supportsSso: true, draft: {} }).length, 1)
 })

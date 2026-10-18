@@ -89,6 +89,7 @@ function DashboardPageInner() {
         <DeveloperSidebar activeTab={tab} onTabChange={changeTab} />
 
         <div className="min-w-0 lg:pr-24">
+          {tab === 'apps' && searchParams.get('submitted') === '1' && <p role="status" className="mt-6 rounded-xl border border-primary/20 bg-primary/5 p-4 text-sm leading-7">درخواست شما برای بررسی ثبت شد. نتیجه بررسی انتشار از طریق ایمیل هم به شما اطلاع داده خواهد شد. وضعیت درخواست را در همین صفحه پیگیری کنید.</p>}
           {developerAppsError && (tab === 'apps' || tab === 'analytics') && <LoadFailure message={developerAppsError} retry={() => { void reloadDeveloperApps().catch(() => {}) }} />}
           {developerAppsLoading && (tab === 'apps' || tab === 'analytics') && <p role="status" className="mt-8">در حال دریافت اپلیکیشن‌ها...</p>}
           {tab === 'apps' && (!developerAppsLoading || myApps.length > 0) && (!developerAppsError || myApps.length > 0) && <AppsTab myApps={myApps} cancelSubmission={cancelSubmission} />}

@@ -26,7 +26,7 @@ async function create(overrides = {}) {
   const file = new Blob(['png'], { type: 'image/png' })
   const state = { ...description, saving: false, submitting: { current: false }, submitted: false, mediaBusy: false, setSubmitted() {}, requirementsValid: true, name: 'App', nameEn: '', website: '', supportEmail: '', description: 'Full description', descriptionEn: '',
     apkFile: file, iconFile: file, bannerFile: file, backgroundFile: file, screenshotFiles: [], packageName: 'com.real.app', categoryId: '12', applicationType: '1', ageLimit: '0',
-    supportsNetboxPayment: true, hasInAppPayment: true, paymentCommitmentAccepted: true, developedForAndroidTv: false, airMouseCompatible: true, changeLog: '',
+    supportsSso: false, supportsNetboxPayment: true, hasInAppPayment: true, paymentCommitmentAccepted: true, developedForAndroidTv: false, airMouseCompatible: true, changeLog: '',
     validation: {}, clientErrors: {}, setTouchedFields() {}, setFieldErrors() {}, setErrorMessage: value => error = value, setSaving() {}, setSubmitProgress() {}, setSubmitStage() {}, setStep() {},
     FormData, window: { setTimeout: fn => fn() }, router: { push() {}, refresh() {} }, reloadDeveloperApps: async () => {},
     postDeveloperHubMultipart: async (path, form) => { sent = { path, entries: Object.fromEntries(form.entries()) } },
@@ -129,4 +129,53 @@ test('final submission returns to the invalid contact step without uploading', a
   const result = await create({ validation: { 4: { developerWebsite: 'invalid' } }, clientErrors: { developerWebsite: 'invalid' }, setStep: value => step = value })
   assert.equal(step, 4)
   assert.equal(result.sent, undefined)
+})
+
+test('SSO declaration sends only the documented capability and preserves false', async () => {
+  for (const supportsSso of [true, false]) {
+    const result = await create({ supportsSso })
+    assert.equal(result.sent.entries.supportsSso, String(supportsSso))
+    assert.equal(result.sent.entries.requiresLogin, undefined)
+    assert.equal(result.sent.entries.ssoChoice, undefined)
+  }
+})
+test('accepted new app returns to dashboard with the email notification notice', async () => {
+  let destination
+  const result = await create({ router: { push: value => destination = value, refresh() {} } })
+  assert.ok(result.sent)
+  assert.equal(destination, '/dashboard?submitted=1')
+})
+test('SSO choices appear only for login apps and reset when the login answer changes', () => {
+  const source = fs.readFileSync('app/upload/page.tsx', 'utf8')
+  const names = [...source.matchAll(/const \[(\w+)[^\]]*\] = useState/g)].map(match => match[1])
+  let state = { step: 3, requiresLogin: null, ssoChoice: null }, index = 0
+  const react = { useState(initial) { const key = names[index++]; return [key in state ? state[key] : initial, value => state[key] = value] }, useRef: value => ({ current: value }), useMemo: fn => fn(), useEffect() {} }
+  const component = load('app/upload/page.tsx', {
+    react, 'next/navigation': { useRouter: () => ({}) },
+    '@/lib/upload-validation': { validateUploadFields: () => ({ 1: {}, 2: {}, 3: {}, 4: {} }) },
+    '@/components/store-provider': { useStore: () => ({ user: { id: '91' }, authReady: true }) },
+    ...Object.fromEntries([...source.matchAll(/from '([^']+)'/g)].filter(m => !['react', 'next/navigation', '@/lib/upload-validation', '@/components/store-provider'].includes(m[1])).map(m => [m[1], new Proxy({}, { get: (_, name) => name === '__esModule' ? true : () => null })])),
+  })
+  function render() {
+    index = 0
+    const nodes = []
+    function visit(node) { if (!node || typeof node !== 'object') return; if (Array.isArray(node)) return node.forEach(visit); nodes.push(node); visit(node.props?.children) }
+    visit(component.default())
+    return nodes
+  }
+  let nodes = render()
+  assert.equal(nodes.filter(n => n.props?.name === 'sso-choice').length, 0)
+  const group = nodes.find(n => n.props?.['aria-label'] === 'نیاز به ورود به حساب کاربری')
+  group.props.children[0].props.onClick()
+  nodes = render()
+  const choices = nodes.filter(n => n.props?.name === 'sso-choice')
+  assert.equal(choices.length, 2)
+  choices[0].props.onChange()
+  assert.equal(state.ssoChoice, 'implemented')
+  choices[1].props.onChange()
+  assert.equal(state.ssoChoice, 'commitment')
+  nodes.find(n => n.props?.['aria-label'] === 'نیاز به ورود به حساب کاربری').props.children[1].props.onClick()
+  assert.equal(state.requiresLogin, false)
+  assert.equal(state.ssoChoice, null)
+  assert.equal(render().filter(n => n.props?.name === 'sso-choice').length, 0)
 })

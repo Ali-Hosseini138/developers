@@ -112,6 +112,16 @@ test('saved automatic summaries and air-mouse text do not leave a draft permanen
   const end = source.indexOf('\n  async function imageDimensions', start)
   const expression = ts.transpileModule(source.slice(start, end) + '\nunsavedChanges', { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText
   const baseline = model.mapDeveloperHubApp({ ...listing, draft: { ...listing.draft, shortDescription: 'New description', longDescription: appDescription('New description', true), isAndroidTv: false, isAirMouseCompatible: true } }).draft
-  const state = { changedDeveloperMetadata, appDescription, baseline, website: baseline.website, supportEmail: baseline.supportEmail, packageName: baseline.packageName, name: baseline.name, nameEn: baseline.nameEn || '', tagline: baseline.tagline, taglineEn: baseline.taglineEn || '', description: 'New description', descriptionEn: baseline.descriptionEn || '', categoryId: baseline.categoryId ? String(baseline.categoryId) : '', applicationType: '1', ageLimit: '0', supportsNetboxPayment: false, developedForAndroidTv: false, airMouseCompatible: true, hasInAppPayment: false, paymentCommitmentAccepted: false, removeIcon: false, clearScreenshots: false, iconFile: null, bannerFile: null, backgroundFile: null, replacementScreenshots: [] }
+  const state = { changedDeveloperMetadata, appDescription, baseline, website: baseline.website, supportEmail: baseline.supportEmail, packageName: baseline.packageName, name: baseline.name, nameEn: baseline.nameEn || '', tagline: baseline.tagline, taglineEn: baseline.taglineEn || '', description: 'New description', descriptionEn: baseline.descriptionEn || '', categoryId: baseline.categoryId ? String(baseline.categoryId) : '', applicationType: '1', ageLimit: '0', supportsSso: false, supportsNetboxPayment: false, developedForAndroidTv: false, airMouseCompatible: true, hasInAppPayment: false, paymentCommitmentAccepted: false, removeIcon: false, clearScreenshots: false, iconFile: null, bannerFile: null, backgroundFile: null, replacementScreenshots: [] }
   assert.equal(vm.runInNewContext(expression, state), false)
+})
+
+test('SSO approval and draft declarations stay separate and appear in listing comparisons', () => {
+  const mapped = model.mapDeveloperHubApp({ ...listing, supportsSso: true, draft: { ...listing.draft, supportsSso: false } })
+  assert.equal(mapped.supportsSso, true)
+  assert.equal(mapped.draft.supportsSso, false)
+  const rows = revisions.listingChangeRows({ current: { supportsSso: true }, proposed: { supportsSso: false }, changedFields: ['supports_sso'] })
+  assert.equal(rows.length, 1)
+  assert.equal(rows[0].key, 'supportsSso')
+  assert.equal(rows[0].proposed, false)
 })

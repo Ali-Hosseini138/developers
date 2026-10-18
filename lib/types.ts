@@ -90,6 +90,7 @@ export interface StoreApp {
   categoryId?: number
   applicationType?: number
   ageLimit?: number
+  supportsSso?: boolean
   supportsNetboxPayment?: boolean
 }
 

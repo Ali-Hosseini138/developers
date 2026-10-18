@@ -64,6 +64,9 @@ export default function UploadPage() {
   const [backgroundPreview, setBackgroundPreview] = useState('')
   const [screenshotPreviews, setScreenshotPreviews] = useState<string[]>([])
 
+  const [requiresLogin, setRequiresLogin] = useState<boolean | null>(null)
+  const [ssoChoice, setSsoChoice] = useState<'implemented' | 'commitment' | null>(null)
+  const supportsSso = requiresLogin === true && ssoChoice === 'implemented'
   const [hasInAppPayment, setHasInAppPayment] = useState<boolean | null>(null)
   const [supportsNetboxPayment, setSupportsNetboxPayment] = useState(false)
   const [paymentCommitmentAccepted, setPaymentCommitmentAccepted] = useState(false)
@@ -73,7 +76,7 @@ export default function UploadPage() {
   const [website, setWebsite] = useState('')
   const [supportEmail, setSupportEmail] = useState('')
   const [paymentChoice, setPaymentChoice] = useState<'implemented' | 'commitment' | null>(null)
-  const requirementsValid = hasInAppPayment !== null && developedForAndroidTv !== null &&
+  const requirementsValid = requiresLogin !== null && (!requiresLogin || ssoChoice !== null) && hasInAppPayment !== null && developedForAndroidTv !== null &&
     (!hasInAppPayment || (paymentChoice !== null && paymentCommitmentAccepted)) &&
     (developedForAndroidTv || airMouseCompatible)
   // Display-only declarations are deliberately excluded from the multipart payload.
@@ -84,12 +87,12 @@ export default function UploadPage() {
 
 
   const [touchedFields, setTouchedFields] = useState<Record<string, boolean>>({})
-  const validation = useMemo(() => validateUploadFields({ apkFile, name, nameEn, description, descriptionEn, packageName, categoryId, applicationType, ageLimit, iconFile, bannerFile, backgroundFile, screenshotFiles, hasInAppPayment, paymentCommitmentAccepted, paymentChoice, developedForAndroidTv, airMouseCompatible, website, supportEmail }), [apkFile, name, nameEn, description, descriptionEn, packageName, categoryId, applicationType, ageLimit, iconFile, bannerFile, backgroundFile, screenshotFiles, hasInAppPayment, paymentCommitmentAccepted, paymentChoice, developedForAndroidTv, airMouseCompatible, website, supportEmail])
+  const validation = useMemo(() => validateUploadFields({ apkFile, name, nameEn, description, descriptionEn, packageName, categoryId, applicationType, ageLimit, iconFile, bannerFile, backgroundFile, screenshotFiles, requiresLogin, ssoChoice, hasInAppPayment, paymentCommitmentAccepted, paymentChoice, developedForAndroidTv, airMouseCompatible, website, supportEmail }), [apkFile, name, nameEn, description, descriptionEn, packageName, categoryId, applicationType, ageLimit, iconFile, bannerFile, backgroundFile, screenshotFiles, requiresLogin, ssoChoice, hasInAppPayment, paymentCommitmentAccepted, paymentChoice, developedForAndroidTv, airMouseCompatible, website, supportEmail])
   const valid = Object.keys(validation[step] || {}).length === 0
   const clientErrors = Object.assign({}, ...Object.values(validation)) as Record<string, string>
   function displayError(field: string) { return fieldErrors[field] || (touchedFields[field] ? clientErrors[field] : undefined) }
 
-  useEffect(() => { setFieldErrors({}) }, [apkFile, name, nameEn, description, descriptionEn, packageName, categoryId, applicationType, ageLimit, iconFile, bannerFile, backgroundFile, screenshotFiles, hasInAppPayment, paymentChoice, developedForAndroidTv, airMouseCompatible, website, supportEmail])
+  useEffect(() => { setFieldErrors({}) }, [apkFile, name, nameEn, description, descriptionEn, packageName, categoryId, applicationType, ageLimit, iconFile, bannerFile, backgroundFile, screenshotFiles, requiresLogin, ssoChoice, hasInAppPayment, paymentChoice, developedForAndroidTv, airMouseCompatible, website, supportEmail])
 
 
   if (!authReady) {
@@ -308,6 +311,7 @@ export default function UploadPage() {
     formData.append('categoryId', categoryId)
     formData.append('applicationType', applicationType)
     formData.append('ageLimit', ageLimit)
+    formData.append('supportsSso', supportsSso ? 'true' : 'false')
     formData.append('supportsNetboxPayment', supportsNetboxPayment ? 'true' : 'false')
     formData.append('isAndroidTv', developedForAndroidTv ? 'true' : 'false')
     formData.append('isAirMouseCompatible', airMouseCompatible ? 'true' : 'false')
@@ -327,17 +331,17 @@ export default function UploadPage() {
 
       setSubmitted(true)
       setSubmitProgress(100)
-      setSubmitStage('درخواست با موفقیت ثبت شد')
+      setSubmitStage('درخواست ثبت شد؛ نتیجه بررسی از طریق ایمیل هم اطلاع‌رسانی می‌شود.')
       await reloadDeveloperApps().catch(() => {})
       await new Promise((resolve) => window.setTimeout(resolve, 400))
-      router.push('/dashboard')
+      router.push('/dashboard?submitted=1')
       router.refresh()
     } catch (error) {
       const errors = developerHubFieldErrors(error)
       setFieldErrors(errors)
       if (errors.apkFile) setStep(1)
       else if (['name', 'nameEn', 'shortDescription', 'shortDescriptionEn', 'longDescription', 'longDescriptionEn', 'packageName', 'categoryId', 'applicationType', 'ageLimit', 'icon', 'banner', 'backgroundImage', 'screenshots'].some((field) => errors[field])) setStep(2)
-      else if (['hasInAppPayment', 'paymentCommitmentAccepted', 'supportsNetboxPayment', 'isAndroidTv', 'isAirMouseCompatible'].some((field) => errors[field])) setStep(3)
+      else if (['requiresLogin', 'ssoChoice', 'supportsSso', 'hasInAppPayment', 'paymentCommitmentAccepted', 'supportsNetboxPayment', 'isAndroidTv', 'isAirMouseCompatible'].some((field) => errors[field])) setStep(3)
       else if (errors.developerWebsite || errors.developerEmail) setStep(4)
       setErrorMessage(developerHubErrorMessage(error, 'ارسال اپلیکیشن انجام نشد. دوباره تلاش کنید.'))
     } finally {
@@ -503,7 +507,7 @@ export default function UploadPage() {
           <div>
             <Header title="شرایط انتشار"  />
             <div className="mt-6 flex flex-col gap-6">
-              {['hasInAppPayment', 'paymentCommitmentAccepted', 'supportsNetboxPayment', 'isAndroidTv', 'isAirMouseCompatible'].map((field) => (fieldErrors[field] || validation[3][field]) && <p key={field} role="alert" className="text-sm text-destructive">{fieldErrors[field] || validation[3][field]}</p>)}
+              {['requiresLogin', 'ssoChoice', 'supportsSso', 'hasInAppPayment', 'paymentCommitmentAccepted', 'supportsNetboxPayment', 'isAndroidTv', 'isAirMouseCompatible'].map((field) => (fieldErrors[field] || validation[3][field]) && <p key={field} role="alert" className="text-sm text-destructive">{fieldErrors[field] || validation[3][field]}</p>)}
               <div className="rounded-2xl border border-border p-5">
                 <p className="font-semibold">آیا اپلیکیشن شما پرداخت یا خرید درون‌برنامه‌ای دارد؟</p>
                 <div className="mt-4 flex gap-2">
@@ -522,6 +526,25 @@ export default function UploadPage() {
                   </label>
 
                 </div>}
+              </div>
+
+              <div className="rounded-2xl border border-border p-5">
+                <p className="font-semibold">آیا استفاده از اپلیکیشن شما نیازمند ورود به حساب کاربری است؟</p>
+                <div className="mt-4 flex gap-2" role="group" aria-label="نیاز به ورود به حساب کاربری">
+                  <Button type="button" aria-pressed={requiresLogin === true} variant={requiresLogin === true ? 'default' : 'outline'} onClick={() => { setRequiresLogin(true); setSsoChoice(null) }}>بله</Button>
+                  <Button type="button" aria-pressed={requiresLogin === false} variant={requiresLogin === false ? 'default' : 'outline'} onClick={() => { setRequiresLogin(false); setSsoChoice(null) }}>خیر</Button>
+                </div>
+                {requiresLogin === true && <fieldset className="mt-4 space-y-3">
+                  <legend className="text-sm leading-7">وضعیت پیاده‌سازی <Link href="/integrations/sso" target="_blank" rel="noopener noreferrer" className="text-primary underline">ورود یکپارچه با نت‌باکس</Link> را انتخاب کنید.</legend>
+                  <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-border p-4 text-sm leading-7">
+                    <input type="radio" name="sso-choice" checked={ssoChoice === 'implemented'} onChange={() => setSsoChoice('implemented')} className="mt-1 size-4" />
+                    <span>ورود یکپارچه با نت‌باکس را پیاده‌سازی کرده‌ام.</span>
+                  </label>
+                  <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-border p-4 text-sm leading-7">
+                    <input type="radio" name="sso-choice" checked={ssoChoice === 'commitment'} onChange={() => setSsoChoice('commitment')} className="mt-1 size-4" />
+                    <span>متعهد می‌شوم حداکثر تا یک ماه پس از ارسال این درخواست، ورود یکپارچه با نت‌باکس را پیاده‌سازی کنم. در صورت انجام‌نشدن این تعهد، نت‌استور مجاز است اپلیکیشن را از فروشگاه خارج کند.</span>
+                  </label>
+                </fieldset>}
               </div>
 
               <div className="rounded-2xl border border-border p-5">
@@ -554,7 +577,7 @@ export default function UploadPage() {
 
         {step === 5 && (
           <div>
-            <Header title="بازبینی اطلاعات" text="پس از ارسال، وضعیت بررسی در داشبورد نمایش داده می‌شود." />
+            <Header title="بازبینی اطلاعات" text="پس از ارسال، وضعیت بررسی در داشبورد نمایش داده می‌شود و نتیجه بررسی انتشار از طریق ایمیل هم به شما اطلاع داده خواهد شد." />
             <div className="grid gap-3 text-sm">
               {[
                 ['فایل APK', apkName],
@@ -568,6 +591,8 @@ export default function UploadPage() {
                 ['پرداخت درون‌برنامه‌ای', hasInAppPayment ? 'دارد' : 'ندارد'],
                 ['نت‌باکس پیمنت', !hasInAppPayment ? 'نیاز ندارد' : supportsNetboxPayment ? 'پیاده‌سازی شده' : 'متعهد به پیاده‌سازی تا یک ماه'],
                 ['تعهد یک‌ماهه از اولین ارسال', hasInAppPayment && paymentCommitmentAccepted ? 'پذیرفته شده' : 'نیاز ندارد'],
+                ['نیاز به ورود به حساب کاربری', requiresLogin ? 'دارد' : 'ندارد'],
+                ['ورود یکپارچه با نت‌باکس', !requiresLogin ? 'نیاز ندارد' : supportsSso ? 'پیاده‌سازی شده' : 'تعهد پیاده‌سازی حداکثر تا یک ماه پس از ارسال درخواست'],
                 ['نسخه مخصوص Android TV', developedForAndroidTv ? 'بله' : 'خیر — قابل استفاده با ایرماوس/ماوس'],
                 ['وبسایت', website || '—'],
                 ['ایمیل پشتیبانی', supportEmail || '—'],

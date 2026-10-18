@@ -28,6 +28,7 @@ type UploadFields = {
   categoryId: string; applicationType: string; ageLimit: string
   bannerFile: { size: number; type: string } | null; backgroundFile: { size: number; type: string } | null
   iconFile: { size: number; type: string } | null; screenshotFiles: Array<{ size: number; type: string }>
+  requiresLogin: boolean | null; ssoChoice: 'implemented' | 'commitment' | null
   hasInAppPayment: boolean | null; paymentCommitmentAccepted: boolean; paymentChoice: string | null
   developedForAndroidTv: boolean | null; airMouseCompatible: boolean
   website: string; supportEmail: string
@@ -55,6 +56,8 @@ export function validateUploadFields(v: UploadFields): Record<number, Record<str
     else if (file && (!['image/png', 'image/jpeg'].includes(file.type) || file.size <= 0 || file.size > max * 1024 * 1024)) errors[2][key] = `تصویر PNG یا JPEG غیرخالی با حجم حداکثر ${max} مگابایت انتخاب کنید.`
   }
   if (v.screenshotFiles.length > 10 || v.screenshotFiles.some(file => !['image/png', 'image/jpeg'].includes(file.type) || file.size <= 0 || file.size > 5 * 1024 * 1024)) errors[2].screenshots = 'حداکثر ۱۰ تصویر PNG یا JPEG غیرخالی، هرکدام تا ۵ مگابایت، مجاز است.'
+  if (v.requiresLogin !== true && v.requiresLogin !== false) errors[3].requiresLogin = 'وضعیت نیاز به ورود به حساب کاربری را مشخص کنید.'
+  if (v.requiresLogin && !['implemented', 'commitment'].includes(v.ssoChoice || '')) errors[3].ssoChoice = 'یکی از دو وضعیت پیاده‌سازی ورود یکپارچه با نت‌باکس را انتخاب کنید.'
   if (v.hasInAppPayment === null) errors[3].hasInAppPayment = 'وضعیت پرداخت درون‌برنامه‌ای را مشخص کنید.'
   if (v.hasInAppPayment && (!['implemented', 'commitment'].includes(v.paymentChoice || '') || !v.paymentCommitmentAccepted)) errors[3].paymentCommitmentAccepted = 'یکی از دو وضعیت پیاده‌سازی نت‌باکس پیمنت را انتخاب کنید.'
   if (v.developedForAndroidTv === null) errors[3].isAndroidTv = 'وضعیت سازگاری با Android TV را مشخص کنید.'
