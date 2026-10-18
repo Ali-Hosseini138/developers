@@ -1,6 +1,6 @@
 'use client'
 
-import { Suspense, useEffect, useMemo, useState } from 'react'
+import { Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { ArrowLeft, ArrowRight, Building2, Check, Eye, EyeOff, Loader2, UserRound } from 'lucide-react'
@@ -54,6 +54,8 @@ function AuthFormInner({ mode }: { mode: 'login' | 'signup' }) {
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [termsAccepted, setTermsAccepted] = useState(false)
+  const authRequestInFlight = useRef(false)
+  const verificationInFlight = useRef(false)
   const [loading, setLoading] = useState(false)
   const [resending, setResending] = useState(false)
   const [errorMessage, setErrorMessage] = useState('')
@@ -108,9 +110,10 @@ function AuthFormInner({ mode }: { mode: 'login' | 'signup' }) {
   function goBack() { resetMessages(); setSignupStep((current) => Math.max(1, current - 1)) }
 
   async function finishSignup() {
-    if (loading) return
+    if (loading || authRequestInFlight.current) return
     resetMessages()
     if (!accountType || !stepValid) return setErrorMessage('اطلاعات ثبت‌نام را کامل کنید.')
+    authRequestInFlight.current = true
     setLoading(true)
     try {
       const registration = {
@@ -144,12 +147,13 @@ function AuthFormInner({ mode }: { mode: 'login' | 'signup' }) {
       router.push(`/login?registered=1&email=${encodeURIComponent(normalizedEmail)}`)
     } catch {
       setErrorMessage('ارتباط با سرویس ثبت‌نام برقرار نشد. دوباره تلاش کنید.')
-    } finally { setLoading(false) }
+    } finally { authRequestInFlight.current = false; setLoading(false) }
   }
 
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault()
-    if (loading) return
+    if (loading || authRequestInFlight.current) return
+    authRequestInFlight.current = true
     setLoading(true)
     resetMessages()
     try {
@@ -169,11 +173,12 @@ function AuthFormInner({ mode }: { mode: 'login' | 'signup' }) {
       window.location.assign(next)
     } catch {
       setErrorMessage('ارتباط با سرویس احراز هویت برقرار نشد. دوباره تلاش کنید.')
-    } finally { setLoading(false) }
+    } finally { authRequestInFlight.current = false; setLoading(false) }
   }
 
   async function resendVerification() {
-    if (!normalizedEmail || resending) return
+    if (!normalizedEmail || resending || verificationInFlight.current) return
+    verificationInFlight.current = true
     setResending(true)
     resetMessages()
     try {
@@ -187,7 +192,7 @@ function AuthFormInner({ mode }: { mode: 'login' | 'signup' }) {
       else setSuccessMessage(extractError(payload) || 'اگر حساب نیاز به تأیید داشته باشد، ایمیل ارسال می‌شود.')
     } catch {
       setErrorMessage('ارسال دوباره ایمیل تأیید انجام نشد.')
-    } finally { setResending(false) }
+    } finally { verificationInFlight.current = false; setResending(false) }
   }
 
   return (

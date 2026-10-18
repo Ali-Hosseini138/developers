@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Check, Loader2, UserRound } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -19,6 +19,7 @@ export default function AccountPage() {
   const [phone, setPhone] = useState('')
   const [nationalId, setNationalId] = useState('')
   const [organization, setOrganization] = useState('')
+  const profileInFlight = useRef(false)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [errorMessage, setErrorMessage] = useState('')
@@ -40,7 +41,8 @@ export default function AccountPage() {
 
   async function save(e: React.FormEvent) {
     e.preventDefault()
-    if (saving) return
+    if (saving || profileInFlight.current) return
+    profileInFlight.current = true
     setSaving(true)
     setSaved(false)
     setErrorMessage('')
@@ -50,6 +52,7 @@ export default function AccountPage() {
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : 'ذخیره اطلاعات انجام نشد. دوباره تلاش کنید.')
     } finally {
+      profileInFlight.current = false
       setSaving(false)
     }
   }
@@ -79,3 +82,4 @@ export default function AccountPage() {
     </main>
   )
 }
+

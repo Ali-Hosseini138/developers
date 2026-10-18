@@ -1,11 +1,12 @@
 'use client'
 
-import { Suspense, useState } from 'react'
+import { Suspense, useRef, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { CheckCircle2, Eye, EyeOff, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { ticketError } from '@/lib/support-tickets'
 
 function ResetPasswordForm() {
   const router = useRouter()
@@ -14,17 +15,20 @@ function ResetPasswordForm() {
   const [password, setPassword] = useState('')
   const [confirm, setConfirm] = useState('')
   const [showPassword, setShowPassword] = useState(false)
+  const resetInFlight = useRef(false)
   const [loading, setLoading] = useState(false)
   const [errorMessage, setErrorMessage] = useState('')
   const [success, setSuccess] = useState(false)
 
   async function submit(e: React.FormEvent) {
     e.preventDefault()
+    if (loading || success || resetInFlight.current) return
     setErrorMessage('')
     if (!token) return setErrorMessage('لینک بازیابی معتبر نیست یا token در آدرس وجود ندارد.')
     if (password.length < 8) return setErrorMessage('رمز جدید باید حداقل ۸ کاراکتر باشد.')
     if (password !== confirm) return setErrorMessage('تکرار رمز عبور با رمز جدید یکسان نیست.')
 
+    resetInFlight.current = true
     setLoading(true)
     try {
       const response = await fetch('/api/auth/password-reset/confirm', {
@@ -33,14 +37,15 @@ function ResetPasswordForm() {
         body: JSON.stringify({ token, newPassword: password }),
       })
       const payload = await response.json().catch(() => ({}))
-      if (!response.ok) throw new Error(payload?.detail || 'reset_failed')
+      if (!response.ok) { setErrorMessage(ticketError(payload, 'تغییر رمز انجام نشد. اطلاعات را بررسی و دوباره تلاش کنید.')); return }
       setPassword('')
       setConfirm('')
       setSuccess(true)
       window.setTimeout(() => router.replace('/login?password_reset=1'), 1800)
     } catch {
-      setErrorMessage('تغییر رمز انجام نشد. لینک بازیابی ممکن است نامعتبر یا منقضی شده باشد.')
+      setErrorMessage('ارتباط با سرویس تغییر رمز برقرار نشد. دوباره تلاش کنید.')
     } finally {
+      resetInFlight.current = false
       setLoading(false)
     }
   }
@@ -77,3 +82,4 @@ function ResetPasswordForm() {
 export default function ResetPasswordPage() {
   return <Suspense fallback={<div className="p-10 text-center text-sm text-muted-foreground">در حال بارگذاری...</div>}><ResetPasswordForm /></Suspense>
 }
+

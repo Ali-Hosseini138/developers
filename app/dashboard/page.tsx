@@ -4,7 +4,7 @@ import { DeveloperInstallStats } from '@/components/developer-install-stats'
 import { DeveloperTicket } from '@/components/developer-ticket'
 import { PaymentCommitmentSummary } from '@/components/payment-commitment-summary'
 
-import { Suspense, useEffect, useMemo, useState } from 'react'
+import { Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Activity, AlertTriangle, FileText, HelpCircle, Package, Pencil, Plus, Search, Ticket, Wallet } from 'lucide-react'
@@ -47,6 +47,7 @@ function DashboardPageInner() {
   }
   const [subject, setSubject] = useState('')
   const [message, setMessage] = useState('')
+  const ticketRequestInFlight = useRef(false)
   const [ticketSending, setTicketSending] = useState(false)
   const [ticketError, setTicketError] = useState('')
 
@@ -59,7 +60,8 @@ function DashboardPageInner() {
 
   async function submitTicket(e: React.FormEvent) {
     e.preventDefault()
-    if (!subject.trim() || !message.trim() || ticketSending) return
+    if (!subject.trim() || !message.trim() || ticketSending || ticketRequestInFlight.current) return
+    ticketRequestInFlight.current = true
     setTicketSending(true)
     setTicketError('')
     try {
@@ -69,6 +71,7 @@ function DashboardPageInner() {
     } catch (error) {
       setTicketError(error instanceof Error ? error.message : 'ارسال تیکت انجام نشد. دوباره تلاش کنید.')
     } finally {
+      ticketRequestInFlight.current = false
       setTicketSending(false)
     }
   }

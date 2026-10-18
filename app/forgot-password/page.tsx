@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import Link from 'next/link'
 import { ArrowRight, Loader2, Mail } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -9,13 +9,15 @@ import { Label } from '@/components/ui/label'
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState('')
+  const recoveryInFlight = useRef(false)
   const [loading, setLoading] = useState(false)
   const [sent, setSent] = useState(false)
   const [errorMessage, setErrorMessage] = useState('')
 
   async function submit(e: React.FormEvent) {
     e.preventDefault()
-    if (loading) return
+    if (loading || recoveryInFlight.current) return
+    recoveryInFlight.current = true
     setLoading(true)
     setErrorMessage('')
     try {
@@ -30,6 +32,7 @@ export default function ForgotPasswordPage() {
     } catch {
       setErrorMessage('ارسال لینک بازیابی انجام نشد. ایمیل را بررسی کنید و دوباره تلاش کنید.')
     } finally {
+      recoveryInFlight.current = false
       setLoading(false)
     }
   }
@@ -59,3 +62,4 @@ export default function ForgotPasswordPage() {
     </main>
   )
 }
+

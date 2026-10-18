@@ -82,7 +82,7 @@ test('metadata-only admin UI enables approval without client variation or icon s
   const file = 'components/admin/admin-submissions.tsx'
   const source = fs.readFileSync(file, 'utf8')
   const mocks = Object.fromEntries([...source.matchAll(/from '([^']+)'/g)].map(match => [match[1], new Proxy({}, { get: (_, key) => key === '__esModule' ? true : () => null })]))
-  mocks.react = { useState: value => [value, () => {}], useMemo: fn => fn() }
+  mocks.react = { useRef: value => ({ current: value }), useState: value => [value, () => {}], useMemo: fn => fn() }
   mocks['@/lib/listing-revisions'] = revisions
   const { renderDetail } = load(file, mocks, '\nexports.renderDetail = SubmissionDetailView;')
   const base = { id: 105, kind: 'update', canDecide: true, status: 'pending_review', app: { name: 'Approved', category: { id: 12, name: 'TV', isValid: true }, screenshots: [] }, developer: {}, hasApk: false, hasListingChanges: true, listingChanges: { current: { name: 'Approved' }, proposed: { name: 'Proposal' }, changedFields: ['name'] } }

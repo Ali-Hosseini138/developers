@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import { useRef, useState } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 import { LayoutDashboard, LogOut, Settings, User as UserIcon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -19,6 +20,9 @@ import { cn } from '@/lib/utils'
 
 export function SiteHeader() {
   const { user, logout } = useStore()
+  const logoutInFlight = useRef(false)
+  const [loggingOut, setLoggingOut] = useState(false)
+  const [logoutError, setLogoutError] = useState('')
   const navLinks = [
     { href: '/', label: 'خانه' },
     { href: '/dashboard', label: 'داشبورد من' },
@@ -81,8 +85,11 @@ export function SiteHeader() {
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
                   onClick={() => {
-                    void logout().finally(() => router.push('/'))
+                    if (logoutInFlight.current) return
+                    logoutInFlight.current = true; setLoggingOut(true); setLogoutError('')
+                    void logout().then(() => window.location.assign('/')).catch(error => setLogoutError(error instanceof Error ? error.message : 'خروج انجام نشد. دوباره تلاش کنید.')).finally(() => { logoutInFlight.current = false; setLoggingOut(false) })
                   }}
+                  disabled={loggingOut}
                   variant="destructive"
                 >
                   <LogOut className="size-4" />
@@ -103,6 +110,7 @@ export function SiteHeader() {
         </div>
       </div>
 
+      {logoutError && <p role="alert" className="mx-auto max-w-6xl px-4 py-2 text-sm text-destructive">{logoutError}</p>}
       <nav className="border-t border-border/70 px-4 py-2 md:hidden">
         <div className="mx-auto flex max-w-6xl gap-2 overflow-x-auto">
           {navLinks.map((link) => (
@@ -122,3 +130,4 @@ export function SiteHeader() {
     </header>
   )
 }
+

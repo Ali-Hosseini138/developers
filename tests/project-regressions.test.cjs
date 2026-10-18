@@ -408,3 +408,23 @@ test('admin identity service outage is retryable instead of being classified as 
   })
   await assert.rejects(lib.getAdminUser(), /admin_identity_unavailable/)
 })
+
+
+test('failed logout retains the signed-in account and permits a safe retry', async () => {
+  for (const failure of ['transport', 'server']) {
+    let fail = true
+    const f = store(async path => {
+      if (path === '/api/auth/logout' && fail) {
+        if (failure === 'transport') throw new Error('offline')
+        return Response.json({ detail: 'outage' }, { status: 503 })
+      }
+      return Response.json({ ok: true })
+    })
+    f.render().login({ id: '42', name: 'Ali', email: 'dev@example.com' })
+    await assert.rejects(f.render().logout())
+    assert.equal(f.render().user.id, '42')
+    fail = false
+    await f.render().logout()
+    assert.equal(f.render().user, null)
+  }
+})

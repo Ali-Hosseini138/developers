@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { AlertTriangle, CheckCircle2, ChevronDown, ChevronUp, Loader2, Search, ShieldCheck, XCircle } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -216,6 +216,7 @@ function SubmissionDetailView({
   )
   const [createUnknownPermissions, setCreateUnknownPermissions] = useState(false)
   const [reason, setReason] = useState('')
+  const decisionInFlight = useRef(false)
   const [busy, setBusy] = useState<'approve' | 'reject' | null>(null)
   const [actionError, setActionError] = useState('')
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
@@ -227,7 +228,8 @@ function SubmissionDetailView({
     (detail.kind !== 'new' || icons.availableSources.includes(iconSource as 'USER' | 'EXTRACTED'))))
 
   async function decide(action: 'approve' | 'reject') {
-    if (busy || !detail.canDecide || !canReviewSubmission || (action === 'approve' && !canApprove) || (action === 'reject' && !reason.trim())) return
+    if (decisionInFlight.current || busy || !detail.canDecide || !canReviewSubmission || (action === 'approve' && !canApprove) || (action === 'reject' && !reason.trim())) return
+    decisionInFlight.current = true
     setBusy(action)
     setFieldErrors({})
     setActionError('')
@@ -261,6 +263,7 @@ function SubmissionDetailView({
     } catch (error) {
       setActionError(error instanceof Error ? error.message : 'عملیات انجام نشد.')
     } finally {
+      decisionInFlight.current = false
       setBusy(null)
     }
   }
@@ -544,3 +547,4 @@ function MediaImage({ label, src, square = false }: { label: string; src: string
     </a>
   )
 }
+

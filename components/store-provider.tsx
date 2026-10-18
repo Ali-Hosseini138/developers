@@ -222,18 +222,23 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     setUser(u); setAuthReady(true)
   }, [])
   const logout = useCallback(async () => {
+    if (logoutPending.current) throw new Error('درخواست خروج در حال انجام است.')
     const generation = ++accountGeneration.current
     logoutPending.current = true
     ticketGeneration.current++; appGeneration.current++
+    setDeveloperAppsLoading(false)
     try {
-      await fetch('/api/auth/logout', { method: 'POST' })
-    } finally {
+      const response = await fetch('/api/auth/logout', { method: 'POST' })
+      if (!response.ok) throw new Error('خروج از حساب انجام نشد. دوباره تلاش کنید.')
       if (generation !== accountGeneration.current) return
-      logoutPending.current = false
       setTicketsError('')
       setUser(null)
       setDeveloperApps([])
       setTickets([])
+    } catch {
+      throw new Error('خروج از حساب تأیید نشد؛ اتصال را بررسی و دوباره تلاش کنید.')
+    } finally {
+      if (generation === accountGeneration.current) logoutPending.current = false
     }
   }, [])
   useEffect(() => {
@@ -283,3 +288,4 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 }
 
 export function useStore() { const ctx = useContext(StoreContext); if (!ctx) throw new Error('useStore باید داخل StoreProvider استفاده شود'); return ctx }
+

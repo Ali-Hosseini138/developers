@@ -9,7 +9,7 @@ async function decide(overrides = {}) {
   const code = ts.transpileModule(source.slice(start, source.indexOf('\n  return (', start)) + "\ndecide('approve')", { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText
   const detail = { id: 42, kind: 'new', canDecide: true, hasUnknownPermissions: true }
   const payload = { code: 'recheck_failed', message: 'changed', problems: ['duplicate hash'] }
-  const state = { busy: null, listingOnly: false, detail, canReviewSubmission: true, canApprove: true, clientVariation: 'NETBOX', netboxUserOnly: false, iconSource: 'USER', createUnknownPermissions: true, reason: '',
+  const state = { decisionInFlight: { current: false }, busy: null, listingOnly: false, detail, canReviewSubmission: true, canApprove: true, clientVariation: 'NETBOX', netboxUserOnly: false, iconSource: 'USER', createUnknownPermissions: true, reason: '',
     setBusy() {}, setActionError: v => error = v, setFieldErrors: v => fields = v, developerHubFieldErrors: ({ payload }) => payload,
     errorMessage, onUpdate: v => updated = v, window: { location: { reload() { reloaded = true }, assign() {} } },
     fetch: async (url, options) => { calls.push([url, options]); return options?.method === 'POST' ? Response.json(payload, { status: 409 }) : Response.json({ ...detail, canDecide: false, status: 'cancelled' }) }, ...overrides }
@@ -51,3 +51,4 @@ test('metadata-only approval sends no APK-specific fields', async () => {
   const result = await decide({ listingOnly: true })
   assert.deepEqual(JSON.parse(result.calls[0][1].body), {})
 })
+
