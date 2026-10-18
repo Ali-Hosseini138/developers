@@ -542,7 +542,10 @@ export default function UploadPage() {
                   </label>
                   <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-border p-4 text-sm leading-7">
                     <input type="radio" name="sso-choice" checked={ssoChoice === 'commitment'} onChange={() => setSsoChoice('commitment')} className="mt-1 size-4" />
-                    <span>متعهد می‌شوم حداکثر تا یک ماه پس از ارسال این درخواست، ورود یکپارچه با نت‌باکس را پیاده‌سازی کنم. در صورت انجام‌نشدن این تعهد، نت‌استور مجاز است اپلیکیشن را از فروشگاه خارج کند.</span>
+                    <span>
+                      <span className="block">ورود یکپارچه با نت‌باکس را پیاده‌سازی نکرده‌ام.</span>
+                      <span className="mt-1 block text-xs leading-6 text-muted-foreground">پیشنهاد می‌کنیم ورود یکپارچه را پیاده‌سازی کنید؛ ورود آسان‌تر می‌تواند به افزایش ورود کاربران و استفاده بیشتر از اپلیکیشن شما کمک کند.</span>
+                    </span>
                   </label>
                 </fieldset>}
               </div>
@@ -592,7 +595,7 @@ export default function UploadPage() {
                 ['نت‌باکس پیمنت', !hasInAppPayment ? 'نیاز ندارد' : supportsNetboxPayment ? 'پیاده‌سازی شده' : 'متعهد به پیاده‌سازی تا یک ماه'],
                 ['تعهد یک‌ماهه از اولین ارسال', hasInAppPayment && paymentCommitmentAccepted ? 'پذیرفته شده' : 'نیاز ندارد'],
                 ['نیاز به ورود به حساب کاربری', requiresLogin ? 'دارد' : 'ندارد'],
-                ['ورود یکپارچه با نت‌باکس', !requiresLogin ? 'نیاز ندارد' : supportsSso ? 'پیاده‌سازی شده' : 'تعهد پیاده‌سازی حداکثر تا یک ماه پس از ارسال درخواست'],
+                ['ورود یکپارچه با نت‌باکس', !requiresLogin ? 'نیاز ندارد' : supportsSso ? 'پیاده‌سازی شده' : 'پیاده‌سازی نشده'],
                 ['نسخه مخصوص Android TV', developedForAndroidTv ? 'بله' : 'خیر — قابل استفاده با ایرماوس/ماوس'],
                 ['وبسایت', website || '—'],
                 ['ایمیل پشتیبانی', supportEmail || '—'],
